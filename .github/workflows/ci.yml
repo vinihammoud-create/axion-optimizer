@@ -48,7 +48,7 @@ jobs:
         shell: powershell
         run: .\build\build.ps1 -SkipTests
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Axion-win64
           path: dist/Axion-*-win64.zip
