@@ -1,8 +1,9 @@
-// Command axion-matrix prints the evidence matrix (every optimization Axion
+// Command axion-matrix writes the evidence matrix (every optimization Axion
 // offers and every one it refuses) as Markdown.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -14,7 +15,20 @@ import (
 func esc(s string) string { return strings.ReplaceAll(strings.ReplaceAll(s, "|", "\\|"), "\n", " ") }
 
 func main() {
+	out := flag.String("o", "", "arquivo de saída em UTF-8 (padrão: a saída padrão)")
+	flag.Parse()
 	w := os.Stdout
+	if *out != "" {
+		// Written by the program itself: a shell redirection may re-encode the
+		// text with the console code page.
+		f, err := os.Create(*out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		w = f
+	}
 	fmt.Fprintln(w, "# Axion Optimizer — matriz de evidências")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Gerada a partir do catálogo do programa. **Evidência alta**: documentado pelo fabricante (Microsoft, NVIDIA, AMD, Intel) ou medido de forma consistente por testes independentes. **Média**: mecanismo real e documentado, benefício depende do cenário. **Baixa**: mecanismo plausível, benefício pequeno ou inconsistente (nunca entra no modo recomendado; no modo Completo aparece desmarcado, para você decidir).")

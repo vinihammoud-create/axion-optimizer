@@ -66,9 +66,10 @@ function Write-Crlf([string]$text, [string]$dest) {
 Write-Crlf ((Get-Content (Join-Path $root 'build\LEIA-ME.txt') -Raw -Encoding UTF8) -replace '@VERSION@', $Version) (Join-Path $pkg 'LEIA-ME.txt')
 Write-Crlf (Get-Content (Join-Path $root 'build\THIRD-PARTY-NOTICES.txt') -Raw -Encoding UTF8) (Join-Path $pkg 'THIRD-PARTY-NOTICES.txt')
 Write-Crlf (Get-Content (Join-Path $root 'LICENSE') -Raw -Encoding UTF8) (Join-Path $pkg 'LICENSE.txt')
-$matrix = & go run ./cmd/axion-matrix
+# The tool writes the file itself: captured output would be decoded with the
+# console code page and lose the accents.
+go run ./cmd/axion-matrix -o (Join-Path $pkg 'MATRIZ-DE-EVIDENCIAS.md')
 if ($LASTEXITCODE) { throw 'axion-matrix falhou' }
-[IO.File]::WriteAllText((Join-Path $pkg 'MATRIZ-DE-EVIDENCIAS.md'), (($matrix -join "`n") + "`n"), $utf8)
 
 $sums = foreach ($f in 'Axion.exe', 'WebView2Loader.dll', 'PresentMon-2.6.0-x64.exe') { '{0}  {1}' -f (Get-FileHash (Join-Path $pkg $f) -Algorithm SHA256).Hash.ToLower(), $f }
 [IO.File]::WriteAllText((Join-Path $pkg 'SHA256SUMS.txt'), (($sums -join "`n") + "`n"), $utf8)
