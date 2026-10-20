@@ -22,7 +22,9 @@ func thermFind(fs []Finding, id string) *Finding {
 // counted by day and only in its own channel) and 37 (firmware limit, only
 // from FirmwareLimitDays different days).
 func TestThermalEvents(t *testing.T) {
+	// Noon today, so events an hour apart never straddle midnight.
 	now := time.Now()
+	now = time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
 	day := 24 * time.Hour
 	ev := func(ch, prov string, id int, ago time.Duration) sys.Event {
 		return sys.Event{Channel: ch, Provider: prov, ID: id, Time: now.Add(-ago)}
