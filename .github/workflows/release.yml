@@ -1,0 +1,58 @@
+# Builds the release package from a commit and attaches it to a draft
+# release. Run it by hand (Actions > Release > Run workflow); the draft is
+# published on GitHub after review.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão (maior.menor.correção), por exemplo 0.9.1"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      GOFLAGS: -mod=mod
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "0"
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache: false
+
+      - name: Testes, executável e pacote
+        shell: powershell
+        run: .\build\build.ps1 -Version $env:VERSION
+
+      # Assinatura digital: quando o projeto for aceito na SignPath
+      # Foundation, o Axion.exe é enviado aqui para assinatura (ação
+      # signpath/github-action-submit-signing-request) antes de montar o
+      # pacote. Até lá, o pacote sai sem assinatura.
+
+      - name: Rascunho da versão
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = "dist/Axion-$env:VERSION-win64.zip"
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  Axion-$env:VERSION-win64.zip" | Out-File -Encoding ascii -NoNewline dist/SHA256SUMS.txt
+          $tag = "v$env:VERSION"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $zip dist/SHA256SUMS.txt --clobber
+          } else {
+            gh release create $tag $zip dist/SHA256SUMS.txt --draft --target $env:GITHUB_SHA --title "Axion $env:VERSION" --notes-file CHANGELOG.md
+          }
+          if ($LASTEXITCODE) { throw 'gh release falhou' }

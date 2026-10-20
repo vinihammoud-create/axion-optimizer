@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      GOFLAGS: -mod=mod
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache: false
+
+      - name: Formatação (gofmt)
+        shell: pwsh
+        run: |
+          $out = gofmt -l internal cmd
+          if ($out) { $out; throw 'arquivos sem gofmt' }
+
+      - name: go vet
+        run: go vet ./cmd/... ./internal/...
+
+      - name: Testes
+        run: go test ./cmd/axion-rsrc ./internal/...
+
+      - name: Sintaxe da interface
+        run: node --check internal/web/static/app.js
+
+      - name: Executável e pacote
+        shell: powershell
+        run: .\build\build.ps1 -SkipTests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Axion-win64
+          path: dist/Axion-*-win64.zip
+          if-no-files-found: error

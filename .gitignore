@@ -1,0 +1,7 @@
+dist/
+*.exe
+!third_party/presentmon/*.exe
+*.test
+*.log
+**/.git.vendor/
+

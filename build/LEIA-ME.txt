@@ -1,0 +1,800 @@
+AXION OPTIMIZER @VERSION@ — versão para teste
+==============================================
+
+O QUE É
+  Otimizador para Windows 10/11 focado em jogos (com perfil próprio para o
+  Counter-Strike 2). Ele analisa o seu PC, gera um diagnóstico com evidências e
+  só recomenda o que tem benefício documentado para o seu hardware. Tudo o que
+  ele muda fica registrado com o valor anterior e pode ser desfeito.
+
+COMO USAR
+  1. Extraia o ZIP para uma pasta (ex.: Documentos\Axion). Mantenha o
+     WebView2Loader.dll (da Microsoft) e o PresentMon-2.6.0-x64.exe (da
+     Intel) junto do Axion.exe: o primeiro abre a janela do Axion (sem ele,
+     a interface abre no navegador); o segundo mede o FPS na página
+     Desempenho.
+  2. Execute Axion.exe e aceite o pedido de administrador (necessário para
+     aplicar as otimizações; a análise em si não altera nada).
+  3. O Axion ainda não tem assinatura digital. Por isso o Windows pode
+     mostrar "O Windows protegeu o computador" (SmartScreen) ou o antivírus
+     pode desconfiar de um arquivo novo que ninguém mais baixou. Antes de
+     liberar, confira o SHA-256 com o valor em SHA256SUMS.txt
+     (PowerShell: Get-FileHash Axion.exe). Um alarme falso pode ser enviado
+     para análise da Microsoft em https://www.microsoft.com/wdsi/filesubmission
+     (opção "Incorrectly detected"); nunca desligue o antivírus.
+     Se aparecer "O controle inteligente de aplicativos bloqueou um
+     aplicativo", é o Controle Inteligente de Aplicativos do Windows 11, que
+     bloqueia programas sem assinatura e não tem "executar assim mesmo" nem
+     exceção por programa. Nesta fase de teste a única saída é desligá-lo em
+     Segurança do Windows > Controle de aplicativos e do navegador >
+     Configurações do Controle Inteligente de Aplicativos, usar o Axion e
+     religá-lo depois (desde a atualização de abril de 2026 isso não exige
+     reinstalar o Windows; se o Windows avisar que não dá para religar,
+     cancele). A versão pública virá assinada e esse bloqueio deixa de
+     existir.
+  4. Na primeira vez o Axion pergunta para que você usa o PC (jogo
+     competitivo, jogo + live, trabalho, criação ou programação) e faz a
+     análise completa (alguns segundos). O perfil pode ser trocado a
+     qualquer momento no Início ("Trocar perfil").
+  5. Início -> "Aplicar as recomendadas": revise a lista (dá para desmarcar
+     qualquer item) e aplique. Os planos Completa e Perfil Counter-Strike 2
+     ficam logo abaixo, em "Outras formas de otimizar". Item por item: menu
+     Otimizar. Quem quer só o essencial: "Modo simples" no Início (a nota, o
+     que mais pesa e um botão "Resolver o que é seguro").
+  6. Ctrl+K abre a busca: digite o nome de uma página, de uma ação ("testar
+     a rede", "medir FPS") ou de uma otimização.
+  7. "Avaliação completa" (Diagnóstico > Avaliação completa): análise +
+     teste de rede + FPS no CS2 (com o jogo aberto) + taxa do mouse num
+     botão, com três notas: configuração, capacidade e medição.
+  8. Depois de formatar: Manutenção > "Instalar programas" marca o que o seu
+     perfil e o seu hardware pedem; revise, marque o resto e clique em
+     "Instalar marcados". Tudo vem pelo winget, na versão mais nova.
+
+O QUE ESTA VERSÃO FAZ
+  - Diagnóstico: monitor abaixo da frequência máxima, memória sem XMP/EXPO,
+    canal de memória, SSD (desgaste, temperatura, espaço), driver de vídeo,
+    PCIe/Resizable BAR, requisitos de anti-cheat (FACEIT/Vanguard), X3D,
+    microcode Intel 13ª/14ª geração, BIOS AM5 antiga com X3D, rede, estabilidade
+    (erros WHEA, desligamentos inesperados, telas azuis, reinícios do driver).
+  - Correções de outros otimizadores: HPET forçado, tick do sistema, TCP,
+    offloads, modo de teste de drivers, DEP, UAC, TDR da GPU, arquivo de
+    paginação, serviços essenciais desativados, Windows Update bloqueado.
+  - Otimizações por categoria, com recomendação calculada para o seu PC,
+    nível de evidência, risco e fontes.
+  - Counter-Strike 2: lê as configurações de vídeo do próprio jogo
+    (frequência, Reflex, V-Sync), analisa as opções de inicialização da Steam,
+    aplica o perfil do cs2.exe e, se você quiser, grava o preset competitivo
+    no cs2_video.txt (com cópia e desfazer).
+  - Biblioteca de jogos (Steam, Epic, Riot, Ubisoft, Battle.net, EA, Xbox) com perfis por jogo.
+  - Guia de BIOS da sua placa-mãe (XMP/EXPO, Resizable BAR, TPM, Secure Boot,
+    virtualização, atualização).
+  - Histórico com reversão exata (item, lote ou tudo) e ponto de restauração
+    do Windows antes dos lotes.
+  - Periféricos: mostra como cada mouse e teclado está ligado (velocidade
+    USB, polling máximo da porta, hub no caminho, controlador), mede o
+    polling real do mouse e corrige o que atrapalha a entrada.
+  - Rede e ping: mede cada trecho da conexão (PC -> roteador -> internet ->
+    relays da Valve), o bufferbloat e o DNS, e compara antes x depois.
+  - Atraso de entrada: soma o caminho da mão até a tela com as medições do
+    seu PC e mostra onde está o ganho.
+  - Saúde do Windows: junta em uma página os alertas de estabilidade (telas
+    azuis com orientação por código, drivers de kernel vulneráveis, ajustes
+    deixados por outros otimizadores) e repara arquivos do sistema (DISM e
+    SFC) quando você pede.
+  - Prova no seu PC: mede antes e depois de um ajuste opcional e só o mantém
+    se melhorar pelo critério do Axion; senão desfaz sozinho.
+  - Relatório da partida: opcional por jogo, resume a partida inteira com o
+    PresentMon, sem tocar no jogo. Os registros ficam em
+    C:\ProgramData\Axion\desempenho\partidas.
+  - Perfil do driver NVIDIA: lê e, com desfazer exato, corrige ajustes do
+    driver deixados por outros programas.
+
+NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
+  Interface
+  - Visual novo, com sete entradas no menu (Início, Otimizar, Diagnóstico,
+    Jogos, Medir, Manutenção, Sobre) e a busca Ctrl+K para chegar a qualquer
+    página, ação ou otimização.
+  - Início: a nota e o botão "Aplicar as recomendadas" lado a lado, o ciclo
+    analisar -> aplicar -> medir, o resumo do hardware e os seus jogos.
+  - As recomendadas do Início, do menu e do plano seguem a mesma regra do
+    perfil de uso.
+  - Ícone do programa com a marca oficial.
+  Temperatura do processador (o que o Windows informa, sem driver)
+  - Desligamento por temperatura crítica (Kernel-Power 86): problema
+    importante.
+  - Throttling térmico confirmado pelo Windows (Thermal-Operational 114):
+    aviso, com os dias em que aconteceu.
+  - Limite do firmware na velocidade do processador (Kernel-Processor-Power
+    37) em 3 dias ou mais (critério do Axion): sugestão.
+  - No momento da análise: zonas térmicas limitando por calor e o limite de
+    frequência por temperatura (CallNtPowerInformation).
+  - Nas medições de FPS e nos relatórios de partida: quanto do tempo o
+    Windows limitou o processador por temperatura.
+  - O Axion não lê a temperatura do núcleo do processador: isso exige um
+    driver, e o Axion não instala driver. Muitos PCs (quase todo desktop e
+    vários notebooks gamer) não expõem zonas térmicas; aí só os eventos e o
+    limite de frequência valem.
+  Notebook
+  - Modo de energia "Melhor desempenho": o desfazer espera o carregador
+    (na bateria ele gravaria o modo da bateria e deixaria o da tomada).
+  - Tela do notebook a 60 Hz na bateria deixa de ser problema importante.
+  - "Um pente só" não aparece mais com memória soldada (LPDDR).
+  - Desligamento depois de tela azul não conta duas vezes; texto próprio
+    para notebook (bateria que acabou, botão segurado).
+  - Placas Intel Arc de notebook (A370M...) contam como dedicadas; Radeon
+    8060S como integrada; Core 5/7 Série 1 como híbrido.
+  - Wi-Fi, bateria, VBS e pouca RAM só pesam na nota nos perfis de jogo.
+  Segurança e correções
+  - TPM que não pôde ser lido não vira mais "requisito do anti-cheat não
+    atendido"; o Vanguard só exige TPM e Secure Boot no Windows 11.
+  - Defender desligado com outro antivírus instalado não é aviso.
+  - Desinstaladores fora das pastas protegidas do Windows rodam sem
+    administrador (o desinstalador pede permissão se precisar).
+  - A quarentena de sobras recusa caminhos com junção ou link e confere a
+    lista de novo antes de mover; sobras achadas só pelo nome da pasta de
+    instalação vêm desmarcadas.
+  - Correções de boot ficam fora do 1 clique quando o estado do BitLocker
+    não pôde ser lido sem Secure Boot.
+  - Tarefas de compatibilidade (Appraiser) fora do 1 clique; bloqueio do
+    WPBT com evidência baixa (o valor não é documentado pela Microsoft).
+
+NOVO NA 0.9.0 (saúde do Windows, prova no seu PC, perfil NVIDIA, partida e preset do CS2)
+  Saúde do Windows e estabilidade
+  - Saúde do Windows: nova página principal que junta os problemas e alertas
+    vitais de estabilidade e lentidão em um só lugar, antes escondidos em
+    categorias.
+  - Telas azuis: o Axion lê o código de cada tela azul recente, diz o que a
+    Microsoft afirma sobre ele e dá a orientação do Axion para o tipo de falha
+    (driver, memória, vídeo, hardware ou energia), com atalho para Drivers ou
+    Latência quando ajuda.
+  - Reparar arquivos do Windows: na Saúde do Windows, um botão roda, com a sua
+    confirmação, o DISM (/RestoreHealth) e depois o SFC (/scannow), as
+    ferramentas do próprio Windows, com progresso e cancelar. Repõe arquivos
+    de sistema danificados; não aumenta o FPS, não verifica o disco (CHKDSK) e
+    não tem desfazer. Exige administrador, pode levar vários minutos e o DISM
+    pode buscar arquivos no Windows Update.
+  - Rastreio de DPC/ISR calibrado: rotinas abaixo de 1 ms e de 5% do
+    processador não geram alerta (critério do Axion).
+  - Driver de kernel vulnerável: o Axion avisa, só lendo, quando há carregado
+    ou instalado um driver de uma lista curta e fixa (WinRing0, amifldrv64,
+    amigendrv64, rwdrv), que costuma vir com programas de monitoramento e de
+    ajuste de BIOS. Não carrega, não para e não apaga driver nenhum; manda
+    para a página Programas.
+  - Compressão de memória: se outro otimizador a desligou, o Axion lê o estado
+    pelo WMI, sem PowerShell, e oferece religar. É correção manual, pede
+    reiniciar e não entra no 1 clique: a única fonte encontrada é uma resposta
+    de consultor independente no Microsoft Q&A, sem medição pública de FPS.
+    Quem desligou de propósito pode manter.
+  Ajustes deixados por outros otimizadores
+  - Limitação de rede do MMCSS: com NetworkThrottlingIndex em FFFFFFFF (valor
+    de pacotes "competitivos"), o Axion oferece voltar ao padrão do Windows
+    (10). A única medição pública encontrada viu a latência de DPC da placa de rede aumentar com o
+    valor desligado; não há medição de ping menor.
+  - Prioridade do primeiro plano: também detecta o Win32PrioritySeparation com
+    intervalo fixo (26 / 0x1A, gravado por otimizadores), que segundo a
+    Microsoft dá o mesmo tempo de processador ao jogo e ao segundo plano.
+  - Serviços: o salvamento de jogos do Xbox (XblGameSave) e o teclado virtual
+    e caneta (TabletInputService) desativados passam a ser detectados, com
+    opção de reativá-los em Manual.
+  - Modo MSI (GPU e placa de rede): o Axion deixou de gravar o DevicePriority
+    junto com o MSISupported (valor que a Microsoft não documenta). Só o
+    MSISupported é gravado; as opções seguem avançadas e fora do 1 clique.
+  - O que não fazemos: a página ganhou novas recusas, cada uma com motivo
+    e fonte (SOCD/Snap Tap, gravar a BIOS pelo Windows, suspender programas
+    durante o jogo, afinidade por núcleos pares, escudo de EcoQoS, prioridade
+    de E/S e de GPU, esvaziar a lista de espera da memória, MMCSS da tarefa
+    Games e binds do CS2).
+  Medição e prova
+  - Prova no seu PC (Otimizar > Prova no seu PC): com o jogo aberto, o
+    Axion grava 3 medições antes, aplica um ajuste opcional que vale na hora
+    (hoje, os de energia) pelo Histórico e grava 3 depois. Pelo critério do
+    Axion (teste t de Welch com ajuste de Holm, p ajustado abaixo de 0,05 e
+    diferença de pelo menos 1%) o ajuste só fica se melhorar; se não, é
+    desfeito sozinho, e o mesmo vale se você cancelar. O resultado vale para
+    aquele jogo, cenário e PC e aparece no item; "sem diferença detectável"
+    não prova que o ajuste não faz nada. Pede administrador e o PC na tomada;
+    ajustes que pedem reiniciar ainda não entram.
+  - Relatório da partida (Jogos > Relatório da partida): desligado para todos
+    os jogos. Ligando o de um jogo, o Axion (aberto, pode estar minimizado)
+    olha a lista de processos a cada poucos segundos, sem abrir o processo do
+    jogo, e grava a partida em janelas com o PresentMon. Ao fechar o jogo
+    mostra FPS médio, 1% e 0,1% low, engasgos, o que limitou os quadros e a
+    temperatura da placa NVIDIA, e compara com a partida anterior, só como
+    indicação: partida não é cenário repetido. Uma medição manual pausa a
+    gravação. Não desenha nada sobre o jogo, não injeta nada nele e não muda
+    o Windows. Testado só no simulador; com Vanguard, EAC ou BattlEye não foi
+    testado.
+  - Medição de FPS: o Axion anota e avisa de condições que podem distorcer a
+    comparação (bateria, plano de energia, programas ocupados, limitação
+    térmica da placa NVIDIA, frequência do processador).
+  - Live (OBS Studio): no perfil jogo + live, o Axion lê os logs do OBS
+    (quadros pulados, atrasados e perdidos) e aponta a causa.
+  Perfil do driver NVIDIA
+  - Leitura, sem mudar nada, do perfil global e do de cada jogo pelo próprio
+    driver (NVAPI, a API do Painel de Controle da NVIDIA): V-Sync forçado sem
+    G-SYNC ativo ou com valor que o driver não conhece, limite de FPS abaixo
+    da taxa do monitor, cache de shader desligado e ajustes deixados por
+    outros otimizadores. Sem placa NVIDIA ou com o driver básico do Windows,
+    nada é mostrado.
+  - Correções que voltam esses ajustes ao padrão do driver, uma por uma, com o
+    valor anterior no Histórico e desfazer exato. Valem ao reabrir o jogo; para
+    ver a mudança, feche e reabra o Painel NVIDIA. O Axion não mexe no jogo,
+    não carrega driver e não usa o nvidiaProfileInspector.
+  - Por jogo, opcional: "Preferir desempenho máximo" só no perfil do driver do
+    jogo, nunca no global. A medição pública (TheFPSReview) não viu ganho de
+    FPS e viu mais consumo em repouso; por isso não entra no 1 clique.
+  Counter-Strike 2
+  - Preset competitivo (página CS2): opcional e com o jogo fechado, grava no
+    cs2_video.txt só valores que o menu Vídeo > Avançado oferece: CMAA2 no
+    lugar do MSAA, NVIDIA Reflex Ativado (a NVIDIA informa até 35% menos
+    latência do sistema; não é ganho de FPS) e, como hipótese a medir,
+    sombras, oclusão de ambiente, partículas, shader e filtragem (só vêm
+    marcadas se a sua última medição mostrou a placa de vídeo limitando abaixo
+    da taxa do monitor). Mostra antes e depois e pede confirmação; troca só o
+    valor entre aspas, guarda uma cópia do arquivo em C:\ProgramData\Axion\cs2
+    e cada valor anterior no Histórico; "Desfazer preset" devolve só o que o
+    Axion mudou. Não mexe em resolução, taxa de atualização, modo de tela,
+    FSR, binds, autoexec nem convars; recusa arquivo somente leitura ou link.
+    O resultado é o que o menu grava e nada é injetado no jogo, mas o Axion
+    não promete nada sobre regras de anti-cheat. Testado só no simulador; o
+    CMAA2 = MSAA 0 + CMAA 1 é critério do Axion: confira no menu do jogo.
+  - O Axion lê o remotecache.vdf da conta para dizer, no cartão do preset, se
+    a Steam Cloud sincroniza o cs2_video.txt (outro PC pode sobrescrever as
+    opções); se não der para ler, o cartão diz isso.
+  Jogos, drivers e rede
+  - Biblioteca de jogos: passa a ler também Battle.net, EA (chave EA Games) e
+    Xbox/Game Pass (só os de pasta XboxGames), somente leitura, para que o
+    perfil por jogo tenha o executável.
+  - Pacotes de vídeo antigos: em Drivers, o Axion lista versões de driver de
+    vídeo que uma atualização deixou no Repositório de Drivers e que nenhum
+    dispositivo usa, e exclui só as que você confirmar. Pode liberar espaço
+    (o Axion não mede quanto). Não tem desfazer, e o "Reverter driver" do
+    Gerenciador de Dispositivos deixa de voltar a essas versões. O Windows
+    recusa excluir um pacote em uso.
+  - Jogos sem uso: lista os jogos da Steam sem registro de uso há mais de 6
+    meses (critério do Axion), com atalho para desinstalar; a própria Steam
+    pede a confirmação.
+  - Wi-Fi: com perda ou picos até o roteador, o teste de rede mostra o sinal e
+    a banda do começo do teste e dá orientação do Axion quando o sinal está
+    abaixo de 70% (critério do Axion) ou a banda é 2,4 GHz, com link para a
+    página da Microsoft sobre Wi-Fi.
+  - DNS: quando o teste mostra o DNS falhando ou lento, dá para trocar por
+    Cloudflare, Google ou Quad9 com um clique e desfazer no Histórico; o DNS
+    anterior, fixo ou automático, é guardado e volta exatamente. O IPv6 só é
+    gravado se o adaptador já usa DNS IPv6. O Axion não troca o DNS de
+    adaptador com DNS criptografado (DoH) configurado por você, de VPN ou de
+    PC com política de grupo de DNS. DNS não muda o ping: muda a abertura de
+    sites e o login. Nomes da rede local (impressora, NAS) podem depender do
+    DNS atual.
+  Inicialização e som
+  - Inicialização: ligar ou desligar um programa passa a ficar no Histórico,
+    com desfazer exato (o valor do Windows volta byte a byte; se não existia,
+    é apagado). A entrada do programa nunca é apagada.
+  - Inicialização: entradas que apareceram desde a última vez que você abriu a
+    página ganham o selo "novo". É só um aviso: nada é bloqueado nem
+    desativado, e não há processo residente. A primeira visita só grava a
+    linha de base (inicializacao-visto.json).
+  - Novo ajuste opcional "Chamadas não abaixam o volume do jogo": grava a
+    opção "Não fazer nada" da aba Comunicações do painel de Som. Não vem
+    marcado no 1 clique e a evidência é baixa (o Axion não mediu o efeito); se
+    o volume ainda cair, troque a opção na aba Comunicações e volte.
+
+NOVO NA 0.8.1 (a partir do relatório do G15 de 05/10)
+  - Avaliação completa: sem nenhuma medição feita, a nota de medição
+    aparece como "—" (sem medição) em vez de 100. Um 100 sem nada medido
+    parecia resultado.
+  - Capacidade: o "Windows em SSD" só cita a página de requisitos do Visual
+    Studio no perfil de programação (nos outros perfis a fonte não tinha a
+    ver com o uso).
+  - Opções do Wi-Fi fora do padrão: o texto explica que as de energia e
+    roaming (economia MIMO, agressividade de roaming, banda preferida,
+    agrupamento de pacotes) trocam bateria por menos picos de latência,
+    fazem sentido para jogar na tomada e que o padrão da Intel é o melhor
+    na bateria.
+
+NOVO NA 0.8 (instalar programas depois da formatação)
+  Página "Instalar programas" (menu Sistema)
+  - Um catálogo de cerca de 80 programas em 9 categorias (base do sistema,
+    navegadores, jogos e launchers, periféricos/placa de vídeo/monitoramento,
+    live e criação, comunicação, trabalho e estudo, programação, segurança).
+    Marque o que quer e "Instalar marcados" instala um por um, na versão
+    mais nova, pelo winget: o gerenciador de pacotes da Microsoft que já vem
+    no Windows 10 e 11 ("Instalador de Aplicativo"). O Axion não traz
+    instalador nenhum dentro dele: cada item é um identificador do catálogo
+    do winget (conferidos no catálogo em 04/10/2026; o único não conferido,
+    AnyDesk, aparece marcado assim), um produto da Microsoft
+    Store (WhatsApp, Spotify) ou o link oficial do fabricante (FACEIT, Gamers
+    Club, Riot, drivers de vídeo, Razer, HyperX, DaVinci Resolve, utilitário
+    do notebook, Microsoft 365 Família/Pessoal), que abre no seu navegador.
+  - O winget baixa o instalador do próprio fabricante, confere o hash
+    SHA-256 com o catálogo e instala em silêncio. O Axion aceita por você os
+    termos da fonte e a licença de cada pacote (as opções
+    --accept-source-agreements e --accept-package-agreements da linha de
+    comando). Apps pagos (Microsoft 365) vêm marcados como pagos: o Axion
+    instala o aplicativo, a licença é a sua conta.
+  - O que vem marcado segue o perfil de uso (competitivo: Visual C++, .NET,
+    DirectX, 7-Zip, Brave, Steam, Discord, HWiNFO; live: mais OBS e
+    Spotify; trabalho: Chrome, WhatsApp, Teams, Acrobat, PowerToys, Google
+    Drive, Bitwarden; criação: OBS, VLC, HandBrake, Audacity, GIMP, Blender;
+    programação: VS Code, Git, Python, Node, Terminal, PowerShell 7) e o
+    hardware: o software do mouse ou teclado só vem marcado quando o
+    identificador USB e o nome do dispositivo apontam o fabricante (Logitech
+    G HUB para a linha G e os receptores LIGHTSPEED, não para um mouse de
+    escritório da Logitech; HyperX pelo nome; Razer, SteelSeries e Corsair
+    por fabricante), o driver de vídeo pela placa, e o utilitário do
+    notebook pela marca. Os outros itens são sugestões ou alternativas, e
+    "só a base do sistema" marca apenas o essencial.
+  - "Ler o que já está instalado" (botão; não roda sozinho, porque usa a
+    internet) pergunta ao winget o que existe e o que tem versão nova: o
+    que já está aparece marcado em cinza, e o que tem atualização pode ser
+    marcado para atualizar. "Atualizar tudo" roda winget upgrade --all e a
+    lista do que vai mudar (do catálogo ou não) aparece antes de confirmar.
+  - Cancelar não interrompe o instalador em andamento (pararia o programa no
+    meio): ele termina e a fila para antes do próximo, mostrando o que foi
+    feito. Cada instalação fica registrada em
+    C:\ProgramData\Axion\apps\instalados.json (com o resultado e o código
+    do winget, explicado em português: já instalado, programa aberto, sem
+    internet, instalador recusou rodar como administrador, hash não
+    confere...).
+  - A seleção fica salva neste PC e entra no relatório exportado (Sobre ->
+    Exportar, JSON e HTML), para você ter a lista em mãos depois de
+    formatar. Um kit exportável para pendrive fica para uma próxima versão.
+  - Limites: o Axion precisa estar elevado com a sua própria conta de
+    administrador (com outra conta, programas "só para este usuário" iriam
+    para ela, e a página avisa e não instala); o winget precisa existir (num
+    Windows recém-instalado ele aparece minutos depois do primeiro login;
+    se faltar, a página mostra o link da Microsoft); o catálogo não traz
+    antivírus além do Defender.
+  Outras mudanças
+  - O texto "O que não fazemos" e o Sobre explicam o que o Axion passa a
+    executar: o winget da Microsoft, só depois da sua confirmação.
+
+NOVO NA 0.7.1 (a partir do relatório do PC de 05/10)
+  - Histórico: tentativas que falharam e ficaram "com pendência" numa
+    versão antiga, cobertas por uma aplicação posterior do mesmo item que
+    deu certo, são fechadas na abertura (o relatório do PC listava "Mouse e
+    teclado sem suspensão USB" cinco vezes). O relatório em HTML mostra uma
+    linha por item.
+  - Horário ativo: quando nada está gravado no registro, o texto diz que o
+    Windows decide a janela (pelo uso, no Windows 11), em vez de afirmar
+    "8 às 17".
+
+NOVO NA 0.7 (perfis de uso, avaliação completa, relatório anônimo)
+  Perfis de uso e modo simples
+  - Na primeira abertura o Axion pergunta para que você usa o PC. A nota, o
+    1 clique e a avaliação seguem a resposta: num PC de trabalho os pontos
+    que só fazem diferença em jogo (taxa do mouse, Modo de Jogo, rota até a
+    Valve, XMP...) não contam na nota nem entram no 1 clique; ficam numa
+    seção à parte do Diagnóstico, para consulta. No perfil jogo + live, o
+    HAGS vira decisão sua (o OBS recomenda desligá-lo quando a gravação
+    engasga). Os botões "Perfil CS2" e "Aplicar recomendados" de uma
+    categoria continuam com a leitura de jogo, porque são um pedido seu.
+  - Modo simples: uma tela com a nota, os três pontos que mais pesam e o
+    botão "Resolver o que é seguro" (os recomendados, com confirmação).
+  Avaliação completa
+  - Um botão roda a análise, o teste de rede com carga, a medição de FPS
+    do CS2 (se o jogo estiver aberto) e a taxa do mouse, e mostra três
+    notas com a mesma régua do diagnóstico: configuração (o que o Windows
+    faz com o hardware), capacidade (o hardware contra os requisitos
+    publicados dos programas do seu uso: Valve para o CS2, Microsoft para o
+    Teams e o Visual Studio, Blackmagic para o DaVinci Resolve) e medição
+    (bufferbloat e rota até a Valve ou as metas da Microsoft para chamadas,
+    FPS contra a taxa do monitor, taxa do mouse). O que não foi medido não
+    entra na nota.
+  - Durante a medição de FPS o Axion lê o link PCIe da placa de vídeo com
+    o jogo rodando: com a GPU em uso o link mostra a largura real, então a
+    leitura em repouso ("x8") deixa de assustar quando sob carga é x16.
+  Relatório
+  - Exportação anônima por padrão: nome do PC, conta do Windows (também
+    nos caminhos), conta da Steam, endereços IP/MAC/BSSID e identificadores
+    de dispositivos USB e Bluetooth são substituídos por marcadores; o
+    "relatório completo" só por escolha. Nova versão em página (HTML),
+    legível, para mandar a um amigo ou técnico, com as mesmas evidências e
+    fontes.
+  Counter-Strike 2
+  - Opções de vídeo pela medição: com o jogo limitado pela placa de vídeo e
+    o 1% low abaixo da taxa do monitor, o Axion lê o cs2_video.txt e diz o
+    que baixar (MSAA, sombras dinâmicas, qualidade de sombras, oclusão,
+    partículas, shaders, filtragem), como hipótese a medir uma mudança por
+    vez; com a CPU limitando, avisa que vídeo não ajuda.
+  - Cliente Steam: downloads durante o jogo, limite de banda e janela de
+    atualização automática, cruzados com o bufferbloat medido.
+  - Requisitos da Valve (4 threads, 8 GB, placa DirectX 11 com 1 GB) e o
+    aviso do Windows 10 (fim do suporte em 14/10/2025; ESU até 13/10/2026).
+  - "Não perturbe ao jogar": o Axion aponta a opção das Configurações (a
+    regra fica num formato interno do Windows que ele não lê).
+  Windows
+  - Horário ativo do Windows Update: em Otimizar > Windows Update você
+    escolhe a janela (até 18 h) em que o Windows não reinicia para
+    atualizar; fica no histórico e pode ser desfeito. O Axion avisa quando
+    o ajuste automático ou uma política de grupo manda na janela.
+  - "Desligar VBS" não é recomendado com a Gamers Club instalada (TPM 2.0 e
+    VBS em teste no anti-cheat 2.0).
+
+NOVO NA 0.6.3 (correções a partir dos relatórios da 0.6.2 no notebook e no PC)
+  Diagnóstico
+  - Erros de hardware (WHEA): o dispositivo passa a ser nomeado como no
+    Gerenciador de Dispositivos (o áudio HDMI da placa NVIDIA saía como
+    "placa de rede"). A gravidade segue o impacto: erros PCIe que o próprio
+    hardware corrigiu, sem tela azul, reinício do driver de vídeo ou
+    desligamento inesperado no período e sem rajada, viram nota (o PCI
+    Express os recupera sem perda de dados); com sintomas, em rajada ou
+    quando há erro corrigido de processador ou memória durante o uso,
+    atenção; erro não corrigido, crítico. O teste "sem economia de energia
+    do PCIe" não é mais oferecido quando o plano já está assim, e os
+    sintomas são lidos numa consulta própria do log de eventos.
+  - O diagnóstico usa o que o Axion mediu: o teste de rede mais recente com
+    nota entra na nota de Rede (fila sob carga/bufferbloat) e o mais recente
+    de todos avalia a rota até a Valve (perda e oscilação); com a última
+    medição de FPS do CS2 limitada pela placa de vídeo, o aviso de XMP/EXPO
+    vira sugestão, porque ali o ganho é pequeno. Apagar ou renomear um
+    teste atualiza o diagnóstico na hora.
+  - VBS: lista os cenários do Device Guard ligados no registro (Integridade
+    de Memória, Credential Guard, biometria do Windows Hello...) e só fala em
+    reiniciar quando a mudança é mais nova que o último boot.
+  - Anti-cheat: FACEIT e Gamers Club também são reconhecidos pelos programas
+    instalados; a Gamers Club ganha a própria regra (Secure Boot
+    obrigatório; TPM 2.0 e VBS ainda em teste).
+  - Rede: as opções fora do padrão mostram o nome que o driver usa no
+    Gerenciador de Dispositivos, com a tradução do Axion depois.
+  - Windows 11 26H2 (build 26300) entra na tabela de versões.
+  CS2
+  - O item "Limite de FPS" mostra o fps_max atual.
+  - A opção -allow_third_party_software explica a Captura de Jogo do OBS e a
+    alternativa (Captura de Janela ou de Tela).
+  Outros
+  - Nomes de dispositivo sem espaço sobrando.
+  - O relatório exportado traz a página do CS2, os eventos de erro de
+    hardware resumidos (hora, tipo, dispositivo, corrigido, perto do boot) e
+    as medições usadas no diagnóstico.
+
+NOVO NA 0.6.2 (correções a partir do primeiro relatório de um notebook)
+  Diagnóstico
+  - PCIe da placa de vídeo: num notebook, quantas linhas chegam à GPU é
+    projeto do fabricante, então o conselho de "trocar de slot" não aparece
+    mais. No desktop, só vira aviso quando a leitura é feita com o link na
+    velocidade máxima (em repouso a NVIDIA reduz o link).
+  - Erros de hardware (WHEA): separados por tipo (PCIe, processador,
+    memória) e por dispositivo, e comparados com a hora em que o PC ligou ou
+    acordou. Erros PCIe corrigidos só na inicialização viram informação; os
+    demais continuam aviso, com conselho diferente para notebook (sem
+    XMP/PBO) e para desktop.
+  - VBS: o título diz se a Integridade de Memória está ligada; o Axion
+    mostra quais recursos usam o VBS, o IOMMU (proteção de DMA), política de
+    grupo, bloqueio UEFI e o que mais liga o hipervisor (WSL2, Hyper-V...).
+    "Virtualização no firmware" não aparece mais como "não" com o hipervisor
+    rodando.
+  - "VBS desligado" confere se o Windows obedeceu: mostra "vale após
+    reiniciar" ou "não está valendo" com o motivo.
+  - Com o FACEIT instalado e o IOMMU aparentemente desligado, o anti-cheat
+    não aparece mais como "requisitos atendidos": vira um aviso com o
+    caminho na BIOS.
+  - Microcódigo: leitura mais robusta (o relatório do notebook mostrou 0 num
+    processador Intel), com o valor bruto guardado no relatório para
+    conferência, e a assinatura CPUID. O alerta da instabilidade Intel
+    13ª/14ª geração usa o modelo exato (06-B7) quando o Windows informa.
+  - Windows 10 com FACEIT: texto corrigido conforme o FACEIT (a partir de
+    14/10/2026, Windows 10 22H2 com as atualizações estendidas (ESU)
+    ativas; Windows 11 a partir de outubro de 2027).
+  Rede
+  - Placas desconectadas também são avaliadas (velocidade fixa, EEE,
+    moderação de interrupção). A velocidade de uma placa desconectada
+    aparece como "—" em vez de um número sem sentido.
+  - Novo: lista as opções avançadas das placas fora do padrão do driver,
+    com o nome e os valores que o próprio driver mostra e o significado das
+    opções de Wi-Fi da Intel.
+  - Nova correção opcional e reversível: "placas de rede no padrão do
+    driver". Ficam de fora MAC, VLAN, jumbo frames, Wake-on-LAN, o que só
+    vale com o PC em repouso e o que o Axion trata em itens próprios.
+  - Só a placa alterada é reiniciada; uma placa que você desativou continua
+    desativada.
+  Outros
+  - Driver NVIDIA: modelos com a memória no nome (ex.: RTX 3050 6GB Laptop
+    GPU) são encontrados na lista da NVIDIA; se a busca falha, o estado fica
+    desconhecido em vez de "desatualizado".
+  - CS2: avisa quando o jogo ou a opção -refresh/-freq pedem mais Hz do que
+    qualquer monitor conectado oferece (ou, na opção, menos do que o
+    monitor principal oferece).
+  - Otimização em 1 clique: os recomendados que você desmarcar aparecem no
+    resultado ("ficaram de fora"), e cada lote fica registrado no relatório
+    exportado, inclusive o que falhou sem mudar nada.
+  - Telemetria: AllowTelemetry = 0 no Home/Pro já conta como mínimo (a
+    Microsoft trata 0 como 1 nessas edições) e não é mais trocado para 1.
+  - Plano Desempenho Máximo: uma cópia criada por outro programa é
+    reaproveitada em vez de criar mais uma.
+  - Teste de rede: quando a Cloudflare pede para esperar (Retry-After), a
+    página mostra até que horas e roda o teste sem a etapa de carga.
+  - Nomes: monitores pelo nome gravado no próprio monitor (EDID) e "Tela
+    integrada" no notebook; touchpads internos pelo fabricante (ex.:
+    Touchpad Synaptics) em vez de "Microsoft".
+
+NOVO NA 0.6.1 (correção do teste de rede)
+  - Teste de carga incompleto não recebe mais nota. Quando uma direção
+    falhava (o download, por exemplo), a 0.6.0 dava a nota só com a outra:
+    um "A+" que não valia. Agora o teste aparece como "incompleto", com o
+    motivo, no resultado e no histórico. Testes antigos nessa situação são
+    corrigidos ao abrir.
+  - Se a direção que funcionou já mostra bufferbloat, o aviso aparece
+    mesmo com o teste incompleto.
+  - Quando o servidor de teste recusa (HTTP 429: limite de testes
+    seguidos; HTTP 403: bloqueio), a fase para na hora e diz o motivo, em
+    vez de repetir os pedidos.
+  - A comparação antes x depois mostra o atraso a mais em cada direção
+    (download e upload), além do pior dos dois.
+  - A página do Counter-Strike 2 usa a nota do último teste completo.
+  - As falhas do teste de rede também vão para o axion.log.
+
+NOVO NA 0.6.0 (revisão completa do programa)
+  Segurança e dados
+  - Sobras de desinstalação: a pasta onde o programa foi instalado só vem
+    marcada quando tem o nome do programa (ou do fabricante) e o tamanho que
+    ele informou. Uma pasta compartilhada como D:\Jogos nunca vem marcada.
+  - Os comandos de desinstalação e de inicialização usam só as pastas do
+    Windows (não as variáveis de ambiente do usuário, que qualquer programa
+    pode alterar).
+  - Aberto com outra conta de administrador (pergunta do Windows respondida
+    com outra conta), o Axion aplica os ajustes por usuário a quem está
+    usando o PC, e não à conta de administrador. O diagnóstico avisa.
+  - O ponto de restauração não liga mais a Proteção do Sistema por conta
+    própria: se ela estiver desligada, o Axion avisa.
+  Otimizações e histórico
+  - Desfazer não fica mais travado quando o plano de energia usado foi
+    apagado ou quando o mouse/receptor foi desconectado.
+  - A placa de rede nunca fica desligada depois do reinício do driver: a
+    reativação é repetida, conferida e, se preciso, feita pelo netsh.
+  - As regras do "1 clique" (sem risco, fora do Avançado, sem evidência
+    baixa) agora são garantidas pelo programa, não só descritas.
+  - Novas correções: hipervisor desligado no boot (hypervisorlaunchtype),
+    EcoQoS desligado (PowerThrottlingOff) e prioridade do primeiro plano
+    tirada (Win32PrioritySeparation, como na opção "Serviços em segundo
+    plano").
+  - Elementos do boot com valores próprios (como hypervisorlaunchtype Off)
+    são restaurados corretamente; o Windows em mais idiomas é reconhecido.
+  Diagnóstico (falsos alertas corrigidos)
+  - Dispositivos desconectados (pen drives, monitores antigos) não contam
+    mais como "problema de driver".
+  - XMP não é mais pedido em placas Intel cujo chipset não permite (B360,
+    B460, H470, H510…). O Guia de BIOS segue a mesma regra.
+  - "Cabo a 100 Mb/s" só para placas gigabit; placas 10/100 não são avisadas.
+  - Resizable BAR não é sugerido em placas de vídeo que não têm o recurso.
+  - Monitor abaixo da frequência máxima só é "problema importante" quando é
+    um monitor rápido (120 Hz ou mais) muito abaixo do máximo.
+  - Etapas da análise que não puderam ser lidas não viram mais alertas falsos.
+  - Windows 11 LTSC 2024 com as datas de suporte corretas; instalações em
+    modo BIOS antigo recebem o aviso do MBR2GPT antes de desligar o CSM.
+  Interface
+  - Ao aplicar ou desfazer, o resultado mostra a nota antes e depois.
+  - Navegar durante a primeira análise não inicia outra análise nem troca a
+    página escolhida; interruptores voltam ao estado real se a ação for
+    recusada; em janelas estreitas as categorias ficam em uma linha compacta.
+  - Mais contraste nos textos pequenos, textos longos quebram dentro dos
+    cartões, navegação completa pelo teclado e respeito a "reduzir animações".
+
+NOVO NA 0.5.3
+  - Correção da causa real do fechamento das versões 0.5.0 a 0.5.2: a
+    consulta da configuração de serviços do Windows (QueryServiceConfig)
+    entregava ao Windows um buffer sem o alinhamento de memória que a API
+    exige, e o Windows falhava dentro da própria DLL, no meio da análise
+    (etapas "serviço do 3D V-Cache", "Ajustes deixados por outros
+    otimizadores" e "avaliando otimizações"). O buffer agora é alinhado.
+  - O crash.log passa a receber também esse tipo de falha (erro dentro de
+    uma chamada do Windows), que antes fechava o Axion sem deixar registro.
+  - Quando o processo de coleta falha, o axion.log mostra a causa e a linha
+    de código responsável, e o relatório completo fica em
+    C:\ProgramData\Axion\coleta-erro.log.
+
+NOVO NA 0.5.2
+  - Correção: a 0.5.0 fechava sozinha logo depois de abrir em alguns PCs.
+    A análise agora roda num processo separado do Axion: se um componente
+    do Windows ou um driver falhar durante uma das leituras, a janela não
+    fecha. A parte que falhou é deixada de fora nesta versão, a análise
+    continua sem ela e isso aparece em "Avisos da coleta".
+  - Anti-cheats (FACEIT, Vanguard, EasyAntiCheat, BattlEye, EA) são
+    identificados pelo registro dos serviços, sem consultar os serviços
+    deles.
+  - O axion.log registra cada etapa da análise e as ações da interface, e
+    um erro de componente do Windows com o nome do módulo, para achar
+    qualquer falha numa única execução.
+
+NOVO NA 0.5
+  - Rede e ping (página nova): mede a latência, a oscilação (jitter) e a
+    perda de pacotes em cada trecho: do PC ao roteador, até a internet
+    (Cloudflare, 1.1.1.1) e até os relays da Valve mais próximos (a lista
+    oficial que o CS2 usa, baixada da Steam). Assim dá para saber se um
+    problema está na sua casa, na operadora ou na rota até a Valve.
+    - Bufferbloat: enche a conexão por alguns segundos em cada sentido e
+      mede quanto o ping sobe (nota A+ a F, a mesma escala recomendada pelo
+      bufferbloat.net), além da velocidade de download e upload. Se a nota
+      for ruim, diz como configurar o QoS do roteador com os números medidos.
+    - Mostra roteadores em cascata (NAT duplo) e CGNAT da operadora, e
+      explica quando isso importa (para o ping do CS2, não importa).
+    - DNS: compara os servidores configurados (inclusive IPv6) com
+      Cloudflare, Google e Quad9, e deixa claro que DNS não muda o ping
+      durante a partida.
+    - CS2: lê do próprio jogo o buffer contra perda de pacotes e o limite de
+      banda (rate) e diz se combinam com a perda e o jitter medidos até a
+      Valve (cada pacote de buffer soma ~15,6 ms).
+    - Histórico com rótulos e comparação A x B: diferenças menores que um
+      mínimo prático contam como iguais.
+  - Atraso de entrada (página nova): o orçamento de latência de ponta a
+    ponta, com as medições deste PC: espera pelo polling do mouse (medida),
+    latência do PC até o quadro sair (PresentMon), varredura do monitor
+    (calculada), teclado e o atraso da pilha USB do Windows (medido pelo
+    ETW). Lista as mudanças que mais tiram milissegundos, em ordem de ganho.
+  - Placa de rede: novo aviso quando a velocidade está fixada em vez de
+    automática, com correção que volta ao padrão do driver; o aviso de EEE
+    (economia de energia do Ethernet) explica o motivo real e cita as fontes.
+  - Ping com precisão de frações de milissegundo: o relógio usado antes só
+    andava a cada 15,6 ms no Windows.
+  - "O que não fazemos": novos itens sobre trocar DNS para baixar o ping,
+    scripts de cl_interp no CS2 e abrir portas/UPnP para o CS2.
+  - Otimização em 1 clique: só inclui itens de risco baixo; o resto fica
+    como opcional para você marcar.
+  - Janela e navegador: no modo navegador, o endereço aberto leva um código
+    de uso único (o acesso não fica no histórico do navegador) e abrir o
+    Axion de novo abre outra aba. Fechar o Axion durante uma tarefa cancela
+    o que só lê ou mede e espera terminar o que altera o PC. Uma cópia
+    aberta por outro usuário do mesmo PC é reconhecida e nunca encerrada
+    daqui.
+  - Interface: foco do teclado nas janelas de confirmação (Esc fecha),
+    números no formato brasileiro, aviso quando o diagnóstico está
+    desatualizado, drivers já instalados pelo Axion marcados como
+    instalados e layout ajustado a janelas estreitas.
+
+NOVO NA 0.4
+  - Desempenho (FPS): mede um jogo com o PresentMon, da Intel (o mesmo que
+    revisores usam; só lê eventos do Windows, não injeta nada no jogo) e
+    mostra FPS médio, 1% e 0,1% low, tempo de quadro (P99, máximo),
+    engasgos, o que limitou cada quadro (processador, placa de vídeo ou
+    limite de FPS), o modo de apresentação (tela cheia de verdade ou
+    composta pelo Windows) e latências estimadas (inclusive a do Reflex).
+  - Antes x depois: grave 2 ou 3 medições com o rótulo "antes", aplique a
+    mudança e grave outras com "depois". A comparação usa o teste t de
+    Welch e diz se a diferença é maior que a variação normal entre
+    medições; com uma medição de cada lado ela avisa que não dá para saber.
+  - Página do CS2 com atalho "Medir FPS".
+  - Guia de BIOS (AM5): mostra o tempo de POST do último boot ("Último
+    tempo do BIOS" do Gerenciador de Tarefas) para indicar se a memória está
+    sendo treinada a cada boot, e a ordem certa entre EXPO e Memory Context
+    Restore.
+  - Saúde do SSD: quando o log SMART não vem, o diagnóstico mostra a
+    controladora e o driver que o Windows usa para o disco.
+  - Diagnóstico: avisos e sugestões que não dá para resolver no seu PC (ex.:
+    EXPO que não estabiliza, teclado de 125 Hz) podem ser dispensados;
+    ficam em "Dispensados", não contam na nota e podem ser restaurados.
+    Problemas importantes não podem ser dispensados.
+
+NOVO NA 0.3.3
+  - Manutenção do SSD (página Limpeza): mostra se o TRIM está ligado, se a
+    otimização automática de unidades (retrim mensal) está ativa e quando
+    foi o último retrim de cada volume em SSD; "Fazer retrim agora" roda o
+    retrim do Windows (defrag /L), que não move nem apaga arquivos. O
+    diagnóstico avisa se outro otimizador desligou o TRIM ou a tarefa, e as
+    Correções religam (com desfazer).
+  - Saúde do SSD: quando o driver não entrega o log SMART, o diagnóstico diz
+    qual driver de controladora está em uso (padrão do Windows, RAID, Intel
+    RST ou de fabricante).
+  - Correção: itens com tarefas agendadas falhavam com "Exceção. (<nil>)"
+    quando uma das tarefas tinha sido apagada por outro otimizador; tarefas
+    inexistentes agora são ignoradas e outros erros mostram o código real.
+  - Correção: "Mouse e teclado sem suspensão USB" falhava com "Objeto
+    inválido" ao desmarcar a caixa de energia pelo WMI.
+
+NOVO NA 0.3
+  - Drivers: lista os drivers de cada componente com versão e data, mostra
+    as atualizações de driver que o Windows Update oferece para o seu PC e
+    deixa você escolher o que baixar, instalar ou ocultar (com ponto de
+    restauração antes). Para placas NVIDIA, compara com o driver mais novo
+    do site da NVIDIA; o instalador só é aberto depois de conferida a
+    assinatura digital "NVIDIA Corporation".
+  - Limpeza: mede antes de apagar (temporários, relatórios de erro, dumps,
+    lixeira, componentes antigos do Windows Update pelo DISM). Arquivos em
+    uso ou das últimas 24 h ficam; caches que aceleram jogos não entram.
+  - Inicialização: o que abre com o Windows, com sugestão item por item;
+    desativa como o Gerenciador de Tarefas (nada é apagado).
+  - Processos: o que está aberto e quanto usa; feche o que não precisa antes
+    de jogar (Windows, antivírus e anti-cheats são protegidos).
+  - Programas: desinstala com o desinstalador do próprio programa e procura
+    as sobras (pastas, Registro, inicialização, tarefas). O que você marcar
+    vai para a quarentena por 30 dias e pode ser restaurado.
+  - Saúde do SSD NVMe lida direto do disco (desgaste, TB gravados, horas,
+    desligamentos sem aviso, erros de integridade).
+
+MEDIÇÃO DE FPS (Desempenho -> Iniciar medição)
+  1. Abra o jogo e deixe-o carregado (a primeira passada compila shaders).
+  2. No Axion, escolha o jogo, a duração (60 s é um bom padrão) e o rótulo
+     ("antes" ou "depois") e clique em Iniciar medição.
+  3. Volte para o jogo e aperte Scroll Lock no início do trecho de teste
+     (dá para trocar por Pause ou Shift+F11, ou usar a contagem
+     regressiva). A gravação para sozinha no fim.
+  4. Repita no MESMO cenário: mesmo mapa de benchmark da Oficina ou o mesmo
+     trajeto, do início ao fim, com o navegador fechado.
+  O CSV de cada medição fica em C:\ProgramData\Axion\desempenho e abre no
+  Excel, no CapFrameX ou no próprio PresentMon.
+
+MEDIÇÃO DE POLLING (Periféricos -> Medir agora)
+  Uma janela de teste abre por alguns segundos: mova o mouse sem parar, em
+  círculos rápidos, até a contagem terminar (Esc cancela). Com o Axion como
+  administrador, a medição usa também os eventos ETW do driver USB do
+  Windows (o ritmo real no controlador). Não use o PC para outra coisa
+  durante o teste: a janela precisa ficar em foco.
+
+TESTE DE REDE (Rede e ping -> Testar a rede)
+  1. De preferência com o PC no cabo e nada baixando na casa (Steam,
+     atualizações, vídeos), para medir a conexão e não o uso dela.
+  2. Dê um rótulo ("antes") e clique em Testar a rede: leva cerca de 40 s.
+  3. Mude uma coisa só (QoS do roteador, cabo, porta, buffer do CS2) e
+     repita com o rótulo "depois". No quadro "Testes", marque um como A e
+     o outro como B e clique em "Comparar A x B".
+  O teste de carga transfere dados por alguns segundos em cada sentido
+  (numa conexão de 500 Mb/s, cerca de meio gigabyte). Em conexão com
+  franquia de dados, desmarque "Incluir teste de carga".
+
+COMO DESFAZER
+  Histórico -> "Desfazer tudo" (ou um item/lote). Se preferir, use também a
+  Restauração do Sistema do Windows (o Axion cria um ponto antes dos lotes).
+
+DADOS E PRIVACIDADE
+  - Tudo fica em C:\ProgramData\Axion (journal.json = histórico com os
+    valores anteriores; quarentena\ = sobras de programas desinstalados;
+    downloads\nvidia\ = instalador baixado; apps\instalados.json = o que a
+    página Instalar programas instalou, e apps\export.json enquanto o
+    winget é lido; settings.json, com o perfil e a seleção de programas;
+    axion.log; cs2\ = cópia do cs2_video.txt feita antes do preset do CS2;
+    inicializacao-visto.json = as entradas de inicialização que você já viu).
+  - A pasta é protegida: só administradores alteram o conteúdo, e o
+    histórico e a quarentena são assinados com uma chave que só
+    administradores leem. Se a pasta tiver sido criada por outra conta, o
+    Axion a renomeia para "Axion.nao-confiavel-..." e cria uma nova.
+  - Registros do histórico feitos por versões anteriores à 0.3 aparecem
+    como "versão anterior": Desfazer restaura o que o catálogo atual
+    descreve; correções não são desfeitas a partir deles.
+  - Sem telemetria. O Axion só usa a internet quando você clica:
+    "Procurar atualizações" consulta o Windows Update (Microsoft) e a
+    lista de drivers da NVIDIA (código do modelo da placa e versão do
+    Windows); "Baixar" traz o instalador de download.nvidia.com. Na página
+    Instalar programas, "Ler o que já está instalado", "Instalar marcados"
+    e "Atualizar tudo" rodam o winget da Microsoft, que atualiza o índice
+    do catálogo (cdn.winget.microsoft.com), consulta a Microsoft Store e
+    baixa cada instalador do site do fabricante; o winget tem a telemetria
+    própria da Microsoft (desligável em %LOCALAPPDATA%\Packages\
+    Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState\settings.json,
+    "telemetry": {"disable": true}). Links de fontes e de fabricantes abrem
+    no seu navegador só quando você clica.
+  - A medição de FPS roda o PresentMon (conferido pelo SHA-256 da versão
+    oficial assinada pela Intel e executado a partir de
+    C:\ProgramData\Axion\bin); os resultados ficam só no seu PC.
+  - "Reparar arquivos do Windows" roda o DISM e o SFC do Windows, e o DISM
+    pode buscar arquivos no Windows Update; a exclusão de pacotes de vídeo
+    antigos usa o pnputil do Windows. Só rodam quando você confirma.
+  - A manutenção do SSD só lê o log de eventos do Windows (evento 258 do
+    otimizador de unidades) e usa fsutil/defrag do próprio Windows.
+  - O teste de rede só roda quando você clica e fala com: a Steam (lista
+    pública de relays da Valve), a Cloudflare (speed.cloudflare.com, para
+    encher a conexão; ela vê o seu IP e o volume transferido, como no site
+    dela), os servidores de DNS testados (os configurados, 1.1.1.1, 8.8.8.8
+    e 9.9.9.9) e os endereços que recebem ping (roteador, 1.1.1.1 e relays
+    da Valve). Nenhum resultado é enviado: os testes ficam em
+    C:\ProgramData\Axion\rede.
+  - A interface roda em um servidor local (127.0.0.1) protegido por um token
+    que muda a cada execução.
+
+O QUE O AXION NÃO FAZ
+  Não altera a BIOS (nem grava firmware pelo Windows), não interage com
+  anti-cheats, não apaga cache de shaders nem Prefetch, não "limpa" a RAM e
+  não aplica "tweaks" sem evidência (veja a página "O que não fazemos" e o
+  arquivo MATRIZ-DE-EVIDENCIAS.md). Não mexe em arquivos de jogos: a única
+  exceção é o cs2_video.txt, e só pelo preset opcional do CS2, com cópia e
+  desfazer. Não suspende nem rebaixa programas durante o jogo, não muda
+  afinidade nem prioridade de E/S, não injeta nada nem desenha sobre o jogo,
+  não carrega driver de kernel e não roda PowerShell nem arquivos de lote:
+  usa só registro, WMI, a API do Windows e ferramentas do próprio Windows.
+
+SE ALGO DER ERRADO
+  Sobre -> "Exportar relatório" gera um JSON com o diagnóstico e as medições
+  de periféricos. Envie esse arquivo junto com C:\ProgramData\Axion\axion.log
+  e, se existirem, crash.log, crash-*.log e coleta-erro.log da mesma pasta.
+
+Requisitos: Windows 10 ou 11 de 64 bits. A janela usa o Microsoft Edge
+WebView2 (já incluso no Windows 11 e na maioria dos Windows 10); sem ele, o
+Axion abre no navegador padrão.
