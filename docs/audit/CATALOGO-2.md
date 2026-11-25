@@ -1,0 +1,99 @@
+# Auditoria do catálogo, parte 2
+
+Arquivos: `internal/catalog/input_net.go`, `dns.go`, `fixes.go`, `mmagent.go`, `periph_ops.go`.
+Régua: `REVISAO-DE-MUDANCAS.md`, `excluded.go` e as regras do `AGENTS.md`.
+Auditoria somente leitura (issue #28): nenhum código foi alterado e nenhum teste foi rodado.
+
+## Como foi feito
+
+- Li os cinco arquivos linha por linha e, para cada ajuste, os auxiliares que ele usa (`opsx.go`, `collect/residue.go`, `collect/periph.go`, `facts/nic.go`, `tweaks/model.go`).
+- Baixei as 56 URLs de `Sources` dos cinco arquivos e procurei no texto de cada página o que o catálogo afirma. As que deram 403 ou 503 estão em "Não verificado", com o caminho alternativo que usei.
+- Nada foi executado no Windows. Tudo sobre o que o Windows faz vem da leitura do código e das páginas.
+- Linhas citadas são do `main` em `246119d`. Confiança: alta (li o código ou a página e a divergência é direta), média (depende de leitura ou de contexto), baixa (suspeita razoável). Quando um achado mistura dois graus, ele vem indicado.
+
+## Resumo
+
+- 33 achados numerados (7 de confiança alta, 15 média, 11 baixa) e 2 observações menores em `periph_ops.go`. Os principais:
+  - **F01** `input.usb.power` é "seguro" e 1 clique, mas grava chave `Enum` de hardware.
+  - **F02, F22, F26** leitura que falhou vira estado "normal" ou recomendação.
+  - **F28** a fonte da fila de entrada é um artigo do Windows NT 4.0 que não lista as chaves alteradas.
+  - **F29** a fonte de `fix.power.throttling` não cita o valor e contradiz um trecho do texto.
+- Nenhum item contradiz `excluded.go`. Um texto de `excluded.go` ficou impreciso (F33).
+- O desfazer está correto em todas as operações lidas (veja "Conferido e sem achado").
+
+## `input_net.go`
+
+- **F01** `input_net.go:49-55` (`input.usb.power`). Risco `Safe`, `OneClick` e evidência `High`, mas `selSuspendOp` (`periph_ops.go:212,237`) grava `Enum\<nó>\Device Parameters\SelectiveSuspendEnabled`, chave de hardware. O `REVISAO-DE-MUDANCAS.md` (item 4) proíbe risco seguro e 1 clique aí. A evidência também não se sustenta: `srcHIDSuspend` só descreve o mecanismo (diz que a suspensão já vem desligada por padrão em HID) e a própria linha 73 diz que o ganho em jogo "não é comprovado". Confiança: alta. Correção: `RiskModerate`, `OneClick: false`, evidência `Low`; para manter 1 clique, separar só a parte WMI (`MSPower_DeviceEnable`), que não toca o `Enum`.
+- **F02** `input_net.go:56-66`. `Applicable` confia em `Peripherals.Readable`, que `collect/periph.go:31` marca antes de ler os dispositivos; se `InputDevices()` falha, só `Err` (linha 37) é preenchido. O item responde "nenhum mouse ou teclado pode ser suspenso (padrão do Windows)": leitura que falhou vira "normal". Confiança: alta. Correção: tratar `Peripherals.Err != ""` como "periféricos não lidos".
+- **F03** `input_net.go:26-29`. O texto "garante movimento 1:1" usa a palavra que a régua proíbe. As duas saídas do `Recommend` são `RecYes`, inclusive para quem não joga e para notebook com touchpad; a aceleração é preferência, e `SPI_SETMOUSE` pode alterar também o touchpad sem precisão (não verifiquei). Confiança: alta (palavra), média (recomendação). Correção: "deixa o ponteiro proporcional ao movimento do mouse" e `RecNeutral` sem jogo ou sem mouse externo.
+- **F04** `input_net.go:34-47`. `RecYes` para todos, e o `Detail` não avisa que quem usa Teclas de Aderência ou de Filtro pelo atalho (acessibilidade) perde o atalho. `srcStickyKeys` aponta só para `ns-winuser-stickykeys`, embora o título cite as três estruturas (as páginas de FILTERKEYS e TOGGLEKEYS existem). "Evita que o jogo perca o foco" não foi medido. Confiança: média. Correção: avisar no `Detail`, citar as três páginas e deixar neutro sem jogo.
+- **F05** `input_net.go:356-357,374` (`net.nic.power`). `srcNicPower` é a página do cmdlet `Set-NetAdapterPowerManagement`: não cita `PnPCapabilities` nem o valor 24 (o `Detail` admite que o artigo da Microsoft foi retirado). Evidência `Medium` sem fonte aberta que diga o que o texto afirma. A linha 374 grava 24 no valor inteiro, sem preservar outros bits, e o `Detail` só diz que "pode" desativar o Wake-on-LAN; "evitando quedas e atrasos" não foi medido. Confiança: alta (fonte), média (bits). Correção: evidência `Low` até haver fonte; documentar o significado dos bits do 24 ou mudar só o bit da caixa de energia.
+- **F06** `input_net.go:383,392` (`net.nic.eee`). "O despertar do link custa microssegundos" e "causa quedas de link em algumas placas Realtek" não têm fonte (`srcNdisKeywords` só lista `*EEE`). As palavras-chave de fabricante (`facts/nic.go:11`: `GigaLite`, `PowerSavingMode`…) são tratadas como EEE sem fonte. O `Recommend` diz "inofensivo em desktop", mas nem ele nem o `Applicable` olham notebook, onde desligar EEE gasta mais bateria. Confiança: média. Correção: tirar "microssegundos", citar fonte para as palavras de fabricante e `RecNo` em notebook.
+- **F07** `input_net.go:399,408` (`net.nic.intmod`). "Reduz a latência local em microssegundos" não tem medição. A pesquisa djdallmann que o próprio catálogo cita em `fix.net.throttling` (`srcDjdNetwork`) lista, para a Intel, "Off/Disabled" por último no desempenho de DPC do NDIS e "Medium" como melhor equilíbrio; o item não a cita. Confiança: média (a ordem no texto é ambígua). Correção: "pode reduzir; o Axion não mediu" e citar essa pesquisa.
+- **F08** `input_net.go:415` (`net.nagle`). "CS2, Valorant, Fortnite, Apex… usam UDP" e "Pode ajudar jogos antigos/MMOs" não têm fonte: a única (`srcNagle`) diz que a Microsoft não recomenda mudar e não fala de jogos. Evidência `Low`, `RecNo` e fora do 1 clique estão certos. Confiança: baixa. Correção: fonte ou texto mais fraco.
+- **F09** `input_net.go:444,450-457` (`net.nic.msi`). O `Summary` diz "só vale se o driver ainda usa o modo herdado", mas o `Applicable` só confere "placa Ethernet PCI ativa". Não existe leitura do estado atual do MSI em `facts`, então o item aparece também onde nada mudaria. Risco `Moderate` e fora do 1 clique estão coerentes com `gpu.msi.mode`. Confiança: média. Correção: ler `MSISupported` na coleta ou reescrever o `Summary`.
+- **F10** `input_net.go:479-484` (`fix.nic.speed`). `Applicable` usa `forcedSpeed`, mas `nicKeywordOps` (linha 174) descarta o adaptador se o driver não lista "0" em `Values`. Pode oferecer a correção com zero operações. A norma do gigabit vem da Wikipedia (fonte secundária). Confiança: baixa.
+- **F11** `input_net.go:498-514` (`fix.nic.defaults`). `OneClick` e `Safe`, mas reseta também escolhas deliberadas de Wi-Fi (banda preferida, roaming, Throughput Booster; veja `nicInfo` em `facts/nic.go`) e reinicia os adaptadores (queda de 2 a 5 s). O `Recommend` neutro evita a "Recomendada", mas o plano completo a oferece (`OptionalEligible`). Confiança: baixa.
+- **F12** `input_net.go:530` (`net.tcp.defaults`). `RecYes` para qualquer autotuning diferente de `normal`, inclusive `restricted` e `highlyrestricted`, que algumas pessoas usam de propósito contra roteador ou firewall problemático. O `Detail` só trata de autotuning desligado. Confiança: baixa. Correção: `RecYes` só para `disabled` (e RSS desligado), neutro nos demais.
+
+## `dns.go`
+
+- **F13** `dns.go:221`. O `RiskNote` lista nomes locais, controle dos pais e Wi-Fi público, mas não diz que, com resolvedor público, o provedor passa a ver todos os nomes consultados. Confiança: média. Correção: uma frase sobre privacidade, citando a política de cada serviço.
+- **F14** `dns.go:216,218-219`. "Sites e o login abrem mais rápido" com evidência `Medium`: as fontes só descrevem a API, a RFC 1034, o `ipconfig` e os endereços. O ganho vem da medição do próprio Axion, não de fonte. O texto já condiciona a "quando o DNS atual falha ou demora". Confiança: baixa.
+- Sem achado no restante: o `Summary` diz corretamente que o ping não muda (`excluded.go:167`), `MinBuild` 19041 bate com a página da API, os endereços dos três resolvedores batem com as páginas (incluindo `2620:fe::9`), o item não é 1 clique e o desfazer é exato (veja abaixo).
+
+## `fixes.go`
+
+- **F15** `fixes.go:117,533-536` (`fix.bcd.testsigning` e `fix.bcd.hypervisor`). "EasyAntiCheat, Vanguard e FACEIT se recusam a rodar" e "FACEIT e Vanguard podem exigir VBS": a fonte de `testsigning` (`srcEACDSE`) só trata de EasyAntiCheat, e Vanguard não aparece em nenhuma fonte do arquivo. Confiança: média. Correção: citar a fonte do Vanguard ou tirar o nome.
+- **F16** `fixes.go:142,155` (`fix.bcd.nointegrity`). "Ignorado desde o Windows 7/8" e "sem nenhum uso no Windows atual": a página do `bcdedit /set` diz "ignorado pelo Windows 7 e Windows 8" e não fala de Windows 10/11. A parte "não pode ser marcado com Secure Boot ligado" (linha 143) está na página. Confiança: média. Correção: dizer só o que a página diz.
+- **F17** `fixes.go:71,80`. O texto explica a suspensão do BitLocker pelo caso "sem o Secure Boot validando o boot", mas `bitlockerSuspend` suspende sempre que o BitLocker está `on`, com ou sem Secure Boot. Inofensivo (a suspensão dura um reinício), mas o texto sugere uma condição que o código não aplica. Confiança: baixa. Correção: ajustar o texto.
+- **F18** `fixes.go:180` (`fix.uac`). "Apps da Microsoft Store (inclusive o app Xbox) não abrem" não está em `srcUAC`; a página só lista os valores de `EnableLUA`. Confiança: baixa. Correção: citar fonte ou suavizar.
+- **F19** `fixes.go:197-200` (`fix.tcp.windowscaling`). `srcTCPFeatures` diz "Applies to: Supported versions of Windows Server" e não afirma que o Windows 10/11 respeita `Tcp1323Opts` (lá o escalonamento é do autotuning). Evidência `High` sem essa confirmação. Confiança: média. Correção: confirmar em Windows 10/11 ou baixar a evidência.
+- **F20** `fixes.go:248-251` (`fix.mem.largecache`). `srcLargeCache` é a página do Windows Server 2003/XP; "padrão das edições cliente" não está em fonte para Windows 10/11. Confiança: baixa.
+- **F21** `fixes.go:280-288` (`fix.pagefile`). O corte de 8192 MB é escolha do projeto, sem fonte, e o texto não o chama de "critério do Axion" (regra do `CLAUDE.md`); também ignora a RAM do PC. Confiança: média. Correção: usar "critério do Axion" e considerar a RAM.
+- **F22** `fixes.go:271-282` + `collect/residue.go:151-157,186`. `regVal` engole o erro e devolve valor vazio; `PagingFiles` "não existe" vira `PageFile = "none"`. Uma leitura que falhou aparece como "este PC está sem arquivo de paginação", `RecYes`, e a correção grava `?:\pagefile.sys`. O ramo `"" → configuração não lida` (linha 276) nunca ocorre quando `residue()` rodou. Viola "dado não lido não é normal". Confiança: média (depende de `GetValue` devolver erro só em falha real). Correção: só classificar `none` quando a leitura respondeu.
+- **F23** `fixes.go:294-338` (`fix.services.*`) + `collect/residue.go:23-62`. (a) O padrão de cada serviço ("instalação limpa do Windows 11") não tem fonte aberta: `srcServices` é página do Windows Server e o título admite que só descreve os serviços. (b) `fix.services.apps` diz "Voltam para Manual" (linha 318), mas `iphlpsvc` volta para Automático. (c) Reativa todo serviço desativado do grupo, sem escolha por serviço, com `RecYes` e 1 clique, incluindo Bluetooth, câmera, caneta e relatórios de erro que alguém pode ter desligado de propósito; o texto presume "um script de otimização". Confiança: média. Correção: fonte para os padrões, texto correto e escolha por serviço ou `RecNeutral` nos de preferência.
+- **F24** `fixes.go:340-360` (`fix.update.policies`). `OneClick`, `Safe`, evidência `High`, mas remove `NoAutoUpdate`, `DisableWindowsUpdateAccess` etc., valores que Política de Grupo ou MDM de empresa também gravam e que voltam no próximo refresh. `Applicable` não olha domínio nem MDM e não há `Effect`. `srcWUDrivers` (política de drivers) não sustenta a remoção. Confiança: média. Correção: não aplicar (ou `RecNeutral`) em PC com domínio/MDM e tirar `srcWUDrivers`.
+- **F25** `fixes.go:363` (`fix.trim.on`). "As gravações ficam mais lentas com o tempo e o desgaste aumenta" não está em `srcFsutilTrim` nem em `srcSSDStory` (o artigo fala de retrim e fragmentação). Confiança: baixa.
+- **F26** `fixes.go:515-543` (`fix.bcd.hypervisor`). Com a coleta de jogos não lida (`!f.Read(StepGaming)`, linha 533) o `Recommend` devolve `RecYes`. Como o item é `Safe`, `OneClick` e evidência `High`, entra no plano de 1 clique de quem tem a leitura falha, inclusive de quem desligou o hipervisor para ganhar desempenho. Leitura que falhou vira recomendação. Confiança: alta. Correção: `RecNeutral` quando a leitura falhou.
+- **F27** `fixes.go:516,534-536`. "O FACEIT exige VBS": a página (lida pela cópia do Wayback; veja "Não verificado") descreve uma implantação em ondas: obrigatória acima de 3.000 de Elo desde 08/2025 e em ondas a partir de 11/2025, não para todos. Confiança: média. Correção: "o FACEIT vem exigindo VBS em ondas".
+- **F28** `fixes.go:473-476` (`fix.input.queue`). `srcInputQueue` é o artigo Q102989 do Windows NT 3.5/3.51/4.0. Ele documenta `MouseDataQueueSize` e `KeyboardDataQueueSize` em `Busmouse`, `Inport`, `Sermouse` e `i8042prt`, e cita `Mouclass`/`Kbdclass` só na introdução, sem listar as chaves em `Services\mouclass` e `Services\kbdclass\Parameters` que o item grava. "Padrão documentado pela Microsoft" não vale para essas chaves. O padrão 100 de `mouclass`/`kbdclass` está na pesquisa djdallmann (`srcInputQueueTest`, que sustenta a evidência `Medium`). Confiança: alta. Correção: corrigir o texto e o título da fonte.
+- **F29** `fixes.go:545-566` (`fix.power.throttling`). `srcPowerThrottle` não menciona `PowerThrottlingOff`: a mesma chave `PowerThrottling` aparece lá com outro valor, `DisableUserPresenceQos`. A página também não fala de E-cores e diz que o Windows pode baixar o QoS do app em primeiro plano para Médio após inatividade na bateria, o que contradiz "o jogo em primeiro plano não é limitado" (linha 547). `excluded.go:137-139` repete a afirmação dos E-cores com a mesma fonte. Confiança: alta. Correção: fonte para o valor e ressalva para notebook na bateria.
+- **F30** `fixes.go:605-619` (`fix.mem.compression`). `Recommend` devolve `RecYes` com evidência `Low`, enquanto o `Detail` diz "pode manter assim" e `excluded.go:258-260` diz que quem desligou de propósito pode manter. Confiança: média. Correção: `RecNeutral`.
+- **F31** `fixes.go:568-573` (`fix.priosep`). A lógica dos bits confere com a página, mas `srcPrioSepDoc` é um texto da época do Windows 2000 e não menciona 0x18 nem "Serviços em segundo plano", como o título afirma. `RecYes` também para quem escolheu "Serviços em segundo plano" de propósito (renderização, servidor). Confiança: baixa.
+- **F32** `fixes.go:431-433` (`fix.spectre`). O artigo KB4073119 documenta *adicionar* `FeatureSettingsOverride=0` e `Mask=3` para ligar as mitigações; remover os dois valores volta ao estado sem override, mas não é o que o artigo manda. Confiança: baixa. Correção: dizer "remove os valores".
+
+## `periph_ops.go` e `excluded.go`
+
+- **F33** `excluded.go:89-91`. "O Axion só age em mouse e teclado" é impreciso: `net.nic.power` e `net.nic.eee` também mexem na economia de energia da placa de rede (chave de classe do driver, não `Enum`). Confiança: média. Correção: "no `Enum` só em mouse e teclado".
+- `periph_ops.go:256-266`. `selSuspendOp` grava `DWORD 0` quando o valor é `REG_EXPAND_SZ` ou `QWORD`, apesar do texto "mesmo tipo de valor" (linha 242). O desfazer é exato (snapshot inteiro, linhas 243 e 269-277). Confiança: baixa.
+- `periph_ops.go:161-167`. `InFn` de `devicePowerOp` devolve verdadeiro quando o nó sumiu (`!s.Found`): um dispositivo desconectado conta como "aplicado". É intencional (comentário das linhas 151-153), mas a verificação não distingue de "aplicado de verdade". Confiança: baixa.
+
+## Conferido e sem achado
+
+- **Desfazer exato** (lido em `periph_ops.go`, `mmagent.go`, `opsx.go` e `dns.go`): `bitsClearOp` guarda só os bits que possui e apaga o valor se ele não existia e voltou ao padrão; `devicePowerOp` e `selSuspendOp` guardam o estado antes; `memCompressionOp` guarda o valor lido e só escreve se difere; `bcdOp` guarda "presente/valor"; `trimOnOp`, `taskEnableOp` e `tcpDefaultsOp` guardam o anterior (`tcpDefaultsOp` lê os dois antes de escrever); `mouseOp` guarda os três valores com "não existia"; `dnsOp` guarda a lista estática (não a recebida por DHCP), recusa DNS criptografado e política de grupo, e confere a leitura depois de gravar.
+- **`mmagent.go`**: só liga ou desliga o componente `MemoryCompression`; estado não lido não é tratado como "desligado" (`MMAgentRead`, `facts.go`). Sem achado.
+- **BitLocker**: `numproc`, `truncatememory`, `removememory` e `hypervisorlaunchtype` estão na lista de elementos ignorados pelo BitLocker; `nointegritychecks`, `testsigning` e `nx` estão no perfil padrão. Logo `fix.bcd.limits` e `fix.bcd.hypervisor` sem suspensão e as outras três com suspensão estão certos.
+- **Bits de `Win32PrioritySeparation`**: `NoForegroundBoost` (`facts.go:681`) confere com a página (CC=00 ou BB=10 dão o mesmo tempo ao primeiro e ao segundo plano).
+- **Valores padrão de acessibilidade** (510, 126, 62) e as máscaras dos bits (`HOTKEYACTIVE` 0x4, `FILTERKEYSON` 0x1) conferem com as páginas das estruturas.
+- **Páginas que sustentam o texto**: `ThreadDpcEnable` (padrão ligado; DPC comum interrompe threads), `DisableTaskOffload` (chave para depurar), TDR (só teste e depuração), `defrag` e Hanselman (retrim mensal; desfragmenta SSD com snapshots; TRIM descartado em fila cheia), NVMe (BitLocker e Samsung Magician citados na WinBuzzer), `Tcp1323Opts` (valores 0 a 3), `LargeSystemCache` (efeito), `SetInterfaceDnsSettings` (build 19041), Intel Wi-Fi (banda, roaming, Throughput Booster), autonegociação obrigatória no 1000BASE-T.
+- **Sem conflito com `excluded.go`**: nenhum item das categorias de entrada e rede escreve um alvo excluído, e os itens de `correcoes` só desfazem. O guard (`guard_test.go:48`) isenta a categoria `correcoes` por inteiro, então ele não pegaria um erro nesses itens.
+- **Regra do produto**: nenhum dos itens usa PowerShell, arquivo de lote ou driver de kernel. `netsh.exe`, `bcdedit`, `manage-bde.exe`, `fsutil` e `ipconfig.exe` são ferramentas do Windows.
+
+## Não verificado
+
+- **Páginas que deram 403 ou 503 para o `curl` e que li por outro caminho** (o conteúdo pode ter mudado entre o snapshot e hoje):
+  - `www.faceit.com/en/news/faceit-rollout-of-tpm-secure-boot-iommu-and-vbs`: cópia do Wayback de 03/11/2026.
+  - `support.deadbydaylight.com/.../EasyAntiCheat-EAC-Driver-Enforcement-Error`: cópia do Wayback de 06/09/2025.
+  - `www.intel.com/.../000005585/...`: cópia do Wayback de 27/08/2026.
+  - `www.microsoft.com/.../understanding-the-performance-impact-of-spectre-and-meltdown-...`: abriu com outro `User-Agent`.
+  - `github.com/djdallmann/GamingPCSetup/...` (NETWORK e WINDRIVERS): 503; li o mesmo arquivo em `raw.githubusercontent.com`.
+- **Não abri**: `hothardware.com/news/microsoft-kills-nvme-registry-trick-but-theres-a-workaround` (`srcNVMeHot`, citada em `fix.nvme.override`), bloqueada pelo Cloudflare. O mesmo fato foi conferido na página da WinBuzzer.
+- **Não confirmei, por falta de Windows 10/11 e de fonte aberta**:
+  - se o Windows 10/11 ainda respeita `Tcp1323Opts` (F19);
+  - o que `PnPCapabilities = 24` liga e desliga bit a bit (F05);
+  - os tipos de inicialização de cada serviço em um Windows 11 limpo (F23);
+  - se `GigaLite` e `PowerSavingMode` equivalem a EEE em Realtek e Intel (F06);
+  - se `PS_MMAgent.Enable` e `Disable` exigem reinício, como diz a resposta do Microsoft Q&A (que não é documentação);
+  - se o `HKCU` lido e gravado pelos itens de entrada é o do usuário logado quando o Axion roda elevado por outra conta de administrador.
+- **Fora do escopo, não lido**: `internal/netdiag/verdicts.go` além da linha 509 (como o teste de rede decide "DNS lento ou falhando"), `internal/diag/` e o que `app/plan.go` faz depois do `Recommend`.
