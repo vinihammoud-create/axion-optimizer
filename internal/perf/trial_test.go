@@ -76,8 +76,9 @@ func TestConditionsDiffer(t *testing.T) {
 		{"Hz", base(), mut(func(c *Conditions) { c.DisplayHz = 240 }), true},
 		{"Hz desconhecido", base(), mut(func(c *Conditions) { c.DisplayHz = 0 }), false},
 		{"só programas ocupados", base(), mut(func(c *Conditions) { c.Busy = []Busy{{Name: "x.exe", Pct: 80}} }), false},
-		{"nil", nil, base(), false},
-		{"nil depois", base(), nil, false},
+		{"nil", nil, base(), true},
+		{"nil depois", base(), nil, true},
+		{"nil dos dois lados", nil, nil, true},
 	}
 	for _, tc := range cases {
 		if got := ConditionsDiffer(tc.a, tc.b); got != tc.want {

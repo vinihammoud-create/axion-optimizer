@@ -140,6 +140,16 @@ func (a *App) conditionsNow() *perf.Conditions {
 			}
 		}
 	}
+	if hs, err := a.P.Native.GPUScheduling(); err == nil {
+		switch {
+		case !hs.Supported:
+			c.HAGS = "unsupported"
+		case hs.Enabled:
+			c.HAGS = "on"
+		default:
+			c.HAGS = "off"
+		}
+	}
 	return c
 }
 

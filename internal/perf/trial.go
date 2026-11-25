@@ -150,11 +150,13 @@ func TrialVerdict(c Comparison, condChanged bool) string {
 
 // ConditionsDiffer reports a difference that alone changes the FPS
 // (battery, an economy plan or mode, the plan, the monitor's refresh rate).
+// Conditions missing on either side are a difference too: without them there
+// is no way to tell that the two captures were taken alike.
 // Busy programs vary from one capture to the next: CompareConditions warns
 // about them, they do not void the comparison.
 func ConditionsDiffer(a, b *Conditions) bool {
 	if a == nil || b == nil {
-		return false
+		return true
 	}
 	return a.OnBattery != b.OnBattery ||
 		(a.PowerSaver || a.Efficiency) != (b.PowerSaver || b.Efficiency) ||
