@@ -71,6 +71,27 @@ func totalMs(c *Capture) float64 {
 	return t
 }
 
+// legacySummary is the old Summarize plus the one field added after it, taken
+// straight from the frames, so the comparison with the new code still covers
+// every other number.
+func legacySummary(c *Capture) Summary {
+	s := legacySummarize(c)
+	if s.Frames == 0 {
+		return s
+	}
+	k := 0
+	for _, f := range c.Frames {
+		if !math.IsNaN(f.GPUBusy) && !math.IsNaN(f.CPUWait) {
+			k++
+		}
+	}
+	s.ClassifiedFrac = -1
+	if k > 0 {
+		s.ClassifiedFrac = round(float64(k)/float64(s.Frames), 3)
+	}
+	return s
+}
+
 func TestAccumMatchesLegacySummarize(t *testing.T) {
 	whole := bigCapture(5000)
 	acc := Accum{}
@@ -78,7 +99,7 @@ func TestAccumMatchesLegacySummarize(t *testing.T) {
 	acc.Add(slice(whole, 2000, 3500))
 	acc.Add(nil)
 	acc.Add(slice(whole, 3500, 5000))
-	want := legacySummarize(whole)
+	want := legacySummary(whole)
 	if !reflect.DeepEqual(acc.Summary(), want) {
 		t.Fatalf("Accum em 3 partes difere do Summarize antigo:\n%+v\n%+v", acc.Summary(), want)
 	}
@@ -99,7 +120,7 @@ func TestAccumMatchesLegacySummarize(t *testing.T) {
 	// Edge sizes around the thresholds of the percentiles.
 	for _, n := range []int{0, 1, 2, 99, 100, 999, 1000, 1001} {
 		c := bigCapture(n)
-		if !reflect.DeepEqual(Summarize(c), legacySummarize(c)) {
+		if !reflect.DeepEqual(Summarize(c), legacySummary(c)) {
 			t.Errorf("n=%d: Summarize difere do antigo", n)
 		}
 	}
@@ -139,14 +160,14 @@ func TestAccumMatchesLegacyOnSimulatedCSV(t *testing.T) {
 	if len(c.Frames) < 1000 {
 		t.Fatalf("poucos quadros: %d", len(c.Frames))
 	}
-	if !reflect.DeepEqual(Summarize(c), legacySummarize(c)) {
+	if !reflect.DeepEqual(Summarize(c), legacySummary(c)) {
 		t.Error("Summarize difere do antigo na captura do simulador")
 	}
 	h := len(c.Frames) / 2
 	var acc Accum
 	acc.Add(slice(c, 0, h))
 	acc.Add(slice(c, h, len(c.Frames)))
-	if !reflect.DeepEqual(acc.Summary(), legacySummarize(c)) {
+	if !reflect.DeepEqual(acc.Summary(), legacySummary(c)) {
 		t.Error("Accum em 2 partes difere do antigo na captura do simulador")
 	}
 	if !reflect.DeepEqual(acc.Series(1200), legacySeries(c, 1200)) {
@@ -202,5 +223,66 @@ func TestSessionRunRoundTrip(t *testing.T) {
 	}
 	if n := len(List(dir)); n != 2 {
 		t.Errorf("subpasta apareceu na lista: %d", n)
+	}
+}
+
+// classifiedCapture has n frames of 2.5 ms; the first `classified` carry GPU
+// Busy and CPU Wait (GPU-bound), the rest have no such columns.
+func classifiedCapture(n, classified int) *Capture {
+	nan := math.NaN()
+	c := &Capture{}
+	for i := 0; i < n; i++ {
+		f := Frame{FrameTime: 2.5, Displayed: 2.5, CPUBusy: 1.7, CPUWait: nan, GPUBusy: nan, UntilDisp: 2, InputPhoton: nan, ClickPhoton: nan, PCLatency: nan}
+		if i < classified {
+			f.GPUBusy, f.CPUWait = 2.4, 0.8
+		}
+		c.Frames = append(c.Frames, f)
+	}
+	return c
+}
+
+func TestLimiterNeedsEnoughClassifiedFrames(t *testing.T) {
+	s := Summarize(classifiedCapture(1000, 1))
+	if s.Limiter != "" {
+		t.Errorf("1 quadro classificado em 1000 não basta para o veredito: %q", s.Limiter)
+	}
+	if s.ClassifiedFrac != 0.001 {
+		t.Errorf("fração classificada = %v, esperado 0.001", s.ClassifiedFrac)
+	}
+	if s.GPUBoundPct != 100 || s.CPUBoundPct != 0 || s.WaitPct != 0 {
+		t.Errorf("os percentuais não mudam: %+v", s)
+	}
+
+	s = Summarize(classifiedCapture(1000, 499))
+	if s.Limiter != "" {
+		t.Errorf("499 de 1000 (abaixo de 50%%): %q", s.Limiter)
+	}
+	s = Summarize(classifiedCapture(1000, 500))
+	if s.Limiter != "gpu" || s.ClassifiedFrac != 0.5 {
+		t.Errorf("500 de 1000 (50%%) já dá o veredito: %q, fração %v", s.Limiter, s.ClassifiedFrac)
+	}
+	s = Summarize(classifiedCapture(1000, 1000))
+	if s.Limiter != "gpu" || s.ClassifiedFrac != 1 || s.GPUBoundPct != 100 {
+		t.Errorf("todos classificados: %+v", s)
+	}
+}
+
+func TestLimiterThresholdOverAccumulatedCaptures(t *testing.T) {
+	var a Accum
+	a.Add(classifiedCapture(600, 0))
+	a.Add(classifiedCapture(400, 400))
+	if s := a.Summary(); s.Limiter != "" || s.ClassifiedFrac != 0.4 {
+		t.Errorf("40%% classificados em duas janelas: %q, fração %v", s.Limiter, s.ClassifiedFrac)
+	}
+	a.Add(classifiedCapture(1000, 1000))
+	if s := a.Summary(); s.Limiter != "gpu" || s.ClassifiedFrac != 0.7 {
+		t.Errorf("70%% classificados: %q, fração %v", s.Limiter, s.ClassifiedFrac)
+	}
+}
+
+func TestClassifiedFracWithoutColumns(t *testing.T) {
+	s := Summarize(classifiedCapture(1000, 0))
+	if s.ClassifiedFrac != -1 || s.Limiter != "" || s.GPUBoundPct != -1 {
+		t.Errorf("sem colunas: %+v", s)
 	}
 }
