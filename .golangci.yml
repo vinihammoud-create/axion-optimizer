@@ -1,0 +1,22 @@
+# golangci-lint (configuration format 2), used by .github/workflows/analise.yml.
+version: "2"
+
+linters:
+  # standard: errcheck, govet, ineffassign, staticcheck and unused.
+  default: standard
+  enable:
+    - gosec
+    - bodyclose
+  exclusions:
+    generated: lax
+    rules:
+      # Tests run on the simulated PC (internal/sys/mocksys): file paths and
+      # permissions there are not an attack surface.
+      - path: _test\.go
+        linters:
+          - gosec
+
+issues:
+  # The first runs are a baseline: show everything, not a sample.
+  max-issues-per-linter: 0
+  max-same-issues: 0
