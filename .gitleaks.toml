@@ -1,0 +1,9 @@
+# gitleaks, used by .github/workflows/analise.yml.
+[extend]
+useDefault = true
+
+# third_party/ is vendored upstream code (golang.org/x/sys, go-ole,
+# go-webview2): constants there look like keys to the generic rule.
+[allowlist]
+description = "código de terceiros"
+paths = ['''^third_party/''']

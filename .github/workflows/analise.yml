@@ -104,4 +104,4 @@ jobs:
           fetch-depth: 0 # the whole history is scanned
 
       - name: Segredos no histórico
-        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git --redact --no-banner --verbose /repo
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git --config=/repo/.gitleaks.toml --redact --no-banner --verbose /repo
