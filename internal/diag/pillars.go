@@ -54,7 +54,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 	gb := float64(f.RAM.TotalBytes) / (1 << 30)
 	ram := fmt.Sprintf("%.0f GB", gb)
 	threads := f.CPU.Threads
-	cpu := fmt.Sprintf("%s: %d núcleos / %d threads", orText(f.CPU.Name, "processador"), f.CPU.Cores, threads)
+	cpu := cpuText(f)
 
 	switch {
 	case p.Gaming:
@@ -84,12 +84,13 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 		// names is DirectX 11 capable today; what is left is the memory and
 		// having a driver at all.
 		g := f.PrimaryGPU()
+		// Without a GPU or its memory read, there is nothing to conclude.
 		switch {
 		case g == nil:
-			add(Finding{ID: "cap.gpu", Severity: SevWarning, Title: "Placa de vídeo não identificada", Evidence: "A análise não encontrou uma placa de vídeo com driver.", Explanation: "Sem o driver do fabricante o Windows usa o adaptador básico, que não serve para o CS2.", Sources: []tweaks.Source{srcCS2Req}})
 		case g.BasicDriver:
 			add(Finding{ID: "cap.gpu", Severity: SevCritical, Title: "Placa de vídeo sem driver do fabricante: " + g.Name, Evidence: "Driver em uso: adaptador básico da Microsoft (display.inf).", Explanation: "O CS2 exige DirectX 11 com Shader Model 5.0, o que só o driver do fabricante oferece. Instale o driver (página Drivers).", Sources: []tweaks.Source{srcCS2Req}})
-		case g.VRAMMiB > 0 && g.VRAMMiB < 1000:
+		case g.VRAMMiB == 0:
+		case g.VRAMMiB < 1000:
 			add(Finding{ID: "cap.gpu", Severity: SevCritical, Title: fmt.Sprintf("Placa de vídeo abaixo do mínimo do CS2 (%d MB; a Valve pede 1 GB)", g.VRAMMiB), Evidence: g.Name + fmt.Sprintf(": %d MB de memória de vídeo.", g.VRAMMiB), Sources: []tweaks.Source{srcCS2Req}})
 		case g.Integrated:
 			add(Finding{ID: "cap.gpu", Severity: SevWarning, Title: "Só a GPU integrada para o CS2: " + g.Name, Evidence: g.Name + vramText(g.VRAMMiB) + "; nenhuma placa dedicada encontrada.", Explanation: "Atende ao mínimo da Valve, mas uma GPU integrada divide a memória com o sistema e costuma ficar abaixo da taxa de monitores rápidos; a medição de FPS mostra onde ela chega.", Sources: []tweaks.Source{srcCS2Req}})
@@ -123,12 +124,15 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 			add(Finding{ID: "cap.ram", Severity: SevGood, Title: "Memória de " + ram + " para edição (mínimo 16 GB, 32 GB com Fusion)", Evidence: "Memória instalada: " + ram + ".", Sources: []tweaks.Source{srcResolveHW}})
 		}
 		g := f.PrimaryGPU()
+		// Without a GPU or its memory read, there is nothing to conclude.
 		switch {
-		case g == nil || g.BasicDriver:
+		case g == nil:
+		case g.BasicDriver:
 			add(Finding{ID: "cap.gpu", Severity: SevCritical, Title: "Placa de vídeo sem driver do fabricante", Evidence: "A análise não encontrou uma placa de vídeo com driver do fabricante.", Explanation: "Os editores de vídeo usam a GPU para efeitos e para o encoder; sem driver nada disso existe.", Sources: []tweaks.Source{srcResolveHW}})
-		case g.VRAMMiB > 0 && g.VRAMMiB < 1900:
+		case g.VRAMMiB == 0:
+		case g.VRAMMiB < 1900:
 			add(Finding{ID: "cap.gpu", Severity: SevWarning, Title: fmt.Sprintf("Placa de vídeo com %d MB: abaixo dos 2 GB mínimos dos editores", g.VRAMMiB), Evidence: g.Name + vramText(g.VRAMMiB) + ".", Explanation: "O DaVinci Resolve pede pelo menos 2 GB de memória de vídeo (4 GB nas configurações recomendadas); com menos, efeitos e timelines em 4K falham por falta de memória da GPU.", Sources: []tweaks.Source{srcResolveHW}})
-		case g.VRAMMiB > 0 && g.VRAMMiB < 3900:
+		case g.VRAMMiB < 3900:
 			add(Finding{ID: "cap.gpu", Severity: SevInfo, Title: fmt.Sprintf("Placa de vídeo com %d MB: atende ao mínimo dos editores (2 GB), abaixo dos 4 GB recomendados", g.VRAMMiB), Evidence: g.Name + vramText(g.VRAMMiB) + ".", Explanation: "Timelines em 4K com efeitos pedem mais memória de vídeo; em 1080p o trabalho segue normal.", Sources: []tweaks.Source{srcResolveHW}})
 		default:
 			title := "Placa de vídeo para edição: " + g.Name
@@ -165,9 +169,10 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 		switch {
 		case threads == 0:
 			add(Finding{ID: "cap.cpu", Severity: SevInfo, Title: "Threads do processador não lidas", Evidence: cpu, Sources: []tweaks.Source{srcTeamsHW}})
-		case f.CPU.Cores < 2 && f.CPU.Cores > 0:
+		case f.CPU.Cores == 0:
+		case f.CPU.Cores < 2:
 			add(Finding{ID: "cap.cpu", Severity: SevCritical, Title: "Processador de 1 núcleo: abaixo do mínimo do Teams (2)", Evidence: cpu, Sources: []tweaks.Source{srcTeamsHW}})
-		case f.CPU.Cores < 4 && f.CPU.Cores > 0:
+		case f.CPU.Cores < 4:
 			add(Finding{ID: "cap.cpu", Severity: SevInfo, Title: fmt.Sprintf("Processador de %d núcleos: atende ao Teams; 4 são recomendados para reuniões grandes", f.CPU.Cores), Evidence: cpu, Sources: []tweaks.Source{srcTeamsHW}})
 		default:
 			add(Finding{ID: "cap.cpu", Severity: SevGood, Title: fmt.Sprintf("Processador com %d núcleos para trabalho e chamadas", f.CPU.Cores), Evidence: cpu, Sources: []tweaks.Source{srcTeamsHW}})
@@ -205,7 +210,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 // cpuCap is the processor item of the uses that scale with cores
 // (creation, programming): no published minimum, a note under n threads.
 func cpuCap(f *facts.Facts, add func(Finding), n int, use string, src tweaks.Source) {
-	cpu := fmt.Sprintf("%s: %d núcleos / %d threads", orText(f.CPU.Name, "processador"), f.CPU.Cores, f.CPU.Threads)
+	cpu := cpuText(f)
 	switch {
 	case f.CPU.Threads == 0:
 		add(Finding{ID: "cap.cpu", Severity: SevInfo, Title: "Threads do processador não lidas", Evidence: cpu, Sources: []tweaks.Source{src}})
@@ -214,6 +219,15 @@ func cpuCap(f *facts.Facts, add func(Finding), n int, use string, src tweaks.Sou
 	default:
 		add(Finding{ID: "cap.cpu", Severity: SevGood, Title: fmt.Sprintf("Processador com %d threads para %s", f.CPU.Threads, use), Evidence: cpu, Sources: []tweaks.Source{src}})
 	}
+}
+
+// cpuText leaves the core count out when it was not read.
+func cpuText(f *facts.Facts) string {
+	name := orText(f.CPU.Name, "processador")
+	if f.CPU.Cores == 0 {
+		return fmt.Sprintf("%s: %d threads", name, f.CPU.Threads)
+	}
+	return fmt.Sprintf("%s: %d núcleos / %d threads", name, f.CPU.Cores, f.CPU.Threads)
 }
 
 func vramText(mib int) string {
