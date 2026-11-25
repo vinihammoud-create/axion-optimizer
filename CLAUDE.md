@@ -14,12 +14,15 @@ Otimizador para Windows 10/11 focado em jogos. Go no backend, interface em HTML/
 - **Marca aprovada, não mexer:** `build/axion-mark.png`, `build/axion.ico`, `docs/img/axion-logo.jpg`, `docs/img/axion-mark.png`, `internal/web/static/logo-*.png`.
 - **Não alterar sem pedido explícito:** `third_party/`, a versão (`cmd/axion/version.go`, `build/axion.manifest`) e o `.syso`.
 
-## Como trabalhar
+## Papéis
 
-- **Um escritor.** Só o Claude Code edita e faz commit. Auditor externo é somente leitura.
-- **Um branch e um pull request por mudança,** a partir de `main`. Nunca commit direto em `main`.
+- **O Claude Code planeja e avalia; não é o executor.** Escreve a tarefa como issue, com arquivos e critério de aceitação; depois lê o pull request pronto, confere contra o código e decide: mesclar, pedir ajuste ou recusar.
+- **Quem executa é um agente externo** (OpenHands), acionado pela etiqueta `openhands` na issue. As regras dele estão em [`AGENTS.md`](AGENTS.md); o ambiente e a verificação automática, em `.openhands/`.
+- **Quem controla é a nuvem:** o `main` só recebe mudança por pull request com o CI verde.
+- **Na avaliação, desconfie do pull request:** o teste novo falha sem a correção? Algo fora do escopo mudou? As regras do produto continuam valendo?
+- **Decide sozinho** o que é correção com teste que prova. **Decide com o dono** o que muda o que o usuário vê, o CI, a publicação de versão ou o gasto.
+- **Economia:** neste notebook, nada de suíte inteira, `go vet ./...` nem agentes em paralelo sem pedido. Achado de segurança ainda sem correção não vai para issue pública.
 - **Mudou o que o Windows faz?** Registre em `build/LEIA-ME.txt`, na seção "NOVO NA x.y".
-- **Peça aprovação antes de:** mudar o CI, publicar versão, gastar em serviço externo.
 
 ## Verificação
 
