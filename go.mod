@@ -2,7 +2,7 @@ module axion
 
 go 1.24.0
 
-toolchain go1.24.7
+toolchain go1.27.4
 
 require (
 	github.com/go-ole/go-ole v1.3.0

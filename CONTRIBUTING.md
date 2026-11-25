@@ -10,7 +10,7 @@ Obrigado pelo interesse. O Axion tem uma regra que vem antes de qualquer código
 
 ## 2. Compilar e testar
 
-Requisitos: Windows, Go 1.24 ou mais novo e Windows PowerShell. As dependências ficam em `third_party/`, então nada é baixado.
+Requisitos: Windows, Go 1.27.4 ou mais novo e Windows PowerShell. As dependências ficam em `third_party/`, então nada é baixado.
 
 ```powershell
 $env:GOFLAGS='-mod=mod'; $env:GOPROXY='off'; $env:GOSUMDB='off'; $env:CGO_ENABLED='0'

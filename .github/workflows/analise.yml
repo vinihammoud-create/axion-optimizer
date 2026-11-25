@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24.x"
+          go-version: "1.27.x"
           cache: false
 
       # Third-party action: pinned to the commit of v9.3.0.
@@ -54,7 +54,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24.x"
+          go-version: "1.27.x"
           cache: false
 
       # The tool itself comes from the network; the code under analysis still
@@ -87,7 +87,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24.x"
+          go-version: "1.27.x"
           cache: false
 
       - name: Testes com o detector de corrida

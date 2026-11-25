@@ -161,7 +161,7 @@ O `LEIA-ME.txt` do pacote explica o caso do "Controle inteligente de aplicativos
 
 ## Compilar e contribuir
 
-Requisitos: Windows, Go 1.24 ou mais novo e Windows PowerShell. As dependências ficam em `third_party/`, então a compilação não precisa de internet.
+Requisitos: Windows, Go 1.27.4 ou mais novo e Windows PowerShell. As dependências ficam em `third_party/`, então a compilação não precisa de internet.
 
 ```powershell
 .\build\build.ps1          # testes, executável e pacote .zip
