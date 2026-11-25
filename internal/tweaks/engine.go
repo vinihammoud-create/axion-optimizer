@@ -750,12 +750,21 @@ func (e *Engine) revertOne(ctx context.Context, f *facts.Facts, ent *Entry, o Re
 			r := &recs[p.idx]
 			now, err := captureLike(c, p.op, r.Before)
 			if err != nil {
+				conflicts = append(conflicts, r.Describe+" (não foi possível ler o estado atual: "+err.Error()+")")
 				continue
 			}
-			if len(r.After) > 0 && !snapEqual(p.op, now, r.After) {
-				if snapEqual(p.op, now, r.Before) {
-					continue // already back to the original: nothing to do for this op
+			if snapEqual(p.op, now, r.Before) {
+				continue // already back to the original: nothing to do for this op
+			}
+			if len(r.After) > 0 {
+				if !snapEqual(p.op, now, r.After) {
+					conflicts = append(conflicts, r.Describe+" (atual: "+p.op.Current(c)+")")
 				}
+				continue
+			}
+			// No "after": the apply was interrupted, so what is there is either
+			// what Axion was writing or someone else's change.
+			if ok, err := p.op.InTarget(c); err != nil || !ok {
 				conflicts = append(conflicts, r.Describe+" (atual: "+p.op.Current(c)+")")
 			}
 		}
