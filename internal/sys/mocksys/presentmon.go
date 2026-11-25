@@ -39,6 +39,11 @@ func (m *Mock) simulatePresentMon(args []string) sys.Result {
 	m.PMRuns++
 	run := m.PMRuns
 	m.mu.Unlock()
+	if fail == "" {
+		// Like the real program, it says it is recording before the frames
+		// come, not after them: whatever reads its output relies on that order.
+		m.X.emitLive(args, "Started recording.")
+	}
 	if hook != nil {
 		hook(run, args) // outside the lock: the test may touch the Mock
 	}

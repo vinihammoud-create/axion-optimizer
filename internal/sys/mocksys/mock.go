@@ -524,6 +524,16 @@ type Runner struct {
 	// is cancelled first (like the real runner). Tests use it to keep a
 	// long tool "running" so a job can be cancelled.
 	Hold func(exe string, args []string) <-chan struct{}
+
+	// live holds the OnLine of the calls in flight, by arguments, so a handler
+	// can print a line while it still runs (see emitLive). Guarded by mu.
+	live map[string]*liveCall
+}
+
+// liveCall is a call in flight whose handler may print lines before it answers.
+type liveCall struct {
+	onLine  func(string)
+	printed int
 }
 
 // NewRunner creates a recording runner.
@@ -541,7 +551,20 @@ func (r *Runner) Run(ctx context.Context, exe string, args []string, opts sys.Ru
 	r.mu.Lock()
 	r.Calls = append(r.Calls, Call{Exe: exe, Args: append([]string(nil), args...)})
 	h, hold := r.Handler, r.Hold
+	lc := &liveCall{onLine: opts.OnLine}
+	key := liveKey(args)
+	if opts.OnLine != nil {
+		if r.live == nil {
+			r.live = map[string]*liveCall{}
+		}
+		r.live[key] = lc
+	}
 	r.mu.Unlock()
+	defer func() {
+		r.mu.Lock()
+		delete(r.live, key)
+		r.mu.Unlock()
+	}()
 	if hold != nil {
 		if ch := hold(exe, args); ch != nil {
 			select {
@@ -553,7 +576,7 @@ func (r *Runner) Run(ctx context.Context, exe string, args []string, opts sys.Ru
 	}
 	if h != nil {
 		if res, ok := h(exe, args, ""); ok {
-			emit(opts, res)
+			emit(opts, res, lc.printed)
 			return res, nil
 		}
 	}
@@ -563,18 +586,42 @@ func (r *Runner) Run(ctx context.Context, exe string, args []string, opts sys.Ru
 	if !ok {
 		res = sys.Result{ExitCode: 0}
 	}
-	emit(opts, res)
+	emit(opts, res, 0)
 	return res, nil
 }
 
-func emit(opts sys.RunOpts, res sys.Result) {
+func liveKey(args []string) string { return strings.Join(args, "\x00") }
+
+// emitLive prints a line of the call running with these arguments right away,
+// as a real program does, instead of with the rest of its output when it
+// answers. The lines printed this way must be the first ones of Stdout.
+func (r *Runner) emitLive(args []string, line string) {
+	r.mu.Lock()
+	lc := r.live[liveKey(args)]
+	if lc != nil {
+		lc.printed++
+	}
+	r.mu.Unlock()
+	if lc != nil {
+		lc.onLine(line)
+	}
+}
+
+// emit sends the lines of Stdout to OnLine, except the first skip ones
+// (already printed by emitLive).
+func emit(opts sys.RunOpts, res sys.Result, skip int) {
 	if opts.OnLine == nil {
 		return
 	}
 	for _, l := range strings.Split(strings.ReplaceAll(res.Stdout, "\r\n", "\n"), "\n") {
-		if strings.TrimSpace(l) != "" {
-			opts.OnLine(l)
+		if strings.TrimSpace(l) == "" {
+			continue
 		}
+		if skip > 0 {
+			skip--
+			continue
+		}
+		opts.OnLine(l)
 	}
 }
 
