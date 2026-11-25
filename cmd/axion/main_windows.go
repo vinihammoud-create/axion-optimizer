@@ -60,10 +60,13 @@ var (
 // code from where they point: the WebView2 loader takes its browser folder
 // and extra arguments from WEBVIEW2_*, and the .NET runtime (MMC snap-ins
 // opened from Axion run elevated) loads profilers named by COR_*, COMPlus_*
-// and DOTNET_*. Axion runs as administrator and inherits the user's
-// environment, which any program of that user can change, so they go before
-// anything starts.
-var hostileEnvPrefixes = []string{"WEBVIEW2_", "COR_", "COMPLUS_", "DOTNET_", "CORECLR_"}
+// and DOTNET_*. SSL_CERT_FILE and SSL_CERT_DIR replace the Windows
+// certificate store with a file of the user's choosing (Go 1.27 and later
+// honor them on Windows), and GODEBUG switches off security defaults of the
+// Go runtime and standard library. Axion runs as administrator and inherits
+// the user's environment, which any program of that user can change, so they
+// go before anything starts.
+var hostileEnvPrefixes = []string{"WEBVIEW2_", "COR_", "COMPLUS_", "DOTNET_", "CORECLR_", "SSL_CERT_", "GODEBUG"}
 
 func scrubEnvironment() {
 	for _, kv := range os.Environ() {
