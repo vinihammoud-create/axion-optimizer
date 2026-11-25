@@ -1,0 +1,78 @@
+# Starts an OpenHands Cloud conversation when the `openhands` label is put on
+# an issue. Only the owner's label starts it: the label event of anyone else is
+# ignored. The conversation receives the issue number and link, never the issue
+# text, so what other people write in an issue cannot steer the agent.
+name: OpenHands
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: openhands-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  iniciar:
+    if: github.event.label.name == 'openhands' && github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+      REPO: ${{ github.repository }}
+      BASE_URL: https://app.all-hands.dev
+    steps:
+      - name: Conferir o segredo
+        run: |
+          if [ -z "$OPENHANDS_API_KEY" ]; then
+            echo "::error::O segredo OPENHANDS_API_KEY não existe neste repositório."
+            exit 1
+          fi
+
+      - name: Iniciar a conversa
+        run: |
+          msg="Resolva a issue nº $ISSUE do repositório $REPO: https://github.com/$REPO/issues/$ISSUE
+          Leia a issue inteira e o arquivo AGENTS.md antes de começar e siga os dois à risca.
+          Entregue um pull request contra main com \"Closes #$ISSUE\" na descrição. Não mescle."
+          body=$(jq -n --arg repo "$REPO" --arg msg "$msg" --arg title "Resolver issue #$ISSUE" '{
+            selected_repository: $repo,
+            selected_branch: "main",
+            git_provider: "github",
+            title: $title,
+            initial_message: { role: "user", content: [{type: "text", text: $msg}], run: true }
+          }')
+          # The docs show two header formats; send both.
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X POST "$BASE_URL/api/v1/app-conversations" \
+            -H "Authorization: Bearer $OPENHANDS_API_KEY" \
+            -H "X-Access-Token: $OPENHANDS_API_KEY" \
+            -H "Content-Type: application/json" -d "$body")
+          echo "HTTP $code"
+          jq 'del(.request)' resp.json || cat resp.json
+          if [ "$code" -ge 300 ]; then exit 1; fi
+          echo "TASK_ID=$(jq -r '.id' resp.json)" >> "$GITHUB_ENV"
+
+      - name: Esperar a conversa ficar pronta
+        run: |
+          for i in $(seq 1 30); do
+            curl -sS -o st.json "$BASE_URL/api/v1/app-conversations/start-tasks?ids=$TASK_ID" \
+              -H "Authorization: Bearer $OPENHANDS_API_KEY" -H "X-Access-Token: $OPENHANDS_API_KEY"
+            status=$(jq -r '.[0].status // "?"' st.json)
+            conv=$(jq -r '.[0].app_conversation_id // empty' st.json)
+            echo "status: $status"
+            if [ "$status" = "READY" ] && [ -n "$conv" ]; then
+              echo "CONV_ID=$conv" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            if [ "$status" = "ERROR" ]; then jq '.[0] | del(.request)' st.json; exit 1; fi
+            sleep 10
+          done
+          echo "A conversa não ficou pronta em 5 minutos."; exit 1
+
+      - name: Avisar na issue
+        run: |
+          gh issue comment "$ISSUE" --repo "$REPO" --body "OpenHands iniciou esta tarefa: $BASE_URL/conversations/$CONV_ID"
