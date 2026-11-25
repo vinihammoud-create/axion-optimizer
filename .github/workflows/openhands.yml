@@ -1,5 +1,5 @@
-# Starts an OpenHands Cloud conversation when the `openhands` label is put on
-# an issue. Only the owner's label starts it: the label event of anyone else is
+# Starts an OpenHands Cloud conversation when the `executar` label is put on
+# an issue (not `openhands`: the OpenHands GitHub app watches that one and would start a duplicate). Only the owner's label starts it; the label event of anyone else is
 # ignored. The conversation receives the issue number and link, never the issue
 # text, so what other people write in an issue cannot steer the agent.
 name: OpenHands
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   iniciar:
-    if: github.event.label.name == 'openhands' && github.actor == github.repository_owner
+    if: github.event.label.name == 'executar' && github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

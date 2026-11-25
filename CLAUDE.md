@@ -17,7 +17,7 @@ Otimizador para Windows 10/11 focado em jogos. Go no backend, interface em HTML/
 ## Papéis
 
 - **O Claude Code planeja e avalia; não é o executor.** Escreve a tarefa como issue, com arquivos e critério de aceitação; depois lê o pull request pronto, confere contra o código e decide: mesclar, pedir ajuste ou recusar.
-- **Quem executa é um agente externo** (OpenHands), acionado pela etiqueta `openhands` na issue. As regras dele estão em [`AGENTS.md`](AGENTS.md); o ambiente e a verificação automática, em `.openhands/`.
+- **Quem executa é um agente externo** (OpenHands), acionado pela etiqueta `executar` na issue (fluxo `.github/workflows/openhands.yml`; não use `openhands`, que o aplicativo do OpenHands também monitora). As regras dele estão em [`AGENTS.md`](AGENTS.md); o ambiente e a verificação automática, em `.openhands/`.
 - **Quem controla é a nuvem:** o `main` só recebe mudança por pull request com o CI verde.
 - **Na avaliação, desconfie do pull request:** o teste novo falha sem a correção? Algo fora do escopo mudou? As regras do produto continuam valendo?
 - **Decide sozinho** o que é correção com teste que prova. **Decide com o dono** o que muda o que o usuário vê, o CI, a publicação de versão ou o gasto.
