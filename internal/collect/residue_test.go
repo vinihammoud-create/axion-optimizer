@@ -2,6 +2,7 @@ package collect_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"axion/internal/collect"
@@ -80,4 +81,55 @@ func findDisabled(list []facts.DisabledService, name string) (facts.DisabledServ
 func hasDisabled(list []facts.DisabledService, name string) bool {
 	_, ok := findDisabled(list, name)
 	return ok
+}
+
+// failingReg answers with an error for the values named in fail, as the real
+// registry does when a key denies access.
+type failingReg struct {
+	sys.Registry
+	fail map[string]bool
+}
+
+func (r failingReg) GetValue(path, name string) (sys.RegValue, error) {
+	if r.fail[name] {
+		return sys.RegValue{}, errors.New("acesso negado (simulado)")
+	}
+	return r.Registry.GetValue(path, name)
+}
+
+func collectWithFailingReads(t *testing.T, names ...string) *facts.Facts {
+	t.Helper()
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fail := map[string]bool{}
+	for _, n := range names {
+		fail[n] = true
+	}
+	p := *m.Platform
+	p.Reg = failingReg{Registry: m.R, fail: fail}
+	return collect.Collect(context.Background(), &p, nil)
+}
+
+// A PagingFiles value that could not be read is unknown, never "none".
+func TestPagingFilesUnreadableIsUnknown(t *testing.T) {
+	if r := collectWithFailingReads(t, "PagingFiles").Residue; r.PageFile != "unknown" {
+		t.Errorf("PagingFiles ilegível: PageFile = %q, esperado \"unknown\"", r.PageFile)
+	}
+	_, collectNow := collectMock(t)
+	if r := collectNow().Residue; r.PageFile == "unknown" || r.PageFile == "none" {
+		t.Errorf("leitura normal não pode virar %q", r.PageFile)
+	}
+}
+
+// A MouseSpeed that could not be read is not "acceleration on".
+func TestMouseSpeedUnreadableIsNotRead(t *testing.T) {
+	if g := collectWithFailingReads(t, "MouseSpeed").Gaming; g.MouseAccelRead || g.MouseAccelOn {
+		t.Errorf("MouseSpeed ilegível: lido=%v ligada=%v", g.MouseAccelRead, g.MouseAccelOn)
+	}
+	_, collectNow := collectMock(t)
+	if g := collectNow().Gaming; !g.MouseAccelRead || !g.MouseAccelOn {
+		t.Errorf("leitura normal (MouseSpeed=1): lido=%v ligada=%v", g.MouseAccelRead, g.MouseAccelOn)
+	}
 }

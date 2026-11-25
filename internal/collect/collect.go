@@ -1029,7 +1029,10 @@ func (c *collector) gaming() {
 		}
 	})
 	g.WindowedOpt = strings.Contains(strings.ReplaceAll(c.regStr(`HKCU\Software\Microsoft\DirectX\UserGpuPreferences`, "DirectXUserGlobalSettings"), " ", ""), "SwapEffectUpgradeEnable=1")
-	g.MouseAccelOn = strings.TrimSpace(c.regStr(`HKCU\Control Panel\Mouse`, "MouseSpeed")) != "0"
+	if _, err := c.p.Reg.GetValue(`HKCU\Control Panel\Mouse`, "MouseSpeed"); err == nil {
+		g.MouseAccelRead = true
+		g.MouseAccelOn = strings.TrimSpace(c.regStr(`HKCU\Control Panel\Mouse`, "MouseSpeed")) != "0"
+	}
 	g.StickyHotkeyOn = c.regInt(`HKCU\Control Panel\Accessibility\StickyKeys`, "Flags", 510)&4 != 0
 	// Anti-cheats are found by their service entry in the registry: nothing
 	// is asked of the anti-cheat services themselves.
