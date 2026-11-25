@@ -354,6 +354,7 @@ type Adapter struct {
 // SecurityInfo describes platform security features relevant to anti-cheat.
 type SecurityInfo struct {
 	VBSRunning        bool   `json:"vbsRunning"`
+	DeviceGuardRead   bool   `json:"deviceGuardRead"` // Win32_DeviceGuard answered (false: VBS state unknown, not off)
 	VBSConfigured     bool   `json:"vbsConfigured"`
 	HVCIRunning       bool   `json:"hvciRunning"`
 	SecureBoot        string `json:"secureBoot"` // "on", "off", "unsupported", "unknown"

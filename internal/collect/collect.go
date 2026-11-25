@@ -854,6 +854,7 @@ func (c *collector) security() {
 	s := &c.f.Security
 	s.IOMMU = "unknown"
 	if rows := c.query(`root\Microsoft\Windows\DeviceGuard`, "SELECT VirtualizationBasedSecurityStatus, SecurityServicesRunning, SecurityServicesConfigured, AvailableSecurityProperties FROM Win32_DeviceGuard"); len(rows) > 0 {
+		s.DeviceGuardRead = true
 		st := rows[0].Int("VirtualizationBasedSecurityStatus")
 		s.VBSRunning = st == 2
 		s.VBSConfigured = st >= 1
@@ -906,13 +907,19 @@ func (c *collector) security() {
 			}
 		}
 	}
-	switch v := c.regInt(`HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State`, "UEFISecureBootEnabled", -1); v {
-	case 1:
-		s.SecureBoot = "on"
-	case 0:
-		s.SecureBoot = "off"
-	default:
-		s.SecureBoot = "unsupported"
+	const sbState = `HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State`
+	if _, err := c.p.Reg.GetValue(sbState, "UEFISecureBootEnabled"); err != nil {
+		s.SecureBoot = "unknown"
+		c.errf("Secure Boot: %v", err)
+	} else {
+		switch c.regInt(sbState, "UEFISecureBootEnabled", -1) {
+		case 1:
+			s.SecureBoot = "on"
+		case 0:
+			s.SecureBoot = "off"
+		default:
+			s.SecureBoot = "unsupported"
+		}
 	}
 	if rows, err := c.p.WMI.Query(`root\CIMV2\Security\MicrosoftTpm`, "SELECT IsEnabled_InitialValue, IsActivated_InitialValue, SpecVersion FROM Win32_Tpm"); err == nil {
 		s.TPMRead = true

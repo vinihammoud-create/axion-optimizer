@@ -2,6 +2,7 @@ package collect_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -153,5 +154,95 @@ func TestParsePagingFilesMixed(t *testing.T) {
 	}
 	if m, mx := collect.ParsePagingFiles([]string{`C:\pagefile.sys 4096 4096`, `D:\pagefile.sys 4096 4096`}); m != "custom" || mx != 8192 {
 		t.Errorf("two custom files: %s %d", m, mx)
+	}
+}
+
+type failingReg struct {
+	sys.Registry
+	name string
+}
+
+func (r failingReg) GetValue(path, name string) (sys.RegValue, error) {
+	if name == r.name {
+		return sys.RegValue{}, errors.New("acesso negado (simulado)")
+	}
+	return r.Registry.GetValue(path, name)
+}
+
+type failingWMI struct {
+	sys.WMI
+	class string
+}
+
+func (w failingWMI) Query(ns, wql string) ([]sys.WMIRow, error) {
+	if strings.Contains(wql, w.class) {
+		return nil, errors.New("tempo esgotado (simulado)")
+	}
+	return w.WMI.Query(ns, wql)
+}
+
+func criticalAntiCheat(r *diag.Report) *diag.Finding {
+	for i, x := range r.Findings {
+		if strings.HasPrefix(x.ID, "sec.anticheat") && x.Severity == diag.SevCritical {
+			return &r.Findings[i]
+		}
+	}
+	return nil
+}
+
+// A failed read of Secure Boot is "unknown", not "unsupported", and never
+// becomes an anti-cheat alarm.
+func TestSecureBootReadErrorIsUnknown(t *testing.T) {
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Platform.Reg = failingReg{Registry: m.Platform.Reg, name: "UEFISecureBootEnabled"}
+	f := collect.Collect(context.Background(), m.Platform, nil)
+	if f.Security.SecureBoot != "unknown" {
+		t.Errorf("Secure Boot com erro de leitura: %q", f.Security.SecureBoot)
+	}
+	if x := criticalAntiCheat(diag.Build(f, nil)); x != nil {
+		t.Errorf("leitura que falhou virou alarme: %+v", x)
+	}
+}
+
+// A legacy BIOS has no UEFISecureBootEnabled value: that answer is real.
+func TestSecureBootAbsentIsUnsupported(t *testing.T) {
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.R.DeleteValue(`HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State`, "UEFISecureBootEnabled"); err != nil {
+		t.Fatal(err)
+	}
+	f := collect.Collect(context.Background(), m.Platform, nil)
+	if f.Security.SecureBoot != "unsupported" {
+		t.Errorf("BIOS Legacy: %q", f.Security.SecureBoot)
+	}
+	if criticalAntiCheat(diag.Build(f, nil)) == nil {
+		t.Error("BIOS Legacy com FACEIT continua sendo requisito não atendido")
+	}
+}
+
+// Win32_DeviceGuard that did not answer says nothing about VBS.
+func TestDeviceGuardReadErrorIsNotVBSOff(t *testing.T) {
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := collect.Collect(context.Background(), m.Platform, nil)
+	if !f.Security.DeviceGuardRead || !f.Security.VBSRunning {
+		t.Errorf("consulta respondeu: %+v", f.Security)
+	}
+	m.Platform.WMI = failingWMI{WMI: m.Platform.WMI, class: "Win32_DeviceGuard"}
+	f = collect.Collect(context.Background(), m.Platform, nil)
+	if f.Security.DeviceGuardRead {
+		t.Errorf("consulta falhou e foi marcada como lida: %+v", f.Security)
+	}
+	for _, x := range diag.Build(f, nil).Findings {
+		if x.ID == "sec.anticheat.vbs" {
+			t.Errorf("VBS não lido virou aviso: %+v", x)
+		}
 	}
 }

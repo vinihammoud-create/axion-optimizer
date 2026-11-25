@@ -39,3 +39,29 @@ func TestAntiCheatGoodNotEmittedWithoutTPMRead(t *testing.T) {
 		}
 	}
 }
+
+func TestUnreadSecurityIsNotAnAlarm(t *testing.T) {
+	for _, ac := range []string{"FACEIT", "Gamers Club"} {
+		f := base()
+		f.Gaming.AntiCheats = []string{ac}
+		f.Security = facts.SecurityInfo{TPMRead: true, TPMReady: true, TPMVersion: "2.0", SecureBoot: "unknown", DeviceGuardRead: true, VBSRunning: true}
+		for _, x := range diag.Build(f, nil).Findings {
+			if strings.HasPrefix(x.ID, "sec.anticheat") {
+				t.Errorf("%s com Secure Boot não lido: %+v", ac, x)
+			}
+		}
+	}
+
+	f := base()
+	f.Gaming.AntiCheats = []string{"FACEIT"}
+	f.Security = facts.SecurityInfo{TPMRead: true, TPMReady: true, TPMVersion: "2.0", SecureBoot: "on", DeviceGuardRead: false}
+	for _, x := range diag.Build(f, nil).Findings {
+		if x.ID == "sec.anticheat.vbs" {
+			t.Errorf("DeviceGuard não lido virou aviso de VBS: %+v", x)
+		}
+	}
+	f.Security.DeviceGuardRead = true
+	if find(diag.Build(f, nil), "sec.anticheat.vbs") == nil {
+		t.Error("DeviceGuard lido com VBS desligado continua gerando o aviso")
+	}
+}
