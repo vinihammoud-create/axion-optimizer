@@ -397,32 +397,7 @@ func (a *App) scan(ctx context.Context, c *JobCtl) (any, error) {
 	a.rescanGames()
 	c.Progress(0.84, "Histórico de estabilidade (30 dias)")
 	log.Printf("análise: histórico de estabilidade")
-	var evs []sys.Event
-	if e, err := a.P.Events.Query("System", stabilityXPath, stabilityMax); err == nil {
-		evs = e
-		if sym, err := a.P.Events.Query("System", symptomXPath, symptomMax); err == nil {
-			evs = append(evs, sym...)
-		} else {
-			c.Logf("aviso: sintomas no log de eventos: %v", err)
-		}
-		if boots, err := a.P.Events.Query("System", bootXPath, bootMax); err == nil {
-			evs = append(evs, boots...)
-		} else {
-			c.Logf("aviso: horários de inicialização no log de eventos: %v", err)
-		}
-		if th, err := a.P.Events.Query("System", thermalXPath, thermalMax); err == nil {
-			evs = append(evs, th...)
-		} else {
-			c.Logf("aviso: eventos térmicos no log de eventos: %v", err)
-		}
-		// The channel exists from Windows 8 on; without it there is just no
-		// passive cooling history to read.
-		if th, err := a.P.Events.Query(diag.ChanThermal, thermalOpXPath, thermalMax); err == nil {
-			evs = append(evs, th...)
-		}
-	} else {
-		c.Logf("aviso: log de eventos: %v", err)
-	}
+	evs := a.stabilityEvents(c, f)
 	c.Progress(0.9, "Avaliando otimizações")
 	log.Printf("análise: avaliando otimizações")
 	st := a.computeStates(ctx, f)
@@ -434,6 +409,36 @@ func (a *App) scan(ctx context.Context, c *JobCtl) (any, error) {
 	gl, _ := a.Games()
 	c.Logf("análise concluída: nota %d (%s), %d achados, %d jogos", rep.Overall, rep.Grade, len(rep.Findings), len(gl))
 	return ScanSummary{Seconds: time.Since(start).Seconds(), Overall: rep.Overall, Grade: rep.Grade, Findings: len(rep.Findings), Games: len(gl), Errors: len(f.Errors)}, nil
+}
+
+// stabilityEvents reads the event log queries of the stability history. Each
+// one stands alone: a failure is logged and recorded in f.Unread under the
+// name of its part, and the others still run.
+func (a *App) stabilityEvents(c *JobCtl, f *facts.Facts) []sys.Event {
+	var evs []sys.Event
+	for _, q := range []struct {
+		part, xpath string
+		max         int
+	}{
+		{diag.PartWHEA, stabilityXPath, stabilityMax},
+		{diag.PartSymptoms, symptomXPath, symptomMax},
+		{diag.PartBoots, bootXPath, bootMax},
+		{diag.PartThermal, thermalXPath, thermalMax},
+	} {
+		e, err := a.P.Events.Query("System", q.xpath, q.max)
+		if err != nil {
+			c.Logf("aviso: %s no log de eventos: %v", q.part, err)
+			f.Unread = append(f.Unread, q.part)
+			continue
+		}
+		evs = append(evs, e...)
+	}
+	// The channel exists from Windows 8 on; without it there is just no
+	// passive cooling history to read.
+	if th, err := a.P.Events.Query(diag.ChanThermal, thermalOpXPath, thermalMax); err == nil {
+		evs = append(evs, th...)
+	}
+	return evs
 }
 
 // patchFacts updates part of the machine profile after a quick change made

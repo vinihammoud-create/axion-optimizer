@@ -25,6 +25,15 @@ const (
 	bootWindowLead = 30 * time.Second
 )
 
+// Parts of the stability history, named in Facts.Unread when their query
+// failed.
+const (
+	PartWHEA     = "Histórico de estabilidade › erros de hardware (WHEA)"
+	PartSymptoms = "Histórico de estabilidade › desligamentos inesperados, telas azuis e reinícios do driver de vídeo"
+	PartBoots    = "Histórico de estabilidade › horários de inicialização"
+	PartThermal  = "Histórico de estabilidade › eventos térmicos"
+)
+
 var (
 	srcWHEA = tweaks.Source{Title: "Microsoft Learn — Introdução ao WHEA: erros de hardware não fatais são recuperados sem tela azul", URL: "https://learn.microsoft.com/windows-hardware/drivers/whea/introduction-to-the-windows-hardware-error-architecture"}
 	srcAER  = tweaks.Source{Title: "Kernel Linux — PCIe AER: erros corrigíveis não afetam o funcionamento e são recuperados sem perda de dados", URL: "https://docs.kernel.org/PCI/pcieaer-howto.html"}
@@ -383,9 +392,12 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 		ev += fmt.Sprintf(" Rajada: %d ou mais erros em %d minutos com o PC em uso.", wheaBurst, int(wheaBurstWindow.Minutes()))
 	}
 	if fatal == 0 {
-		if symptoms {
+		switch {
+		case symptoms:
 			ev += " No mesmo período há desligamento inesperado, tela azul ou reinício do driver de vídeo (veja os outros itens)."
-		} else {
+		case f != nil && !f.Read(PartSymptoms):
+			ev += " Não foi possível ler desligamentos inesperados, telas azuis e reinícios do driver de vídeo no período."
+		default:
 			ev += " Nenhum desligamento inesperado, tela azul ou reinício do driver de vídeo no período."
 		}
 	}
