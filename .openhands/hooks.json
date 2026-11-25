@@ -1,0 +1,10 @@
+{
+  "stop": [
+    {
+      "matcher": "*",
+      "hooks": [
+        { "type": "command", "command": ".openhands/hooks/verificar.sh", "timeout": 900 }
+      ]
+    }
+  ]
+}
