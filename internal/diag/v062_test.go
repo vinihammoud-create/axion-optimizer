@@ -238,7 +238,7 @@ func TestWindows10FACEITText(t *testing.T) {
 func TestFACEITWithIOMMUOff(t *testing.T) {
 	f := base()
 	f.Gaming.AntiCheats = []string{"FACEIT"}
-	f.Security = facts.SecurityInfo{TPMReady: true, TPMVersion: "2.0", SecureBoot: "on", VBSRunning: true, IOMMU: "off"}
+	f.Security = facts.SecurityInfo{TPMRead: true, TPMReady: true, TPMVersion: "2.0", SecureBoot: "on", VBSRunning: true, IOMMU: "off"}
 	r := diag.Build(f, nil)
 	if x := find(r, "sec.anticheat.iommu"); x == nil || x.Severity != diag.SevWarning {
 		t.Fatalf("IOMMU desligado com FACEIT: %+v", x)

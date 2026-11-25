@@ -1067,9 +1067,9 @@ var rules = []rule{
 					Actions:     []Action{{Kind: "page", Label: "Ver guia de BIOS", Page: "bios"}},
 					Sources:     srcs})
 			}
-			if len(hard) == 0 && s.VBSRunning && !iommuOff {
+			if len(hard) == 0 && s.VBSRunning && !iommuOff && s.TPMRead {
 				add(Finding{ID: "sec.anticheat", Area: AreaSeguranca, Severity: SevGood, Title: "Requisitos do anti-cheat atendidos",
-					Evidence:    fmt.Sprintf("%s: TPM %s, Secure Boot ligado, VBS em execução%s.", acs, s.TPMVersion, iommuNote(s)),
+					Evidence:    fmt.Sprintf("%s: TPM %s, Secure Boot %s, VBS em execução%s.", acs, orText(s.TPMVersion, "não encontrado"), onOff(s.SecureBoot), iommuNote(s)),
 					Explanation: "Por isso o Axion bloqueia qualquer ajuste que desligue VBS/Integridade de Memória neste PC."})
 			}
 		} else if s.VBSRunning || s.HVCIRunning {
