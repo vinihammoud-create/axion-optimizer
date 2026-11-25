@@ -1,6 +1,7 @@
 package winsys
 
 import (
+	"encoding/binary"
 	"unicode/utf16"
 	"unsafe"
 
@@ -45,7 +46,7 @@ func stringBytes(s string) []byte {
 	u := utf16.Encode([]rune(s))
 	b := make([]byte, 0, 2*len(u)+2)
 	for _, c := range u {
-		b = append(b, byte(c), byte(c>>8))
+		b = binary.LittleEndian.AppendUint16(b, c)
 	}
 	return append(b, 0, 0)
 }
