@@ -563,7 +563,7 @@ func (a *App) perfCaptureJob(req *PerfCaptureRequest) (func(ctx context.Context,
 			note = "o PresentMon não terminou normalmente (" + err.Error() + "); resultado com o que foi gravado"
 		case res.ExitCode != 0:
 			cleanup()
-			return nil, fmt.Errorf("o PresentMon terminou com erro (código %d): %s", res.ExitCode, lastLine(res.Stderr+"\n"+res.Stdout))
+			return nil, presentMonExitError(res)
 		}
 		c.Progress(0.93, "Analisando os quadros")
 		capt, err := readCapture(csvPath, req.Process)
@@ -838,4 +838,17 @@ func (a *App) ComparePerf(req PerfCompareRequest) (PerfComparison, error) {
 		}
 	}
 	return out, nil
+}
+
+// presentMonExitError describes a PresentMon run that ended with a non-zero
+// exit code. Windows status codes (0x80000000 and up) read as hexadecimal.
+func presentMonExitError(res sys.Result) error {
+	last := lastLine(res.Stderr + "\n" + res.Stdout)
+	if code := uint32(res.ExitCode); res.ExitCode < 0 || code >= 0x80000000 {
+		if code == 0xC0000135 {
+			return fmt.Errorf("o PresentMon não iniciou (código 0x%08X): falta um componente do Windows de que ele depende (DLL não encontrada): %s", code, last)
+		}
+		return fmt.Errorf("o PresentMon terminou com erro (código 0x%08X): %s", code, last)
+	}
+	return fmt.Errorf("o PresentMon terminou com erro (código %d): %s", res.ExitCode, last)
 }
