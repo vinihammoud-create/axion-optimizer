@@ -1,0 +1,102 @@
+name: Instalador
+
+on:
+  pull_request:
+    paths:
+      - "installer/**"
+      - "build/installer.ps1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    env:
+      GOFLAGS: -mod=mod
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "0"
+    steps:
+      - name: Finais de linha como no repositório
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.x"
+          cache: false
+
+      - name: Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Versão
+        shell: pwsh
+        run: |
+          $m = Select-String -Path cmd/axion/version.go -Pattern 'Version = "(\d+\.\d+\.\d+)"'
+          if (-not $m) { throw 'versão não encontrada em cmd/axion/version.go' }
+          "VERSION=$($m.Matches[0].Groups[1].Value)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Pacote
+        shell: powershell
+        run: .\build\build.ps1 -Version $env:VERSION -SkipTests
+
+      - name: Instalador
+        shell: powershell
+        run: .\build\installer.ps1 -Version $env:VERSION
+
+      - name: Instalação silenciosa
+        shell: pwsh
+        run: |
+          $setup = "dist\Axion-$env:VERSION-setup.exe"
+          if (-not (Test-Path $setup)) { throw "instalador não gerado: $setup" }
+          $log = Join-Path $env:RUNNER_TEMP 'install.log'
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content $log; throw "instalação falhou: código $($p.ExitCode)" }
+
+          $dir = Join-Path $env:ProgramFiles 'Axion Optimizer'
+          foreach ($f in 'Axion.exe', 'WebView2Loader.dll', 'PresentMon-2.6.0-x64.exe', 'LEIA-ME.txt', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt', 'MATRIZ-DE-EVIDENCIAS.md', 'SHA256SUMS.txt', 'unins000.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { Get-Content $log; throw "falta $f em $dir" }
+          }
+          $lnk = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Axion Optimizer.lnk'
+          if (-not (Test-Path $lnk)) { throw "atalho do menu Iniciar não existe: $lnk" }
+          $desktop = Join-Path $env:Public 'Desktop\Axion Optimizer.lnk'
+          if (Test-Path $desktop) { throw 'o atalho da área de trabalho não deveria existir por padrão' }
+          'instalado em ' + $dir
+
+      - name: Desinstalação silenciosa
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:ProgramFiles 'Axion Optimizer'
+          $lnk = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Axion Optimizer.lnk'
+          $data = Join-Path $env:ProgramData 'Axion'
+          New-Item -ItemType Directory -Force $data | Out-Null
+          Set-Content -Path (Join-Path $data 'historico.json') -Value '{}'
+
+          $p = Start-Process (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "desinstalação falhou: código $($p.ExitCode)" }
+
+          # O unins000.exe se copia para a pasta temporária e termina depois do processo original.
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Test-Path $dir) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+          if (Test-Path $dir) { Get-ChildItem $dir -Recurse | Select-Object FullName; throw "a pasta de instalação não foi removida: $dir" }
+          if (Test-Path $lnk) { throw "o atalho do menu Iniciar não foi removido: $lnk" }
+          if (-not (Test-Path (Join-Path $data 'historico.json'))) { throw "os dados em $data foram apagados" }
+          Remove-Item $data -Recurse -Force
+
+      - name: Log da instalação
+        if: always()
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'install.log'
+          if (Test-Path $log) { Get-Content $log }
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Axion-setup
+          path: dist/Axion-*-setup.exe
+          if-no-files-found: error
