@@ -101,6 +101,9 @@ type Entry struct {
 	RevertNote string     `json:"revertNote,omitempty"`
 	Reboot     string     `json:"reboot,omitempty"`
 	WinBuild   int        `json:"winBuild,omitempty"`
+	// UserSID is the account HKCU stood for when the entry was applied. Entries
+	// written before it was kept have none, and are undone for whoever is signed in.
+	UserSID string `json:"userSid,omitempty"`
 	// MAC authenticates the entry with the installation's record key
 	// (HMAC-SHA256 of the entry without this field). An entry without a
 	// valid MAC (written by an older version, or edited outside Axion) is

@@ -44,6 +44,24 @@ type Registry struct {
 	FailWrites map[string]bool
 	// Writes counts successful SetValue/DeleteValue calls.
 	Writes int
+	// hkcus keeps the HKCU hive of every account that was signed in (see
+	// switchHKCU); hkcuSID is the one roots[HKCU] currently is.
+	hkcus   map[string]*regKey
+	hkcuSID string
+}
+
+func (r *Registry) switchHKCU(sid string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.hkcus == nil {
+		r.hkcus = map[string]*regKey{}
+	}
+	r.hkcus[r.hkcuSID] = r.roots[sys.RootHKCU]
+	next, ok := r.hkcus[sid]
+	if !ok {
+		next = newKey("HKCU")
+	}
+	r.roots[sys.RootHKCU], r.hkcuSID = next, sid
 }
 
 // NewRegistry creates an empty registry.
@@ -51,7 +69,7 @@ func NewRegistry() *Registry {
 	return &Registry{roots: map[sys.RegRoot]*regKey{
 		sys.RootHKLM: newKey("HKLM"), sys.RootHKCU: newKey("HKCU"),
 		sys.RootHKU: newKey("HKU"), sys.RootHKCR: newKey("HKCR"),
-	}, FailWrites: map[string]bool{}}
+	}, FailWrites: map[string]bool{}, hkcuSID: DefaultUserSID}
 }
 
 func splitSegs(rest string) []string {

@@ -94,6 +94,9 @@ type Paths struct {
 	// User is the account (DOMAIN\user) whose profile and HKCU the per-user
 	// paths and settings refer to: the person signed in at the console.
 	User string `json:"user,omitempty"`
+	// UserSID is the SID of User: the account HKEY_CURRENT_USER stands for.
+	// Empty when it could not be resolved.
+	UserSID string `json:"-"`
 	// ElevatedAs is the account Axion runs as when it is not User (UAC was
 	// answered with another administrator account); empty otherwise.
 	ElevatedAs string `json:"elevatedAs,omitempty"`

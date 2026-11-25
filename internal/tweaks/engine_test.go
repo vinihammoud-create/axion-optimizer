@@ -422,3 +422,90 @@ func TestRevertPlanWhenPreviousPlanDeleted(t *testing.T) {
 		t.Fatal("entry still pending")
 	}
 }
+
+const otherUserSID = "S-1-5-21-1000000000-2000000000-3000000000-1002"
+
+func applyUserTweak(t *testing.T, m *mocksys.Mock, id string) (*tweaks.Engine, *facts.Facts) {
+	t.Helper()
+	_ = m.R.SetValue(testKey, "A", sys.DWord(126))
+	e := newEngine(t, m, regTweak(id, tweaks.Reg(testKey, "A", sys.DWord(122))))
+	f := &facts.Facts{}
+	if r := e.Apply(context.Background(), f, []string{id}, tweaks.ApplyOpts{}); r[0].Outcome != tweaks.OutApplied {
+		t.Fatal(r[0])
+	}
+	return e, f
+}
+
+// The history is one per machine, but HKCU belongs to whoever is signed in:
+// an undo from another account must not touch (or claim to have undone) the
+// profile of the account the tweak was applied for.
+func TestRevertRefusesOtherUser(t *testing.T) {
+	m, _ := mocksys.New(t.TempDir())
+	e, f := applyUserTweak(t, m, "t.user")
+	ctx := context.Background()
+
+	m.SwitchUser(otherUserSID)
+	// B's profile happens to hold the very value A had before the tweak.
+	_ = m.R.SetValue(testKey, "A", sys.DWord(126))
+	r := e.RevertTweaks(ctx, f, []string{"t.user"}, tweaks.RevertOpts{})
+	if r[0].Outcome == tweaks.OutReverted || !strings.Contains(r[0].Message, "outro usuário do Windows") {
+		t.Fatalf("o desfazer como outro usuário devia recusar: %+v", r[0])
+	}
+	if got := regInt(t, m, "A"); got != 126 {
+		t.Errorf("o perfil de B foi alterado: A = %d", got)
+	}
+	if len(e.J.Active()) != 1 {
+		t.Error("a entrada de A não pode ser marcada como desfeita")
+	}
+
+	m.SwitchUser(mocksys.DefaultUserSID)
+	if got := regInt(t, m, "A"); got != 122 {
+		t.Fatalf("o perfil de A devia continuar alterado: A = %d", got)
+	}
+	r = e.RevertTweaks(ctx, f, []string{"t.user"}, tweaks.RevertOpts{})
+	if r[0].Outcome != tweaks.OutReverted {
+		t.Fatalf("desfazer como A: %+v", r[0])
+	}
+	if got := regInt(t, m, "A"); got != 126 {
+		t.Errorf("A = %d, esperado 126", got)
+	}
+}
+
+// An entry written before the history kept the account has no SID: it is
+// undone as before, whoever is signed in.
+func TestRevertEntryWithoutUserSID(t *testing.T) {
+	m, _ := mocksys.New(t.TempDir())
+	e, f := applyUserTweak(t, m, "t.old")
+
+	path := filepath.Join(m.DataDir, "journal.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range doc["entries"].([]any) {
+		en := x.(map[string]any)
+		delete(en, "userSid")
+		delete(en, "mac")
+	}
+	raw, _ = json.Marshal(doc)
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	j, err := tweaks.OpenJournal(m.DataDir, m.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e = tweaks.NewEngine(m.Platform, e.Catalog, j)
+
+	r := e.RevertTweaks(context.Background(), f, []string{"t.old"}, tweaks.RevertOpts{})
+	if r[0].Outcome != tweaks.OutReverted {
+		t.Fatalf("entrada sem usuário gravado devia desfazer como antes: %+v", r[0])
+	}
+	if got := regInt(t, m, "A"); got != 126 {
+		t.Errorf("A = %d, esperado 126", got)
+	}
+}
