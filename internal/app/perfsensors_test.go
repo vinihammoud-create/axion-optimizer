@@ -2,7 +2,9 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -110,6 +112,12 @@ type perfRunWithSensors struct {
 }
 
 func TestCaptureRecordsConditionsAndSensors(t *testing.T) {
+	for _, delay := range []time.Duration{0, 500 * time.Millisecond} {
+		t.Run(fmt.Sprintf("simulador+%s", delay), func(t *testing.T) { testCaptureRecordsConditionsAndSensors(t, delay) })
+	}
+}
+
+func testCaptureRecordsConditionsAndSensors(t *testing.T, pmDelay time.Duration) {
 	m, c := setupServer(t)
 	a := c.s.App
 	a.sensorEvery = 20 * time.Millisecond
@@ -118,14 +126,23 @@ func TestCaptureRecordsConditionsAndSensors(t *testing.T) {
 	c.json("POST", "/api/scan", map[string]any{}, &j)
 	c.wait(j.ID)
 	// In a real game nvidia-smi prints a line a second; here the lines arrive
-	// after a short wait, so they fall inside the recording.
+	// once the recording run began, however long the simulated PresentMon
+	// takes after that.
+	running := make(chan struct{})
+	m.PMHook = func(int, []string) {
+		select {
+		case <-running:
+		default:
+			close(running)
+		}
+		time.Sleep(pmDelay)
+	}
 	prev := m.X.Handler
 	m.X.Handler = func(exe string, args []string, ps string) (sys.Result, bool) {
-		if strings.EqualFold(filepath.Base(exe), "nvidia-smi.exe") {
-			for _, x := range args {
-				if x == "-l" {
-					time.Sleep(150 * time.Millisecond)
-				}
+		if strings.EqualFold(filepath.Base(exe), "nvidia-smi.exe") && slices.Contains(args, "-l") {
+			select {
+			case <-running:
+			case <-time.After(30 * time.Second):
 			}
 		}
 		return prev(exe, args, ps)
