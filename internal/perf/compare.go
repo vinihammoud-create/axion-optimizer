@@ -124,7 +124,8 @@ func Compare(labelA string, a []Summary, labelB string, b []Summary) Comparison 
 	for i := range cmp.Rows {
 		r := &cmp.Rows[i]
 		better := (r.Delta > 0) == r.Higher
-		small := math.Abs(r.DeltaPct) < 1 || math.Abs(r.Delta) < minAbs(r.Unit)
+		// With a zero baseline there is no percentage: only the absolute minimum applies.
+		small := (r.A.Mean != 0 && math.Abs(r.DeltaPct) < 1) || math.Abs(r.Delta) < minAbs(r.Unit)
 		switch {
 		case r.A.N < 2 || r.B.N < 2:
 			r.Verdict = "inconclusivo"
