@@ -251,14 +251,43 @@ type hiberSnap struct {
 	SizePercent sys.RegValue `json:"sizePercent"`
 }
 
-// reduced reports whether the hiberfile was the reduced one. The documented
-// rule ("a hiberfile with a custom size, or HiberFileSizePercent >= 40, is
-// considered full") decides when HiberFileType was not read.
-func (s hiberSnap) reduced() bool {
-	if s.FileType.Exists {
-		return s.FileType.Int == hiberTypeReduced
+// customSize is the hiberfile size chosen with /size (0: managed by Windows).
+func (s hiberSnap) customSize() uint64 {
+	if s.SizePercent.Exists {
+		return s.SizePercent.Int
 	}
-	return s.SizePercent.Exists && s.SizePercent.Int > 0 && s.SizePercent.Int < 40
+	return 0
+}
+
+// hiberSnapEqual compares what describes the hiberfile, not the raw values:
+// a missing HiberFileType and an explicit full one are the same file, and so
+// are leftover type and size values while hibernation is off. Snapshots
+// recorded before the type and size were kept (no "fileType" field) are
+// compared only on what they recorded.
+func hiberSnapEqual(a, b json.RawMessage) bool {
+	var sa, sb hiberSnap
+	if json.Unmarshal(a, &sa) != nil || json.Unmarshal(b, &sb) != nil {
+		return false
+	}
+	if sa.Enabled != sb.Enabled || !sa.Hiberboot.Equal(sb.Hiberboot) {
+		return false
+	}
+	var ra, rb map[string]json.RawMessage
+	_ = json.Unmarshal(a, &ra)
+	_ = json.Unmarshal(b, &rb)
+	_, okA := ra["fileType"]
+	_, okB := rb["fileType"]
+	if !okA || !okB || !sa.Enabled {
+		return true
+	}
+	return sa.reduced() == sb.reduced() && sa.customSize() == sb.customSize()
+}
+
+// reduced reports whether the hiberfile was the reduced one. Only the recorded
+// HiberFileType says so: by the documented rule a hiberfile with a custom size
+// is a full one, so a size without a type is given back as a size.
+func (s hiberSnap) reduced() bool {
+	return s.FileType.Exists && s.FileType.Int == hiberTypeReduced
 }
 
 func hibernateEnabled(c *tweaks.Ctx) bool {
@@ -349,6 +378,7 @@ func hibernateOp() tweaks.Op {
 			}
 			return "hibernação desligada"
 		},
+		EqFn: hiberSnapEqual,
 	}
 }
 
