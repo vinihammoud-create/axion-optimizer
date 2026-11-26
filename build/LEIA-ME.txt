@@ -100,7 +100,30 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
     de criá-la; se o PC desligar no meio, o desfazer ainda apaga a cópia.
   Limpeza
   - Temporários do usuário: só a pasta Temp do perfil (LocalAppData\Temp). Se
-    a variável TEMP apontar para fora do perfil, essa pasta não é limpa.
+    a variável TEMP apontar para fora do perfil, essa pasta não é limpa. O
+    mesmo vale quando a própria pasta Local AppData da conta foi apontada para
+    fora do perfil.
+  Proteção do programa (ele roda como administrador)
+  - O perfil da janela (cache do WebView2) passou a ficar em
+    C:\ProgramData\Axion\WebView2, que só administradores alteram. A pasta
+    antiga, %LOCALAPPDATA%\Axion\WebView2, não é mais usada e pode ser
+    apagada.
+  - A pasta de dados só é aceita se pertencer ao grupo Administradores ou ao
+    sistema. Uma pasta com esse nome criada por outro programa é afastada
+    (renomeada com ".nao-confiavel-") e o Axion cria a sua.
+  - AppData, Local AppData, Inicializar e TEMP da conta: se apontarem para a
+    pasta do Windows, Arquivos de Programas, ProgramData ou o perfil de outra
+    conta, o Axion usa o local padrão do perfil. Pasta levada para outro disco
+    ou para a rede continua valendo.
+  - Desinstalar programas: desinstalador que fica em ProgramData roda com os
+    direitos do usuário (ele mesmo pede a elevação, se precisar). Só o
+    "Package Cache" dos instaladores continua rodando como administrador.
+  - Perfis de jogo: programas da pasta do Windows são recusados também quando
+    o caminho vem escrito com "..", com o prefixo \\?\ ou com outra grafia.
+  - Modo navegador (quando o WebView2 Runtime não existe no PC): a interface
+    roda dentro do navegador, sem elevação, e por isso fica ao alcance dos
+    outros programas da sua conta. Com o WebView2 instalado isso não
+    acontece; é o modo recomendado.
   Classificação de ajustes
   - Energia USB de mouse e teclado: grava na chave de hardware do
     dispositivo; saiu do 1 clique e passou a risco moderado.

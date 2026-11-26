@@ -79,6 +79,14 @@ func scrubEnvironment() {
 			}
 		}
 	}
+	// SystemRoot and windir name the Windows folder to the standard library
+	// and to the checks that keep Windows' own programs out of game
+	// profiles. The inherited values are the user's to change; the API's
+	// answer is not.
+	if win, err := windows.GetWindowsDirectory(); err == nil && win != "" {
+		_ = os.Setenv("SystemRoot", win)
+		_ = os.Setenv("windir", win)
+	}
 }
 
 func main() {
@@ -193,8 +201,11 @@ func main() {
 	bg := &edge.COREWEBVIEW2_COLOR{A: 255, R: 9, G: 11, B: 16}
 	var userClosed bool
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
-		AutoFocus:       true,
-		DataPath:        filepath.Join(localAppData(), "Axion", "WebView2"),
+		AutoFocus: true,
+		// The browser profile lives in the protected data folder: this
+		// window runs elevated and reads its profile on every start, so
+		// it must not sit where programs without rights can write.
+		DataPath:        filepath.Join(dataDir, winsys.WebViewDir),
 		BackgroundColor: bg,
 		WindowOptions:   webview2.WindowOptions{Title: windowTitle, Width: uint(width), Height: uint(height), IconId: 1, Center: true},
 		Closed:          &userClosed,
@@ -504,16 +515,6 @@ func programData() string {
 		return filepath.VolumeName(win) + `\ProgramData`
 	}
 	return `C:\ProgramData`
-}
-
-func localAppData() string {
-	if v, err := windows.KnownFolderPath(windows.FOLDERID_LocalAppData, 0); err == nil && v != "" {
-		return v
-	}
-	if v := os.Getenv("LOCALAPPDATA"); v != "" {
-		return v
-	}
-	return os.TempDir()
 }
 
 func setupLog(dir string) {

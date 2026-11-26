@@ -65,6 +65,11 @@ func Targets(p sys.Paths) []Target {
 	if userTemp == "" && p.LocalAppData == "" && insideDir(p.UserTemp, p.UserProfile) {
 		userTemp = TempDir(p, p.UserTemp)
 	}
+	// Local AppData comes from the account's own registry, which any of its
+	// programs can point elsewhere: outside the profile it is not cleaned.
+	if userTemp != "" && p.UserProfile != "" && !insideDir(userTemp, p.UserProfile) {
+		userTemp = ""
+	}
 	add(Target{ID: "temp.user", Title: "Arquivos temporários do usuário", Kind: KindFiles, Recurse: true, MinAge: 24 * time.Hour, Default: true,
 		Dirs:    nonEmpty(userTemp),
 		Detail:  "Pasta TEMP da sua conta: sobras de instaladores, atualizações e programas. Arquivos em uso, criados ou modificados nas últimas 24 horas, e pastas recém-extraídas ficam.",
