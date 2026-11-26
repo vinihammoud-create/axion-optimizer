@@ -42,20 +42,20 @@ As cores e os tamanhos ficam nos tokens do começo do `app.css` (`:root`).
 ## Gerar o .exe
 
 ```powershell
-.\build\build.ps1 -Version 0.9.1
+.\build\build.ps1 -Version 0.10.0
 ```
 
 O script roda `go vet` e os testes, gera os recursos (ícone e versão) e compila. O resultado fica em:
 - `dist\Axion.exe`
-- `dist\Axion-0.9.1-win64.zip`, com o `LEIA-ME.txt`, a matriz de evidências e o `SHA256SUMS.txt`.
+- `dist\Axion-0.10.0-win64.zip`, com o `LEIA-ME.txt`, a matriz de evidências e o `SHA256SUMS.txt`.
 
 Com `-SkipTests` pula os testes; com `-NoPackage` gera só o `.exe`.
 
 ## Publicar uma versão
 
-1. Troque a versão em `cmd/axion/version.go`, no `-Version` padrão do `build/build.ps1` e no `CHANGELOG.md`.
+1. Troque a versão em `cmd/axion/version.go`, em `build/axion.manifest` (com `.0` no fim, ex.: `0.10.0.0`), no `-Version` padrão do `build/build.ps1` e do `build/build.sh`, nos exemplos do `build/installer.ps1` e do `installer/axion.iss`, e escreva a entrada nova no topo do `CHANGELOG.md` (o arquivo inteiro vira a nota da versão no GitHub) e a seção "NOVO NA x.y" do `build/LEIA-ME.txt`. O `.syso` não se edita: o `build.ps1` o gera de novo com a versão pedida.
 2. Envie as mudanças. O CI (`.github/workflows/ci.yml`) roda os testes e gera o pacote a cada envio.
-3. No GitHub, abra **Actions › Release › Run workflow** e informe a versão. O fluxo compila o pacote e cria um rascunho de versão com o `.zip` e o `SHA256SUMS.txt`.
+3. No GitHub, abra **Actions › Release › Run workflow** e informe a versão. O fluxo compila o pacote e o instalador e cria um rascunho de versão com o `.zip`, o `Axion-<versão>-setup.exe` e o `SHA256SUMS.txt` dos dois.
 4. Revise o rascunho em **Releases** e publique.
 
 ## Testes

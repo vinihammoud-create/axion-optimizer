@@ -7,46 +7,101 @@ O QUE É
   só recomenda o que tem benefício documentado para o seu hardware. Tudo o que
   ele muda fica registrado com o valor anterior e pode ser desfeito.
 
+REQUISITOS
+  - Windows 10 ou 11 de 64 bits.
+  - Uma conta de administrador. O Axion pede permissão de administrador
+    sempre que abre, porque as otimizações alteram configurações do Windows
+    (a análise em si não altera nada).
+  - Microsoft Edge WebView2 Runtime, o componente gratuito da Microsoft que
+    abre a janela própria do Axion. Já vem no Windows 11 e na maioria dos
+    Windows 10. Sem ele, o Axion funciona, mas abre no navegador padrão, com
+    proteção reduzida (veja "Modo navegador" em NOVO NA 0.10.0); a página
+    oficial para instalar é
+    https://developer.microsoft.com/microsoft-edge/webview2/
+
+INSTALADOR OU ZIP
+  A versão sai de dois jeitos, com os mesmos arquivos e o mesmo Axion.exe.
+  Escolha um.
+  - Instalador (Axion-@VERSION@-setup.exe): pede permissão de administrador,
+    mostra o que o Axion faz e a licença (MIT), copia o programa para
+    Arquivos de Programas\Axion Optimizer, cria o atalho no menu Iniciar (o
+    da área de trabalho é opcional) e aparece em Configurações > Aplicativos,
+    de onde se desinstala. Na última página, "Abrir o Axion Optimizer" já
+    abre o programa. O instalador não baixa nada da internet.
+  - ZIP portátil (Axion-@VERSION@-win64.zip): extraia numa pasta (ex.:
+    Documentos\Axion) e abra o Axion.exe; nada é instalado. Mantenha o
+    WebView2Loader.dll (da Microsoft) e o PresentMon-2.6.0-x64.exe (da Intel)
+    junto do Axion.exe: o primeiro abre a janela do Axion (sem ele, a
+    interface abre no navegador); o segundo mede o FPS na página Desempenho.
+    Para remover, apague a pasta.
+  Nos dois casos os dados (o histórico para desfazer, as medições e os
+  registros) ficam em C:\ProgramData\Axion, e não na pasta do programa.
+  Desinstalar ou apagar a pasta do ZIP NÃO desfaz os ajustes: antes, abra o
+  Axion e use Histórico > Desfazer tudo.
+
+  Atualizar a partir da 0.9.1 (que só saiu em ZIP): feche o Axion e instale
+  a versão nova (ou extraia o ZIP novo numa pasta). O histórico continua em
+  C:\ProgramData\Axion e a versão nova o usa; a pasta do ZIP antigo pode
+  ser apagada depois. A pasta %LOCALAPPDATA%\Axion\WebView2 (o perfil antigo
+  da janela) não é mais usada e também pode ser apagada; o desinstalador a
+  remove sozinho.
+
+ANTES DE ABRIR: SHA-256, SMARTSCREEN E ANTIVÍRUS
+  O Axion e o instalador ainda não têm assinatura digital. Por isso:
+  - Confira se o arquivo baixado é o original. Na página da versão no
+    GitHub, o SHA256SUMS.txt traz o SHA-256 do instalador e do ZIP. No
+    PowerShell, rode Get-FileHash seguido do nome do arquivo (ex.:
+    Get-FileHash .\Axion-@VERSION@-setup.exe); no Prompt de Comando,
+    certutil -hashfile Axion-@VERSION@-setup.exe SHA256. O número tem que
+    ser igual ao do SHA256SUMS.txt (maiúsculas e minúsculas não importam).
+    Se não for igual, não abra o arquivo.
+  - Dentro do pacote (e na pasta de instalação) há outro SHA256SUMS.txt,
+    com o SHA-256 do Axion.exe, do WebView2Loader.dll e do PresentMon.
+  - O Windows pode mostrar "O Windows protegeu o computador" (SmartScreen),
+    porque o arquivo é novo e sem assinatura. Depois de conferir o SHA-256,
+    clique em "Mais informações" e em "Executar assim mesmo".
+  - O antivírus pode desconfiar de um arquivo novo que ninguém mais baixou.
+    Um alarme falso pode ser enviado para análise da Microsoft em
+    https://www.microsoft.com/wdsi/filesubmission (opção "Incorrectly
+    detected"); nunca desligue o antivírus.
+  - Se aparecer "O controle inteligente de aplicativos bloqueou um
+    aplicativo", é o Controle Inteligente de Aplicativos do Windows 11, que
+    bloqueia programas sem assinatura e não tem "executar assim mesmo" nem
+    exceção por programa. Nesta fase de teste a única saída é desligá-lo em
+    Segurança do Windows > Controle de aplicativos e do navegador >
+    Configurações do Controle Inteligente de Aplicativos, usar o Axion e
+    religá-lo depois (desde a atualização de abril de 2026 isso não exige
+    reinstalar o Windows; se o Windows avisar que não dá para religar,
+    cancele). A versão pública virá assinada e esse bloqueio deixa de
+    existir.
+
 COMO USAR
-  1. Extraia o ZIP para uma pasta (ex.: Documentos\Axion). Mantenha o
-     WebView2Loader.dll (da Microsoft) e o PresentMon-2.6.0-x64.exe (da
-     Intel) junto do Axion.exe: o primeiro abre a janela do Axion (sem ele,
-     a interface abre no navegador); o segundo mede o FPS na página
-     Desempenho.
-  2. Execute Axion.exe e aceite o pedido de administrador (necessário para
-     aplicar as otimizações; a análise em si não altera nada).
-  3. O Axion ainda não tem assinatura digital. Por isso o Windows pode
-     mostrar "O Windows protegeu o computador" (SmartScreen) ou o antivírus
-     pode desconfiar de um arquivo novo que ninguém mais baixou. Antes de
-     liberar, confira o SHA-256 com o valor em SHA256SUMS.txt
-     (PowerShell: Get-FileHash Axion.exe). Um alarme falso pode ser enviado
-     para análise da Microsoft em https://www.microsoft.com/wdsi/filesubmission
-     (opção "Incorrectly detected"); nunca desligue o antivírus.
-     Se aparecer "O controle inteligente de aplicativos bloqueou um
-     aplicativo", é o Controle Inteligente de Aplicativos do Windows 11, que
-     bloqueia programas sem assinatura e não tem "executar assim mesmo" nem
-     exceção por programa. Nesta fase de teste a única saída é desligá-lo em
-     Segurança do Windows > Controle de aplicativos e do navegador >
-     Configurações do Controle Inteligente de Aplicativos, usar o Axion e
-     religá-lo depois (desde a atualização de abril de 2026 isso não exige
-     reinstalar o Windows; se o Windows avisar que não dá para religar,
-     cancele). A versão pública virá assinada e esse bloqueio deixa de
-     existir.
-  4. Na primeira vez o Axion pergunta para que você usa o PC (jogo
+  1. Abra o Axion (atalho do menu Iniciar ou Axion.exe do ZIP) e aceite o
+     pedido de administrador.
+  2. Na primeira vez o Axion pergunta para que você usa o PC (jogo
      competitivo, jogo + live, trabalho, criação ou programação) e faz a
      análise completa (alguns segundos). O perfil pode ser trocado a
      qualquer momento no Início ("Trocar perfil").
-  5. Início -> "Aplicar as recomendadas": revise a lista (dá para desmarcar
+  3. Início -> "Aplicar as recomendadas": revise a lista (dá para desmarcar
      qualquer item) e aplique. Os planos Completa e Perfil Counter-Strike 2
      ficam logo abaixo, em "Outras formas de otimizar". Item por item: menu
      Otimizar. Quem quer só o essencial: "Modo simples" no Início (a nota, o
      que mais pesa e um botão "Resolver o que é seguro").
-  6. Ctrl+K abre a busca: digite o nome de uma página, de uma ação ("testar
+     O que entra no 1 clique (Aplicar as recomendadas, Completa, Perfil
+     Counter-Strike 2 e "Resolver o que é seguro"): só itens sem risco e
+     fora da categoria Avançado. Vêm marcados os recomendados para o seu PC
+     e o seu perfil, com evidência acima de baixa. A Completa mostra também,
+     desmarcados, itens sem risco que não são nem recomendados nem
+     desaconselhados para o seu PC; o Perfil Counter-Strike 2 acrescenta a
+     prioridade e a placa de vídeo do cs2.exe. Itens de risco moderado ou
+     avançado nunca entram no 1 clique: só são aplicados na página do
+     próprio item, depois do aviso.
+  4. Ctrl+K abre a busca: digite o nome de uma página, de uma ação ("testar
      a rede", "medir FPS") ou de uma otimização.
-  7. "Avaliação completa" (Diagnóstico > Avaliação completa): análise +
+  5. "Avaliação completa" (Diagnóstico > Avaliação completa): análise +
      teste de rede + FPS no CS2 (com o jogo aberto) + taxa do mouse num
      botão, com três notas: configuração, capacidade e medição.
-  8. Depois de formatar: Manutenção > "Instalar programas" marca o que o seu
+  6. Depois de formatar: Manutenção > "Instalar programas" marca o que o seu
      perfil e o seu hardware pedem; revise, marque o resto e clique em
      "Instalar marcados". Tudo vem pelo winget, na versão mais nova.
 
@@ -89,30 +144,22 @@ O QUE ESTA VERSÃO FAZ
   - Perfil do driver NVIDIA: lê e, com desfazer exato, corrige ajustes do
     driver deixados por outros programas.
 
-NOVO NA PRÓXIMA VERSÃO (ainda sem número)
+NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por conta e fontes revistas)
   Instalador
-  - Além do ZIP, a versão sai também como instalador
-    (Axion-<versão>-setup.exe). Os dois trazem os mesmos arquivos e o mesmo
-    Axion.exe; o SHA256SUMS.txt da página da versão tem o hash de ambos.
-    - Instalador: copia o Axion para Arquivos de Programas\Axion Optimizer,
-      cria o atalho no menu Iniciar (o da área de trabalho é opcional) e
-      aparece em Configurações > Aplicativos, de onde se desinstala.
-    - ZIP (portátil): extraia numa pasta e abra o Axion.exe; nada é
-      instalado. Para remover, apague a pasta.
-    Nos dois casos os dados ficam em C:\ProgramData\Axion.
-  - O instalador mostra antes o que o Axion faz e a licença (MIT). Se o
-    WebView2 Runtime não for encontrado, a última página avisa que o Axion
-    vai abrir no navegador e leva à página oficial da Microsoft para
-    instalar; o instalador não baixa nada.
+  - Além do ZIP, a versão sai como instalador (Axion-<versão>-setup.exe),
+    com os mesmos arquivos e o mesmo Axion.exe; o SHA256SUMS.txt da página
+    da versão tem o hash dos dois. Como instalar, atualizar e conferir: veja
+    INSTALADOR OU ZIP e ANTES DE ABRIR, no começo deste arquivo.
+  - Se o WebView2 Runtime não for encontrado, a última página do instalador
+    avisa que o Axion vai abrir no navegador e leva à página oficial da
+    Microsoft para instalar; o instalador não baixa nada.
   - Com o Axion aberto (em qualquer conta do PC), o instalador e o
     desinstalador pedem para fechá-lo antes, porque ele pode estar aplicando
     ou desfazendo um ajuste.
-  - Desinstalar NÃO desfaz os ajustes: o que o Axion mudou no Windows
-    continua mudado. Para voltar ao que era, abra o Axion e use
-    Histórico > Desfazer tudo antes de desinstalar. O desinstalador lê o
-    histórico pelo próprio Axion.exe (sem abrir a janela) e, se houver
-    alterações ativas, diz quantas e recomenda desfazer antes; se não
-    conseguir ler o histórico, diz isso em vez de seguir como se não
+  - Desinstalar NÃO desfaz os ajustes. O desinstalador lê o histórico pelo
+    próprio Axion.exe (sem abrir a janela) e, se houver alterações ativas,
+    diz quantas e recomenda desfazer antes (Histórico > Desfazer tudo); se
+    não conseguir ler o histórico, diz isso em vez de seguir como se não
     houvesse nada.
   - A desinstalação remove o programa, os atalhos e o cache da janela (o
     perfil do WebView2 em C:\ProgramData\Axion\WebView2, a cópia do
@@ -122,45 +169,130 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
     responder Sim; o padrão é manter, e um Axion instalado de novo continua
     podendo desfazer o que foi aplicado.
   - O instalador ainda não tem assinatura digital, como o Axion.exe: vale o
-    mesmo aviso do SmartScreen e do Controle Inteligente de Aplicativos de
-    COMO USAR.
+    mesmo aviso do SmartScreen e do Controle Inteligente de Aplicativos.
+
+  Dado que não foi lido aparece como "não lido"
+  Uma leitura do Windows que falha não vira mais estado normal, alarme nem
+  recomendação: o Axion diz o que não conseguiu ler.
+  - Na tela: em Início ("Seu PC em detalhes") e em "Dados coletados" no
+    Diagnóstico, TPM, Secure Boot, VBS e Integridade de Memória, HAGS, Modo
+    de Jogo, Game Bar, notebook e a lista de anti-cheats não lidos aparecem
+    como "não lido", em tom neutro (antes: "sem TPM", "não", "nenhum" ou
+    "não suportado"). O HAGS segue o que o kernel gráfico informa quando ele
+    responde.
+  - Análise com partes não lidas: a nota deixa de aparecer como
+    "Excelente", o anel e a nota ficam em cor neutra (não verde), "N partes
+    não lidas" ao lado da nota abre a lista, e o resumo e o topo do
+    Diagnóstico dizem que a análise está incompleta e quantas partes
+    faltaram.
+  - Diagnóstico: programas que atrasam a inicialização, horário ativo do
+    Windows Update, limite térmico das zonas e TPM/VBS no item da Gamers
+    Club aparecem como "não lido" ou ficam de fora, nunca como "nenhum",
+    "não definido" ou "desligado". Num Ryzen X3D de dois CCDs, serviço do
+    chipset, Game Bar ou plano de energia que não responderam deixam de gerar
+    "Configuração incompleta"; o item diz o que não foi verificado. Com os
+    horários de inicialização não lidos, o Axion não afirma mais que os
+    erros de hardware (WHEA) PCIe aconteceram durante o uso. Um núcleo que
+    não informa limite térmico não esconde mais o limite dos outros.
+  - Ajustes: periféricos, arquivo de paginação, anti-cheats e tipo do disco
+    do sistema não lidos viram "não lido" em vez de estado normal ou
+    recomendação. Com o estado do VBS não lido, o ajuste de VBS e
+    Integridade de Memória diz isso em vez de "já desligados"; com os
+    anti-cheats não lidos, continua bloqueado sem afirmar que há um
+    instalado. Recurso opcional do Windows com estado não informado
+    (InstallState vazio ou desconhecido) não conta mais como "já
+    desativado"; serviço cuja leitura o Windows nega passa a ser "não
+    lido", não "parado"; monitor desconectado deixa de contar como "já na
+    frequência máxima".
+  - O que não foi lido não é aplicado. DNS: se a lista de DNS IPv6 fixo ou a
+    configuração de DNS sobre HTTPS do adaptador não puder ser lida, o
+    ajuste não é aplicado (antes, a leitura que falhava era registrada como
+    "sem DNS IPv6", e o desfazer apagava o DNS IPv6 que estava configurado).
+    Hibernação: leitura que falha não conta mais como "hibernação
+    desligada".
+  - Medição de FPS com poucos quadros classificados: perfil de memória,
+    opções de vídeo do CS2 e preset não concluem mais que a GPU ou a CPU
+    limitou, e no lugar da barra GPU/CPU a página diz que não dá para
+    apontar o que limitou.
+  - Comparação de medições: condição lida de um lado só (plano, modo de
+    energia, taxa do monitor, HAGS) conta como diferença, e a mudança de
+    plano e de modo ao mesmo tempo aparece inteira.
+  - CSV do PresentMon: linha sem nome de programa não entra na medição do
+    jogo.
+
   Desfazer
-  - Dois ajustes que criam a mesma chave nova no registro: o último a ser
-    desfeito apaga a chave, em qualquer ordem. Chaves de outra conta do
-    Windows nunca contam.
-  - Hibernação: desfazer devolve também o tipo (completo ou reduzido) e o
-    tamanho do arquivo de hibernação, pelo powercfg.
-  - Plano Desempenho Máximo: o Axion registra o identificador da cópia antes
-    de criá-la; se o PC desligar no meio, o desfazer ainda apaga a cópia.
   - Mais de uma conta do Windows no mesmo PC: o que o Axion mudou no perfil
     de uma conta (aceleração do mouse, atalhos de acessibilidade, preferência
     de placa de vídeo e modo de tela cheia por jogo, além dos valores de
     HKCU) não aparece como aplicado para a outra, não é desfeito a partir da
     outra e não se mistura com o que a outra aplicar. Cada conta desfaz o
-    que é seu; ao tentar pela outra, o Axion diz em qual conta entrar.
+    que é seu; ao tentar pela outra, o Axion diz em qual conta entrar. O
+    histórico é um só para o PC: o que vale para o PC todo (plano de
+    energia, serviços, rede, boot...) aparece e pode ser desfeito em
+    qualquer conta.
+  - Dois ajustes que criam a mesma chave nova no registro: o último a ser
+    desfeito apaga a chave, em qualquer ordem. Chaves de outra conta do
+    Windows nunca contam.
+  - Perfis de jogo (preferência de placa de vídeo, otimizações de tela
+    cheia): a chave do registro criada pelo ajuste é removida no desfazer
+    quando fica vazia.
+  - Hibernação: desfazer devolve também o tipo (completo ou reduzido) e o
+    tamanho do arquivo de hibernação, pelo powercfg; e o valor
+    HiberbootEnabled que não existia antes não fica para trás quando o
+    desfazer religa a hibernação.
+  - Plano Desempenho Máximo: o Axion registra o identificador da cópia antes
+    de criá-la; se o PC desligar no meio, o desfazer ainda apaga a cópia.
   - Cancelar no meio: um ajuste que já começou a ser aplicado ou desfeito vai
     até o fim (inclusive a reversão automática quando a aplicação falha). O
     cancelamento vale entre um ajuste e o próximo; os que não começaram
     continuam como estavam e o resultado diz isso.
-  - DNS: se a lista de DNS IPv6 fixo ou a configuração de DNS sobre HTTPS do
-    adaptador não puder ser lida, o ajuste não é aplicado. Antes, a leitura
-    que falhava era registrada como "sem DNS IPv6", e o desfazer apagava o
-    DNS IPv6 que estava configurado.
-  - Hibernação: leitura que falha não conta mais como "hibernação
-    desligada"; e o valor HiberbootEnabled que não existia antes não fica
-    para trás quando o desfazer religa a hibernação.
-  - Perfis de jogo (preferência de placa de vídeo, otimizações de tela
-    cheia): a chave do registro criada pelo ajuste é removida no desfazer
-    quando fica vazia.
   - Preset do CS2: a cópia de segurança do cs2_video.txt é feita dentro da
     tarefa de aplicar; um pedido recusado por haver outra tarefa em andamento
     não cria cópia, e o jogo aberto nesse intervalo é detectado antes de o
     arquivo ser tocado.
-  Limpeza
-  - Temporários do usuário: só a pasta Temp do perfil (LocalAppData\Temp). Se
-    a variável TEMP apontar para fora do perfil, essa pasta não é limpa. O
-    mesmo vale quando a própria pasta Local AppData da conta foi apontada para
-    fora do perfil.
+
+  Frequência do monitor (taxa de atualização máxima)
+  - A nova frequência é trocada sem ser gravada e o Axion pergunta "Manter
+    esta frequência?". Sem resposta em 15 segundos, ou com Reverter, o
+    monitor volta sozinho à frequência anterior e nada fica gravado; se o PC
+    travar antes, o reinício usa o modo antigo. Só com Manter o modo é
+    gravado. A pergunta só aparece quando o monitor está abaixo da
+    frequência máxima. Testado só no simulador, não num monitor real.
+
+  Ajustes e fontes revistos
+  - Fontes revistas: onde nenhuma fonte aberta diz o que o texto afirmava, a
+    evidência passou a baixa e a frase saiu. Saíram do 1 clique o SysMain em
+    disco rígido e a volta do PowerThrottlingOff ao padrão; a aceleração do
+    mouse só vem recomendada quando está ligada.
+  - Energia USB de mouse e teclado: grava na chave de hardware do
+    dispositivo; saiu do 1 clique e passou a risco moderado.
+  - Modo MSI da placa de vídeo: só na placa dedicada, nunca na integrada.
+  - V-Sync forçado no perfil do driver NVIDIA (valor válido, sem G-SYNC):
+    deixou de vir marcado no 1 clique, porque pode ter sido escolha sua no
+    Painel NVIDIA. Valor que o driver não conhece continua recomendado.
+  - Textos reescritos sem prometer resultado: Plano Desempenho Máximo e
+    gravação em segundo plano. As políticas de histórico de atividades,
+    pesquisa no Iniciar, Widgets, compartilhamento de atualizações e drivers
+    pelo Windows Update avisam que a Microsoft não as lista para o Windows
+    Home; a reativação de serviços opcionais diz que o Auxiliar IP volta a
+    Automático; EEE e moderação de interrupção da placa de rede não prometem
+    microssegundos, e em notebook o EEE lembra que economiza bateria.
+
+  Interface
+  - Modo simples: botões que levam a uma página ("Abrir Drivers", "Ver" do
+    aviso de otimização desfeita, "Ver histórico" depois de aplicar) saem do
+    modo simples e abrem a página, em vez de não fazer nada. Há um botão
+    "Desfazer mudanças", que abre o Histórico, e "Sair do modo simples" na
+    barra superior.
+  - Perfis Trabalho, Criação e Programação: o Início troca o atalho "Perfil
+    Counter-Strike 2" por "Saúde do Windows" e não destaca o CS2 em "Seus
+    jogos"; a Avaliação completa não oferece o FPS do CS2 nem deixa a taxa do
+    mouse marcada.
+  - Avaliação completa com o notebook na bateria: aviso de que o que for
+    medido pode sair limitado e não se compara com medição na tomada.
+  - Modo navegador: aviso fixo no topo recomendando instalar o WebView2
+    Runtime da Microsoft, com o link oficial.
+
   Proteção do programa (ele roda como administrador)
   - O perfil da janela (cache do WebView2) passou a ficar em
     C:\ProgramData\Axion\WebView2, que só administradores alteram. A pasta
@@ -173,6 +305,10 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
     pasta do Windows, Arquivos de Programas, ProgramData ou o perfil de outra
     conta, o Axion usa o local padrão do perfil. Pasta levada para outro disco
     ou para a rede continua valendo.
+  - Limpeza dos temporários do usuário: só a pasta Temp do perfil
+    (LocalAppData\Temp). Se a variável TEMP apontar para fora do perfil, essa
+    pasta não é limpa; o mesmo vale quando a própria pasta Local AppData da
+    conta foi apontada para fora do perfil.
   - Desinstalar programas: desinstalador que fica em ProgramData roda com os
     direitos do usuário (ele mesmo pede a elevação, se precisar). Só o
     "Package Cache" dos instaladores continua rodando como administrador.
@@ -182,91 +318,12 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
     roda dentro do navegador, sem elevação, e por isso fica ao alcance dos
     outros programas da sua conta. Com o WebView2 instalado isso não
     acontece; é o modo recomendado.
-  Classificação de ajustes
-  - Energia USB de mouse e teclado: grava na chave de hardware do
-    dispositivo; saiu do 1 clique e passou a risco moderado.
-  - Modo MSI da placa de vídeo: só na placa dedicada, nunca na integrada.
-  - Leituras que falharam (periféricos, arquivo de paginação, anti-cheats,
-    tipo do disco do sistema) viram "não lido" em vez de estado normal ou
-    recomendação.
-  - Fontes revistas: onde nenhuma fonte aberta diz o que o texto afirmava, a
-    evidência passou a baixa e a frase saiu. Saíram do 1 clique o SysMain em
-    disco rígido e a volta do PowerThrottlingOff ao padrão; a aceleração do
-    mouse só vem recomendada quando está ligada.
-  - V-Sync forçado no perfil do driver NVIDIA (valor válido, sem G-SYNC):
-    deixou de vir marcado no 1 clique, porque pode ter sido escolha sua no
-    Painel NVIDIA. Valor que o driver não conhece continua recomendado.
-  - VBS e Integridade de Memória: com o estado do VBS não lido, o ajuste diz
-    que não foi lido em vez de "já desligados"; com os anti-cheats não lidos,
-    continua bloqueado sem afirmar que há um instalado.
-  - Plano Desempenho Máximo e gravação em segundo plano: textos reescritos
-    sem prometer resultado.
-  Diagnóstico e medição: leitura que falhou não vira estado verde nem alarme
-  - Ryzen X3D de dois CCDs: serviço do chipset, Game Bar ou plano de energia
-    que não responderam deixam de gerar "Configuração incompleta"; o item diz
-    o que não foi verificado.
-  - Programas que atrasam a inicialização, horário ativo do Windows Update,
-    limite térmico das zonas e TPM/VBS no item da Gamers Club: leitura que
-    falhou aparece como "não lido" ou fica de fora, nunca como "nenhum",
-    "não definido" ou "desligado".
-  - Limite térmico do processador: um núcleo que não informa limite não
-    esconde mais o limite dos outros.
-  - Erros de hardware (WHEA) com os horários de inicialização não lidos: o
-    Axion não afirma mais que os erros PCIe aconteceram durante o uso.
-  - Análise com partes não lidas: a nota deixa de aparecer como "Excelente" e
-    o resumo diz que a análise está incompleta e quantas partes faltaram.
-  - Medição de FPS com poucos quadros classificados: perfil de memória, opções
-    de vídeo do CS2 e preset não concluem mais que a GPU ou a CPU limitou.
-  - Comparação de medições: condição lida de um lado só (plano, modo de
-    energia, taxa do monitor, HAGS) conta como diferença, e a mudança de plano
-    e de modo ao mesmo tempo aparece inteira.
-  - CSV do PresentMon: linha sem nome de programa não entra na medição do jogo.
+
+  Relatórios
   - Relatório anônimo: se não puder ser anonimizado, nada é exportado (antes
     saía o relatório completo).
-  Interface
-  - Dado que não foi lido aparece como "não lido", em tom neutro, em Início
-    ("Seu PC em detalhes") e em "Dados coletados" no Diagnóstico: TPM, Secure
-    Boot, VBS e Integridade de Memória, HAGS, Modo de Jogo, Game Bar, notebook
-    e a lista de anti-cheats. Antes aparecia "sem TPM", "não", "nenhum" ou "não
-    suportado". O HAGS segue o que o kernel gráfico informa quando ele
-    responde.
-  - Análise com partes não lidas: o anel e a nota ficam em cor neutra (não
-    verde) e, ao lado da nota, "N partes não lidas" abre a lista. O
-    Diagnóstico mostra o mesmo aviso no topo.
-  - Modo simples: botões que levam a uma página ("Abrir Drivers", "Ver" do
-    aviso de otimização desfeita, "Ver histórico" depois de aplicar) saem do
-    modo simples e abrem a página, em vez de não fazer nada. Há um botão
-    "Desfazer mudanças", que abre o Histórico, e "Sair do modo simples" na
-    barra superior.
-  - Perfis Trabalho, Criação e Programação: o Início troca o atalho "Perfil
-    Counter-Strike 2" por "Saúde do Windows" e não destaca o CS2 em "Seus
-    jogos"; a Avaliação completa não oferece o FPS do CS2 nem deixa a taxa do
-    mouse marcada.
-  - Avaliação completa com o notebook na bateria: aviso de que o que for
-    medido pode sair limitado e não se compara com medição na tomada.
-  - Medição de FPS com poucos quadros classificados: no lugar da barra
-    GPU/CPU, a página diz que não dá para apontar o que limitou.
-  - Modo navegador: aviso fixo no topo recomendando instalar o WebView2
-    Runtime da Microsoft, com o link oficial.
-  Frequência do monitor (taxa de atualização máxima)
-  - A nova frequência é trocada sem ser gravada e o Axion pergunta "Manter ou
-    Reverter?". Sem resposta em 15 segundos, ou com Reverter, o monitor volta
-    sozinho à frequência anterior e nada fica gravado; se o PC travar antes,
-    o reinício usa o modo antigo. Só com Manter o modo é gravado. Testado só
-    no simulador, não num monitor real.
-  - Monitor desconectado deixa de contar como "já na frequência máxima".
-  Outros
-  - Recurso opcional do Windows com estado não informado (InstallState vazio
-    ou desconhecido) não conta mais como "já desativado".
-  - Serviço cuja leitura o Windows nega passa a ser "não lido", não "parado".
   - Relatório da Partida: um único retrato da lista de processos a cada
     verificação, em vez de um por jogo ligado.
-  - Textos: as políticas de histórico de atividades, pesquisa no Iniciar,
-    Widgets, compartilhamento de atualizações e drivers pelo Windows Update
-    avisam que a Microsoft não as lista para o Windows Home; a reativação de
-    serviços opcionais diz que o Auxiliar IP volta a Automático; EEE e
-    moderação de interrupção da placa de rede não prometem microssegundos, e
-    em notebook o EEE lembra que economiza bateria.
 
 NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
   Interface
@@ -807,8 +864,9 @@ NOVO NA 0.5
     andava a cada 15,6 ms no Windows.
   - "O que não fazemos": novos itens sobre trocar DNS para baixar o ping,
     scripts de cl_interp no CS2 e abrir portas/UPnP para o CS2.
-  - Otimização em 1 clique: só inclui itens de risco baixo; o resto fica
-    como opcional para você marcar.
+  - Otimização em 1 clique: só inclui itens sem risco. Os de risco
+    moderado ou avançado ficam fora dele e só são aplicados na página do
+    próprio item (a regra atual está em COMO USAR, no começo deste arquivo).
   - Janela e navegador: no modo navegador, o endereço aberto leva um código
     de uso único (o acesso não fica no histórico do navegador) e abrir o
     Axion de novo abre outra aba. Fechar o Axion durante uma tarefa cancela
@@ -970,10 +1028,21 @@ O QUE O AXION NÃO FAZ
   usa só registro, WMI, a API do Windows e ferramentas do próprio Windows.
 
 SE ALGO DER ERRADO
-  Sobre -> "Exportar relatório" gera um JSON com o diagnóstico e as medições
-  de periféricos. Envie esse arquivo junto com C:\ProgramData\Axion\axion.log
-  e, se existirem, crash.log, crash-*.log e coleta-erro.log da mesma pasta.
-
-Requisitos: Windows 10 ou 11 de 64 bits. A janela usa o Microsoft Edge
-WebView2 (já incluso no Windows 11 e na maioria dos Windows 10); sem ele, o
-Axion abre no navegador padrão.
+  "Exportar relatório" (no Início, no Modo simples, em Sobre ou pela busca
+  Ctrl+K) pergunta o formato:
+  - Página (HTML): legível, para mandar a alguém. Traz o PC, as notas, o
+    diagnóstico, o último teste de rede, a última medição de FPS, as
+    otimizações aplicadas e a seleção de Instalar programas.
+  - Dados (JSON): completo, para análise técnica. Traz também tudo o que foi
+    lido do PC, o estado de cada otimização, o histórico, os lotes aplicados,
+    todas as medições (FPS, partidas, rede, latência do sistema, periféricos,
+    OBS), os erros de hardware (WHEA), a página do CS2 e os drivers.
+  Os dois são anônimos por padrão: nome do PC, conta do Windows (também nos
+  caminhos), conta da Steam, endereços IP/MAC/BSSID e identificadores de
+  dispositivos USB e Bluetooth viram marcadores como <pc> e <ip>; o que o
+  diagnóstico leu do hardware e do Windows fica inteiro. Só com a opção
+  "Relatório completo" marcada esses dados saem. Se o relatório anônimo não
+  puder ser montado, nada é exportado.
+  Envie o relatório junto com C:\ProgramData\Axion\axion.log e, se
+  existirem, crash.log, crash-*.log e coleta-erro.log da mesma pasta (esses
+  registros não passam pela anonimização: veja antes o que vai neles).

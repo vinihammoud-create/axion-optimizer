@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Versão (maior.menor.correção), por exemplo 0.9.1"
+        description: "Versão (maior.menor.correção), por exemplo 0.10.0"
         required: true
 
 permissions:

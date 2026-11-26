@@ -3,7 +3,7 @@
 # (the resources come from cmd/axion-rsrc; no llvm-windres needed).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION="${1:-0.9.1}"
+VERSION="${1:-0.10.0}"
 export GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off CGO_ENABLED=0
 go run ./cmd/axion-rsrc -version "$VERSION"
 go vet ./...
