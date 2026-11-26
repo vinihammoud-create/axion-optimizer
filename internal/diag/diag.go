@@ -975,7 +975,7 @@ var rules = []rule{
 				Evidence: "HistoricalCaptureEnabled = 1 (Xbox Game Bar).", Explanation: "A gravação \"registrar o que aconteceu\" codifica vídeo o tempo todo enquanto você joga.",
 				Actions: []Action{fixTweaks("Desligar gravação contínua", "game.dvr.history")}})
 		}
-		if f.Gaming.MouseAccelOn {
+		if f.Gaming.MouseAccelRead && f.Gaming.MouseAccelOn {
 			add(Finding{ID: "input.accel", Area: AreaLatencia, Severity: SevInfo, Title: "Aceleração do ponteiro ligada",
 				Evidence: "\"Aprimorar precisão do ponteiro\" ativo (MouseSpeed = 1).", Explanation: "O CS2 usa raw input e não é afetado, mas menus, desktop e jogos sem raw input sofrem com a aceleração.",
 				Actions: []Action{fixTweaks("Desligar aceleração", "input.mouse.accel")}})

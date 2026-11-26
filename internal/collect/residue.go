@@ -181,8 +181,10 @@ func (c *collector) residue() {
 	if st, err := sys.ReadMMAgent(c.p.WMI); err == nil {
 		r.MMAgentRead, r.MemoryCompression = true, st.MemoryCompression
 	}
-	pf := c.regVal(keyMemMgmt, "PagingFiles")
+	pf, pfErr := c.p.Reg.GetValue(keyMemMgmt, "PagingFiles")
 	switch {
+	case pfErr != nil:
+		r.PageFile = "unknown"
 	case !pf.Exists:
 		r.PageFile = "none"
 	case pf.Kind == sys.RegMultiSZ:

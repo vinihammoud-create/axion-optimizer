@@ -484,6 +484,7 @@ type GamingInfo struct {
 	AntiCheats       []string `json:"antiCheats"` // FACEIT, Vanguard, EasyAntiCheat, BattlEye, Javelin
 	X3DServiceState  string   `json:"x3dServiceState"`
 	MouseAccelOn     bool     `json:"mouseAccelOn"`
+	MouseAccelRead   bool     `json:"mouseAccelRead"` // MouseSpeed answered; false keeps MouseAccelOn false
 	StickyHotkeyOn   bool     `json:"stickyHotkeyOn"`
 }
 

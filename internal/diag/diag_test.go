@@ -2,6 +2,7 @@ package diag_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -655,5 +656,49 @@ func TestUnreadStepsDoNotCreateFindings(t *testing.T) {
 				t.Error("with the anti-cheats unknown, VBS must be treated as required")
 			}
 		})
+	}
+}
+
+type failingReg struct {
+	sys.Registry
+	name string
+}
+
+func (r failingReg) GetValue(path, name string) (sys.RegValue, error) {
+	if name == r.name {
+		return sys.RegValue{}, errors.New("acesso negado (simulado)")
+	}
+	return r.Registry.GetValue(path, name)
+}
+
+func buildWithFailingRead(t *testing.T, name string) *diag.Report {
+	t.Helper()
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := *m.Platform
+	p.Reg = failingReg{Registry: m.R, name: name}
+	return diag.Build(collect.Collect(context.Background(), &p, nil), nil)
+}
+
+func TestUnreadRegistryValuesDoNotCreateFindings(t *testing.T) {
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = m.R.DeleteValue(`HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management`, "PagingFiles")
+	r := diag.Build(collect.Collect(context.Background(), m.Platform, nil), nil)
+	if x := find(r, "res.pagefile"); x == nil || x.Severity != diag.SevWarning {
+		t.Fatalf("PagingFiles lido e ausente deve continuar gerando o achado: %+v", x)
+	}
+	if x := find(buildWithFailingRead(t, "PagingFiles"), "res.pagefile"); x != nil {
+		t.Errorf("PagingFiles ilegível gerou achado: %+v", x)
+	}
+	if x := find(buildWithFailingRead(t, "MouseSpeed"), "input.accel"); x != nil {
+		t.Errorf("MouseSpeed ilegível gerou input.accel: %+v", x)
+	}
+	if x := find(buildWithFailingRead(t, "NoSuchValue"), "input.accel"); x == nil || !strings.Contains(x.Evidence, "MouseSpeed = 1") {
+		t.Errorf("MouseSpeed lido deve gerar input.accel como antes: %+v", x)
 	}
 }
