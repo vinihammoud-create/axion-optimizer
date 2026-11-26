@@ -126,23 +126,55 @@ func TestRegNoneValueRoundTrip(t *testing.T) {
 	}
 }
 
-// Two tweaks write into a key neither found on the machine. Whichever order
-// they are undone in, the key Axion created must be gone at the end.
+// A key another Windows user's tweak created in that user's HKCU says nothing
+// about the same path in this user's profile. Here the second user already had
+// the key (empty) before Axion: undoing their tweak must leave it in place.
+func TestCreatedKeyOfAnotherUserDoesNotCountForThisUser(t *testing.T) {
+	const shared = testKey + `\Novo\Compartilhada`
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := regTweak("t.a", tweaks.Reg(shared, "A", sys.DWord(1)))
+	b := regTweak("t.b", tweaks.Reg(shared, "B", sys.DWord(2)))
+	e := newEngine(t, m, a, b)
+	ctx, f := context.Background(), &facts.Facts{}
+	if r := e.Apply(ctx, f, []string{"t.a"}, tweaks.ApplyOpts{}); r[0].Outcome != tweaks.OutApplied {
+		t.Fatalf("aplicar A como o 1º usuário: %+v", r[0])
+	}
+
+	m.SwitchUser(otherUserSID)
+	if err := m.R.SetValue(shared, "x", sys.DWord(0)); err != nil { // a chave vazia que já existia no perfil do 2º
+		t.Fatal(err)
+	}
+	if err := m.R.DeleteValue(shared, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.Apply(ctx, f, []string{"t.b"}, tweaks.ApplyOpts{}); r[0].Outcome != tweaks.OutApplied {
+		t.Fatalf("aplicar B como o 2º usuário: %+v", r[0])
+	}
+	if r := e.RevertTweaks(ctx, f, []string{"t.b"}, tweaks.RevertOpts{}); r[0].Outcome != tweaks.OutReverted {
+		t.Fatalf("desfazer B: %+v", r[0])
+	}
+	if ok, err := m.R.KeyExists(shared); err != nil || !ok {
+		t.Errorf("o desfazer de B apagou uma chave que já existia no perfil do 2º usuário (existe=%v, erro=%v)", ok, err)
+	}
+}
+
+// Two tweaks write into a key neither found on the machine. The key belongs
+// to Axion until the last of them is undone, so whichever order they are
+// undone in, the key is gone at the end.
 func TestSharedNewKeyBetweenTweaks(t *testing.T) {
 	const shared = testKey + `\Novo\Compartilhada`
 	orders := map[string]struct {
-		ids  []string
-		skip string
+		ids []string
 	}{
-		"primeiro A, depois B": {ids: []string{"t.a", "t.b"}, skip: "achado: desfazer A e depois B deixa 3 chaves vazias no registro (AxionTest, Novo e Compartilhada); a chave só some se B for desfeito antes de A (internal/tweaks/ops.go, RegOp.Capture/Restore)"},
+		"primeiro A, depois B": {ids: []string{"t.a", "t.b"}},
 		"primeiro B, depois A": {ids: []string{"t.b", "t.a"}},
 	}
 	for name, tc := range orders {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			if tc.skip != "" {
-				t.Skip(tc.skip)
-			}
 			m, err := mocksys.New(t.TempDir())
 			if err != nil {
 				t.Fatal(err)
