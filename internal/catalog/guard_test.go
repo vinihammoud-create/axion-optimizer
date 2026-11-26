@@ -102,6 +102,28 @@ func TestInterruptRoutingIsNeverOneClick(t *testing.T) {
 	}
 }
 
+// A device's own hardware key (Enum\<nó>) belongs to the device, not to a
+// Windows setting: the review rules (REVISAO-DE-MUDANCAS.md, item 4) keep it
+// out of the safe risk and of the one-click tier.
+func TestHardwareKeysAreNeverSafeNorOneClick(t *testing.T) {
+	_, f, _ := setup(t)
+	seen := 0
+	for _, tw := range catalog.All() {
+		for _, op := range tw.Ops(f) {
+			if !strings.Contains(strings.ToLower(op.Target()+" "+op.Describe()), `\enum\`) {
+				continue
+			}
+			seen++
+			if tw.OneClick || tw.Risk == tweaks.RiskSafe {
+				t.Errorf("%s grava na chave de hardware do dispositivo (%s): precisa ser manual e com risco acima de seguro", tw.ID, op.Describe())
+			}
+		}
+	}
+	if seen == 0 {
+		t.Skip("a máquina simulada não tem dispositivo com chave de hardware a gravar")
+	}
+}
+
 // The guards must actually bite: a hit on each rule is detected.
 func TestGuardsDetectKnownViolations(t *testing.T) {
 	for _, target := range []string{
