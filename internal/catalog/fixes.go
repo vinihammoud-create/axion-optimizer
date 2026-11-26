@@ -472,7 +472,7 @@ func fixTweaks() []*tweaks.Tweak {
 		{
 			ID: "fix.input.queue", Category: "correcoes", Title: "Fila do mouse e do teclado no padrão (100)",
 			Summary:  "Outro otimizador reduziu o buffer de eventos do driver de mouse/teclado. Isso não diminui a latência e pode fazer o driver descartar cliques e movimentos quando o sistema demora a ler.",
-			Detail:   "Remove MouseDataQueueSize (mouclass) e/ou KeyboardDataQueueSize (kbdclass) quando estão abaixo de 100, voltando ao padrão documentado pela Microsoft. Vale após reiniciar.",
+			Detail:   "Remove MouseDataQueueSize (mouclass) e/ou KeyboardDataQueueSize (kbdclass) quando estão abaixo de 100, voltando ao padrão (100). O padrão de mouclass e kbdclass vem da pesquisa djdallmann; o artigo da Microsoft Q102989 documenta esses valores nos drivers do Windows NT. Vale após reiniciar.",
 			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcInputQueue, srcInputQueueTest},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootRestart, Tags: []string{"entrada"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {
@@ -544,9 +544,9 @@ func fixTweaks() []*tweaks.Tweak {
 		{
 			ID: "fix.power.throttling", Category: "correcoes", Title: "Religar o EcoQoS (PowerThrottlingOff)",
 			Summary: "Um otimizador gravou PowerThrottlingOff = 1: o Windows deixa de reduzir o consumo dos processos em segundo plano, que passam a disputar energia e núcleos com o jogo.",
-			Detail: "Remove PowerThrottlingOff de HKLM\\SYSTEM\\CurrentControlSet\\Control\\Power\\PowerThrottling (padrão: ausente). O EcoQoS só age em processos em segundo plano; o jogo em primeiro plano não é limitado. " +
-				"Nos Intel com núcleos P e E é esse mecanismo que manda o trabalho de fundo para os núcleos E.",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcPowerThrottle},
+			Detail: "Remove PowerThrottlingOff de HKLM\\SYSTEM\\CurrentControlSet\\Control\\Power\\PowerThrottling (padrão: ausente). O valor não está na documentação da Microsoft, que cita outro valor da mesma chave (DisableUserPresenceQos). " +
+				"A página documenta o mecanismo: o programa em foco recebe QoS alto; janelas que não aparecem e serviços em segundo plano recebem QoS baixo e, na bateria, a frequência mais eficiente e os núcleos eficientes. Na bateria, depois de um tempo sem uso, o Windows pode baixar o programa em foco para QoS médio.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcPowerThrottle},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootRestart, Tags: []string{"fps", "energia"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if !f.Residue.Readable || !f.Residue.PowerThrottlingOff {

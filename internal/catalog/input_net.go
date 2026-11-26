@@ -26,7 +26,7 @@ func inputTweaks() []*tweaks.Tweak {
 				if f.Gaming.MouseAccelOn {
 					return tweaks.Rec(tweaks.RecYes, "a aceleração do ponteiro está ligada neste PC")
 				}
-				return tweaks.Rec(tweaks.RecYes, "garante movimento 1:1 fora de jogos com raw input")
+				return tweaks.Rec(tweaks.RecNeutral, "a aceleração do ponteiro não aparece ligada neste PC; desligá-la deixa o ponteiro proporcional ao movimento do mouse fora de jogos com raw input")
 			},
 			Ops: func(*facts.Facts) []tweaks.Op { return []tweaks.Op{mouseOp()} },
 		},
@@ -354,9 +354,9 @@ func networkTweaks() []*tweaks.Tweak {
 	return []*tweaks.Tweak{
 		{
 			ID: "net.nic.power", Category: "rede", Title: "Placa de rede sem economia de energia",
-			Summary:  "Desmarca \"Permitir que o computador desligue este dispositivo para economizar energia\" na placa de rede ativa, evitando quedas e atrasos ao voltar do modo econômico.",
-			Detail:   "PnPCapabilities = 24 (0x18) na chave do driver do adaptador (HKLM\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-…}\\NNNN), o valor usado para desmarcar essa caixa de seleção (o artigo da Microsoft que o descrevia foi retirado). Pode desativar junto o despertar pela rede (Wake-on-LAN) a partir do repouso. O adaptador é reiniciado (queda de 2–5 s).",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcNicPower},
+			Summary:  "Desmarca \"Permitir que o computador desligue este dispositivo para economizar energia\" na placa de rede ativa, para a placa não ser desligada para economizar energia.",
+			Detail:   "PnPCapabilities = 24 (0x18) na chave do driver do adaptador (HKLM\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-…}\\NNNN), o valor usado para desmarcar essa caixa de seleção (o artigo da Microsoft que o descrevia foi retirado). Pode desativar junto o despertar pela rede (Wake-on-LAN) a partir do repouso. A fonte citada descreve o gerenciamento de energia do adaptador, não esse valor; o Axion não mediu efeito em quedas ou atrasos. O adaptador é reiniciado (queda de 2–5 s).",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcNicPower},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"rede", "estabilidade"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if len(activePhysical(f, false)) == 0 {
