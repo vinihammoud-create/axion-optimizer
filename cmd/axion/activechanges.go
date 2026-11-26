@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
-	"path/filepath"
 
 	"axion/internal/tweaks"
 )
@@ -32,12 +32,13 @@ const (
 // next start) counts like an interrupted one. No history at all is not an
 // error: Axion never changed anything here.
 func countActiveChanges(dir string) (int, error) {
-	path := filepath.Join(dir, "journal.json")
+	// Only these three names, inside dir.
+	fsys := os.DirFS(dir)
 	var firstErr error
 	found := false
-	for _, p := range []string{path, path + ".tmp", path + ".bak"} {
-		b, err := os.ReadFile(p)
-		if errors.Is(err, os.ErrNotExist) {
+	for _, p := range []string{"journal.json", "journal.json.tmp", "journal.json.bak"} {
+		b, err := fs.ReadFile(fsys, p)
+		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		found = true
@@ -53,7 +54,7 @@ func countActiveChanges(dir string) (int, error) {
 		}
 		if err := json.Unmarshal(b, &f); err != nil || f.Version == 0 {
 			if firstErr == nil {
-				firstErr = errors.New(filepath.Base(p) + " ilegível")
+				firstErr = errors.New(p + " ilegível")
 			}
 			continue
 		}

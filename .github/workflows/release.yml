@@ -51,8 +51,9 @@ jobs:
         run: |
           choco install innosetup --version=$env:INNO_VERSION -y --no-progress --allow-downgrade
           if ($LASTEXITCODE) { throw 'choco install innosetup falhou' }
-          $v = (Get-Item (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe')).VersionInfo.ProductVersion
-          if ($v -notlike "$env:INNO_VERSION*") { throw "Inno Setup $v instalado, esperado $env:INNO_VERSION" }
+          $v = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1', 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1' -ErrorAction SilentlyContinue | Select-Object -First 1).DisplayVersion
+          "Inno Setup $v"
+          if ($v -ne $env:INNO_VERSION) { throw "Inno Setup '$v' instalado, esperado $env:INNO_VERSION" }
 
       # O instalador leva o Axion.exe do pacote: com a assinatura, ele já
       # chega assinado aqui. O instalador em si seria assinado de um destes

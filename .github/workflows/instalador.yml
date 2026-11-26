@@ -51,10 +51,11 @@ jobs:
         run: |
           choco install innosetup --version=$env:INNO_VERSION -y --no-progress --allow-downgrade
           if ($LASTEXITCODE) { throw 'choco install innosetup falhou' }
-          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
-          $v = (Get-Item $iscc).VersionInfo.ProductVersion
-          "ISCC $v"
-          if ($v -notlike "$env:INNO_VERSION*") { throw "Inno Setup $v instalado, esperado $env:INNO_VERSION" }
+          # ISCC.exe has no version resource: the version is the one Inno
+          # Setup's own installer records (the image may already have it).
+          $v = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1', 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1' -ErrorAction SilentlyContinue | Select-Object -First 1).DisplayVersion
+          "Inno Setup $v"
+          if ($v -ne $env:INNO_VERSION) { throw "Inno Setup '$v' instalado, esperado $env:INNO_VERSION" }
 
       - name: Versão
         shell: pwsh

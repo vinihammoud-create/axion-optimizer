@@ -28,7 +28,7 @@ if (-not $iscc) {
   $iscc = $roots | ForEach-Object { Join-Path $_ 'Inno Setup 6\ISCC.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 if (-not $iscc) { throw 'ISCC.exe não encontrado: instale o Inno Setup 6' }
-"Inno Setup: $iscc ($((Get-Item $iscc).VersionInfo.ProductVersion))"
+"Inno Setup: $iscc"
 
 # --- pacote ------------------------------------------------------------------
 $pkg = Join-Path $root "dist\Axion-$Version-win64"
