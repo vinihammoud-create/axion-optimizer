@@ -433,7 +433,7 @@ func (e *Events) Query(channel, xpath string, max int) ([]sys.Event, error) {
 // Native extras
 // ---------------------------------------------------------------------------
 
-func (n *Native) SetDisplayMode(device string, w, h, hz int) error {
+func (n *Native) SetDisplayMode(device string, w, h, hz int, persist bool) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	for i := range n.Displays {
@@ -443,10 +443,26 @@ func (n *Native) SetDisplayMode(device string, w, h, hz int) error {
 				return errors.New("modo não suportado")
 			}
 			d.Width, d.Height, d.CurrentHz = w, h, hz
+			if persist {
+				if n.DisplaySaved == nil {
+					n.DisplaySaved = map[string]sys.DisplayMode{}
+				}
+				n.DisplaySaved[strings.ToLower(device)] = *d
+				n.DisplayWrites++
+			}
 			return nil
 		}
 	}
 	return sys.ErrNotFound
+}
+
+// SavedDisplay returns the mode last written to the registry for a display
+// (SetDisplayMode with persist), if any.
+func (n *Native) SavedDisplay(device string) (sys.DisplayMode, bool) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	d, ok := n.DisplaySaved[strings.ToLower(device)]
+	return d, ok
 }
 
 func (n *Native) CreateRestorePoint(desc string) error {
@@ -616,6 +632,7 @@ func (n *Native) DNSQuery(server, host string, timeout time.Duration) (time.Dura
 func (n *Native) PIDsByName(name string) []uint32 {
 	n.mu.Lock()
 	defer n.mu.Unlock()
+	n.ProcSnapshots++
 	var out []uint32
 	for _, p := range n.Procs {
 		if strings.EqualFold(p.Name, name) {
@@ -624,6 +641,32 @@ func (n *Native) PIDsByName(name string) []uint32 {
 	}
 	return out
 }
+
+// RunningNames implements sys.Native (one snapshot for every name).
+func (n *Native) RunningNames(names []string) map[string]bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.ProcSnapshots++
+	out := map[string]bool{}
+	for _, name := range names {
+		for _, p := range n.Procs {
+			if strings.EqualFold(p.Name, name) {
+				out[name] = true
+				break
+			}
+		}
+	}
+	return out
+}
+
+// Snapshots returns how many process-list snapshots were taken
+// (PIDsByName and RunningNames).
+func (n *Native) Snapshots() int {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.ProcSnapshots
+}
+
 func (n *Native) MovePath(src, dst string) error { return nil }
 
 // FirmwareType implements sys.Native.

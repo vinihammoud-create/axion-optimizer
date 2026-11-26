@@ -233,7 +233,7 @@ func (n *Native) DisplayModes() ([]sys.DisplayMode, error) {
 }
 
 // SetDisplayMode implements sys.Native.
-func (n *Native) SetDisplayMode(device string, width, height, hz int) error {
+func (n *Native) SetDisplayMode(device string, width, height, hz int, persist bool) error {
 	name, err := windows.UTF16PtrFromString(device)
 	if err != nil {
 		return err
@@ -249,7 +249,13 @@ func (n *Native) SetDisplayMode(device string, width, height, hz int) error {
 	if int32(r) != 0 {
 		return fmt.Errorf("o monitor recusou %dx%d a %d Hz (código %d)", width, height, hz, int32(r))
 	}
-	r, _, _ = procChangeDisplaySettingsExW.Call(uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(&dm)), 0, cdsUpdateRegistry, 0)
+	// dwflags 0 changes the mode dynamically and saves nothing: a monitor
+	// left without image goes back to the saved mode on the next boot.
+	var flags uintptr
+	if persist {
+		flags = cdsUpdateRegistry
+	}
+	r, _, _ = procChangeDisplaySettingsExW.Call(uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(&dm)), 0, flags, 0)
 	switch int32(r) {
 	case 0:
 		return nil
@@ -500,6 +506,28 @@ func (n *Native) PIDsByName(name string) []uint32 {
 	for err = windows.Process32First(snap, &pe); err == nil; err = windows.Process32Next(snap, &pe) {
 		if strings.EqualFold(windows.UTF16ToString(pe.ExeFile[:]), name) {
 			out = append(out, pe.ProcessID)
+		}
+	}
+	return out
+}
+
+// RunningNames implements sys.Native: one snapshot for every name.
+func (n *Native) RunningNames(names []string) map[string]bool {
+	want := make(map[string]string, len(names))
+	for _, name := range names {
+		want[strings.ToLower(name)] = name
+	}
+	out := make(map[string]bool, len(names))
+	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return out
+	}
+	defer windows.CloseHandle(snap)
+	var pe windows.ProcessEntry32
+	pe.Size = uint32(unsafe.Sizeof(pe))
+	for err = windows.Process32First(snap, &pe); err == nil; err = windows.Process32Next(snap, &pe) {
+		if name, ok := want[strings.ToLower(windows.UTF16ToString(pe.ExeFile[:]))]; ok {
+			out[name] = true
 		}
 	}
 	return out

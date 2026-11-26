@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"axion/internal/facts"
 	"axion/internal/sys"
@@ -25,6 +26,12 @@ type Ctx struct {
 	// so a key two tweaks write into is removed by whichever of them is undone
 	// last. It is empty outside an apply.
 	CreatedKeys map[string]bool
+	// Confirm asks the person at the screen whether a change can stay (the
+	// refresh-rate change: "Está vendo esta tela?") and waits up to timeout.
+	// It reports true only for an explicit "keep" within the time limit.
+	// Nil outside an apply started from the interface: an operation that
+	// needs it then changes nothing.
+	Confirm func(prompt string, timeout time.Duration) bool
 }
 
 // keyCreatedByAxion reports whether the registry key is only on the machine

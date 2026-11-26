@@ -157,10 +157,10 @@ func privacyTweaks() []*tweaks.Tweak {
 		{
 			ID: "privacy.activity", Category: "privacidade", Title: "Histórico de atividades desligado",
 			Summary:  "Impede que o Windows guarde no PC o histórico dos apps e arquivos que você usa.",
-			Detail:   "Políticas em HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System: EnableActivityFeed=0, PublishUserActivities=0, UploadUserActivities=0. No Windows 11 o envio desse histórico à Microsoft já foi descontinuado; ele fica guardado só no PC.",
+			Detail:   "Políticas em HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System: EnableActivityFeed=0, PublishUserActivities=0, UploadUserActivities=0. No Windows 11 o envio desse histórico à Microsoft já foi descontinuado; ele fica guardado só no PC." + policyHomeNote,
 			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcActivity, srcActivityPriv},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"privacidade"}, OneClick: true,
-			Recommend: yes("sem contrapartida para jogos"),
+			Recommend: policyRec(yes("sem contrapartida para jogos")),
 			Ops: func(*facts.Facts) []tweaks.Op {
 				k := `HKLM\SOFTWARE\Policies\Microsoft\Windows\System`
 				return []tweaks.Op{
@@ -174,10 +174,10 @@ func privacyTweaks() []*tweaks.Tweak {
 			ID: "privacy.websearch", Category: "privacidade", Title: "Pesquisa na web (Bing) fora do Iniciar",
 			Summary: "A pesquisa do Iniciar deixa de mostrar resultados e sugestões do Bing, ficando com apps, arquivos e configurações do PC.",
 			Detail: "Política DisableSearchBoxSuggestions=1 em HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer. Aplica ao reiniciar o Explorer ou ao entrar novamente. " +
-				"A Microsoft documenta esta política só para as sugestões da caixa de pesquisa do Explorador de Arquivos; a remoção dos resultados do Bing no Iniciar é um efeito observado, não documentado, e pode mudar em atualizações.",
+				"A Microsoft documenta esta política só para as sugestões da caixa de pesquisa do Explorador de Arquivos; a remoção dos resultados do Bing no Iniciar é um efeito observado, não documentado, e pode mudar em atualizações." + policyHomeNote,
 			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcSearchPolicy},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootSignOut, Tags: []string{"privacidade", "interface"}, OneClick: true,
-			Recommend: yes("o que você digita no Iniciar deixa de ir para o Bing"),
+			Recommend: policyRec(yes("o que você digita no Iniciar deixa de ir para o Bing")),
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{tweaks.Reg(`HKCU\Software\Policies\Microsoft\Windows\Explorer`, "DisableSearchBoxSuggestions", sys.DWord(1))}
 			},
@@ -185,10 +185,10 @@ func privacyTweaks() []*tweaks.Tweak {
 		{
 			ID: "privacy.widgets", Category: "privacidade", Title: "Widgets e Notícias desligados",
 			Summary:  "Remove o painel de Widgets/Notícias da barra de tarefas e os processos que ele mantém em segundo plano.",
-			Detail:   "Política AllowNewsAndInterests=0 em HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh. O painel usa processos WebView2 que ficam carregados na memória.",
+			Detail:   "Política AllowNewsAndInterests=0 em HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh. O painel usa processos WebView2 que ficam carregados na memória." + policyHomeNote,
 			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcWidgets},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootSignOut, Tags: []string{"privacidade", "ram"}, OneClick: true,
-			Recommend: yes("libera memória e remove notícias em segundo plano"),
+			Recommend: policyRec(yes("libera memória e remove notícias em segundo plano")),
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{tweaks.Reg(`HKLM\SOFTWARE\Policies\Microsoft\Dsh`, "AllowNewsAndInterests", sys.DWord(0))}
 			},
@@ -225,10 +225,10 @@ func updateTweaks() []*tweaks.Tweak {
 			ID: "update.do.p2p", Category: "update", Title: "Atualizações sem compartilhamento P2P",
 			Summary: "O Windows deixa de trocar partes de atualizações com outros PCs e baixa só dos servidores da Microsoft.",
 			Detail: "Política DODownloadMode = 0 (\"HTTP Only\") em HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization. Por padrão o Windows só compartilha com PCs da mesma rede local (modo 1), sem usar o upload da sua internet; " +
-				"o ajuste só economiza banda de upload se \"Dispositivos na internet\" estava ligado (modo 3).",
-			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcDO},
+				"o ajuste só economiza banda de upload se \"Dispositivos na internet\" estava ligado (modo 3)." + policyHomeNote,
+			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcDO, srcDOCSP},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"rede"}, OneClick: true,
-			Recommend: func(f *facts.Facts) tweaks.Recommendation {
+			Recommend: policyRec(func(f *facts.Facts) tweaks.Recommendation {
 				switch f.OS.DOMode {
 				case 3:
 					return tweaks.Rec(tweaks.RecYes, "o compartilhamento com PCs da internet está ligado ("+f.OS.DOSource+"): o upload de atualizações pode disputar a sua banda durante a partida")
@@ -236,7 +236,7 @@ func updateTweaks() []*tweaks.Tweak {
 					return tweaks.Rec(tweaks.RecNeutral, "o compartilhamento já está desligado")
 				}
 				return tweaks.Rec(tweaks.RecNeutral, "o Windows só compartilha na rede local (padrão), sem usar a banda da internet")
-			},
+			}),
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{tweaks.Reg(`HKLM\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization`, "DODownloadMode", sys.DWord(0))}
 			},
@@ -244,15 +244,15 @@ func updateTweaks() []*tweaks.Tweak {
 		{
 			ID: "update.drivers.exclude", Category: "update", Title: "Windows Update sem drivers",
 			Summary:  "Impede que o Windows Update troque drivers automaticamente (por exemplo, substituir o driver de vídeo que você instalou por uma versão mais antiga).",
-			Detail:   "Política ExcludeWUDriversInQualityUpdate=1 em HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate. Com isso você passa a ser responsável por atualizar drivers de chipset, rede e áudio pelo site do fabricante.",
+			Detail:   "Política ExcludeWUDriversInQualityUpdate=1 em HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate. Com isso você passa a ser responsável por atualizar drivers de chipset, rede e áudio pelo site do fabricante." + policyHomeNote,
 			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcWUDrivers},
 			Risk: tweaks.RiskModerate, Reboot: tweaks.RebootNone, Tags: []string{"estabilidade"}, OneClick: false,
-			Recommend: func(f *facts.Facts) tweaks.Recommendation {
+			Recommend: policyRec(func(f *facts.Facts) tweaks.Recommendation {
 				if discreteGPU(f) {
 					return tweaks.Rec(tweaks.RecNeutral, "útil se você instala o driver da GPU manualmente; exige atualizar os outros drivers por conta própria")
 				}
 				return tweaks.Rec(tweaks.RecNo, "sem GPU dedicada o Windows Update é a forma mais simples de manter drivers atualizados")
-			},
+			}),
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{tweaks.Reg(`HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate`, "ExcludeWUDriversInQualityUpdate", sys.DWord(1))}
 			},

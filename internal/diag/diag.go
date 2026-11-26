@@ -1112,8 +1112,13 @@ var rules = []rule{
 				srcMS("Riot — Requisitos de segurança do Vanguard", "https://support.riotgames.com/en-us/riot/performance/vanguard-security-requirements")}
 			if len(hard) > 0 {
 				ex := "O FACEIT exige TPM 2.0 e Secure Boot de todos os jogadores desde 25/11/2025; o Vanguard pode exigir os dois. Ative na BIOS o fTPM (AMD) ou PTT (Intel) e o Secure Boot (com o CSM desligado) — o guia de BIOS mostra onde." + mbrCaution(f)
+				// A TPM that could not be read is "não lido", not "não encontrado".
+				tpm := orText(s.TPMVersion, "não encontrado")
+				if !s.TPMRead {
+					tpm = "não lido"
+				}
 				add(Finding{ID: "sec.anticheat", Area: AreaSeguranca, Severity: SevCritical, Title: "Requisitos do anti-cheat não atendidos: " + strings.Join(hard, ", "),
-					Evidence:    fmt.Sprintf("Anti-cheat instalado: %s. TPM: %s; Secure Boot: %s.", acs, orText(s.TPMVersion, "não encontrado"), onOff(s.SecureBoot)),
+					Evidence:    fmt.Sprintf("Anti-cheat instalado: %s. TPM: %s; Secure Boot: %s.", acs, tpm, onOff(s.SecureBoot)),
 					Explanation: ex,
 					Actions:     []Action{{Kind: "page", Label: "Ver guia de BIOS", Page: "bios"}},
 					Sources:     srcs})
@@ -1212,9 +1217,13 @@ var rules = []rule{
 					"Troque por um cabo Cat5e/Cat6 e teste outra porta. Se a porta do roteador ou do switch for de 100 Mb/s, o limite é dela."})
 		}
 		if kw, ok := a.Keywords["*EEE"]; ok && kw.Current == "1" {
+			cost := "Num desktop, desligar não tem desvantagem além de um consumo um pouco maior com a rede parada."
+			if f.Power.IsLaptop {
+				cost = "Num notebook, o EEE economiza bateria com a rede parada: desligue só se a conexão por cabo cai ou trava."
+			}
 			add(Finding{ID: "net.eee", Area: AreaRede, Severity: SevInfo, Title: "Economia de energia da placa de rede (EEE) ligada",
 				Evidence:    a.Description + ": Energy-Efficient Ethernet (*EEE) = 1.",
-				Explanation: "O EEE (IEEE 802.3az) desliga o link entre um pacote e outro. Acordar leva cerca de 16,5 µs no gigabit, nada perto da latência da internet; o motivo para desligar é compatibilidade: a própria Intel desativou o EEE nas placas I225/I226 para acabar com quedas e travadas. Num desktop, desligar não tem desvantagem além de um consumo um pouco maior com a rede parada.",
+				Explanation: "O EEE (IEEE 802.3az) desliga o link entre um pacote e outro. Acordar leva cerca de 16,5 µs no gigabit, nada perto da latência da internet; o motivo para desligar é compatibilidade: a própria Intel desativou o EEE nas placas I225/I226 para acabar com quedas e travadas. " + cost,
 				Actions:     []Action{fixTweaks("Desligar EEE", "net.nic.eee")}, Sources: []tweaks.Source{srcEEEIntel, srcEEEWake}})
 		}
 	},

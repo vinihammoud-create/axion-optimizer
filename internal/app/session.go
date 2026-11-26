@@ -227,14 +227,12 @@ func (a *App) StopSessions(max time.Duration) bool {
 	}
 }
 
-// pollGames takes one read-only snapshot of the process list per game turned
-// on (look by name, no process handle). The cost is measured with Native.Monotonic.
+// pollGames takes one read-only snapshot of the process list for all the
+// games turned on (look by name, no process handle). The cost is measured
+// with Native.Monotonic.
 func (a *App) pollGames(order []string) map[string]bool {
 	t0 := a.P.Native.Monotonic()
-	out := map[string]bool{}
-	for _, exe := range order {
-		out[exe] = len(a.P.Native.PIDsByName(exe)) > 0
-	}
+	out := a.P.Native.RunningNames(order)
 	d := a.P.Native.Monotonic() - t0
 	a.sess.mu.Lock()
 	a.sess.polls++

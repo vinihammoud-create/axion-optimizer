@@ -198,8 +198,13 @@ func gameTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "game.refresh", Category: "jogo", Title: "Monitor na taxa de atualização máxima",
-			Summary:  "Coloca cada monitor na maior frequência (Hz) disponível na resolução atual, como em Configurações > Tela > Avançado; útil quando o Windows ficou em 60 Hz num monitor mais rápido.",
-			Detail:   "ChangeDisplaySettingsEx com a maior frequência listada pelo driver para a resolução atual (a mesma lista de Configurações > Tela > Avançado). Para desfazer, a frequência anterior é restaurada.",
+			Summary: "Coloca cada monitor na maior frequência (Hz) disponível na resolução atual, como em Configurações > Tela > Avançado; útil quando o Windows ficou em 60 Hz num monitor mais rápido. " +
+				"Pede sua confirmação e volta sozinho à frequência anterior em 15 segundos se você não confirmar.",
+			Detail: "ChangeDisplaySettingsEx com a maior frequência listada pelo driver para a resolução atual (a mesma lista de Configurações > Tela > Avançado). " +
+				"A nova frequência é trocada primeiro sem ser gravada, e o Axion pergunta se você está vendo a tela: sem \"Manter\" em 15 segundos, ou com \"Reverter\", o monitor volta sozinho à frequência anterior e nada fica gravado. " +
+				"Se o PC travar antes da resposta, o reinício usa o modo antigo, porque nada foi gravado. Só depois de \"Manter\" o modo é gravado no Windows. " +
+				"Sem a janela do Axion aberta para perguntar, a frequência não é trocada. Para desfazer, a frequência anterior é restaurada e gravada. " +
+				"A confirmação e a volta automática foram testadas só no simulador do Axion, não num monitor real.",
 			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcRefresh},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"fps", "latencia"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {

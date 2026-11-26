@@ -81,6 +81,11 @@ func (c *client) wait(jobID string) Job {
 		if j.Status != JobRunning {
 			return j
 		}
+		// The person at the screen answers "Manter" (the refresh rate);
+		// the tests of the other answers follow the job themselves.
+		if j.Confirm != nil {
+			c.json("POST", "/api/jobs/"+jobID+"/confirm", map[string]any{"confirm": j.Confirm.ID, "keep": true}, nil)
+		}
 		time.Sleep(20 * time.Millisecond)
 	}
 	c.t.Fatal("tarefa não terminou")

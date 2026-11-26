@@ -711,17 +711,37 @@ func dismFeature(c *tweaks.Ctx, name string, enable bool) error {
 	return nil
 }
 
+// knownFeatureState reads InstallState and refuses the values that say
+// nothing (0 when the row came without the field, 4 "Unknown"): they are
+// neither "enabled" nor "disabled".
+func knownFeatureState(c *tweaks.Ctx, name string) (int64, error) {
+	s, err := featureState(c, name)
+	if err != nil {
+		return s, err
+	}
+	if s < 1 || s > 3 {
+		return s, fmt.Errorf("o Windows não informou o estado do recurso %s (InstallState = %d)", name, s)
+	}
+	return s, nil
+}
+
 func featureOp(name, label string) tweaks.Op {
 	return &tweaks.FuncOp{
 		KindName: "feature", ID: name, Spec: featureSpec{Name: name, Label: label},
 		Desc: fmt.Sprintf("DISM /online /disable-feature /featurename:%s (%s)", name, label),
 		SnapFn: func(c *tweaks.Ctx) (any, error) {
-			s, err := featureState(c, name)
-			return featSnap{State: s}, err
+			s, err := knownFeatureState(c, name)
+			if err != nil {
+				return nil, err
+			}
+			return featSnap{State: s}, nil
 		},
 		InFn: func(c *tweaks.Ctx) (bool, error) {
-			s, err := featureState(c, name)
-			return s != 1, err
+			s, err := knownFeatureState(c, name)
+			if err != nil {
+				return false, err
+			}
+			return s != 1, nil
 		},
 		ApplyFn: func(c *tweaks.Ctx) error { return dismFeature(c, name, false) },
 		RestoreFn: func(c *tweaks.Ctx, raw json.RawMessage) error {
@@ -763,55 +783,100 @@ type displaySnap struct {
 	Hz     int    `json:"hz"`
 }
 
-func findDisplay(c *tweaks.Ctx, device string) (sys.DisplayMode, bool) {
+// findDisplay returns the display now, an error when the list could not be
+// read, and ok false when the display is not connected.
+func findDisplay(c *tweaks.Ctx, device string) (sys.DisplayMode, bool, error) {
 	list, err := c.P.Native.DisplayModes()
 	if err != nil {
-		return sys.DisplayMode{}, false
+		return sys.DisplayMode{}, false, err
 	}
 	for _, d := range list {
 		if strings.EqualFold(d.Device, device) {
-			return d, true
+			return d, true, nil
 		}
 	}
-	return sys.DisplayMode{}, false
+	return sys.DisplayMode{}, false, nil
 }
 
+// connectedDisplay is findDisplay for the operations that need the display:
+// not connected is an error too.
+func connectedDisplay(c *tweaks.Ctx, device string) (sys.DisplayMode, error) {
+	d, ok, err := findDisplay(c, device)
+	if err != nil {
+		return d, fmt.Errorf("não foi possível ler os monitores: %w", err)
+	}
+	if !ok {
+		return d, fmt.Errorf("monitor %s não está conectado agora", device)
+	}
+	return d, nil
+}
+
+// RefreshConfirmWait is how long the new refresh rate waits for "Manter"
+// before going back by itself, as Configurações > Tela does (15 s).
+const RefreshConfirmWait = 15 * time.Second
+
 // refreshOp sets a display to the highest refresh rate available at its
-// current resolution.
+// current resolution. The new rate is tried without saving it (a monitor
+// left without image returns to the saved mode on the next boot) and only
+// saved after the person confirms it within RefreshConfirmWait; with no
+// answer, "Reverter" or nobody to ask (Ctx.Confirm nil), nothing is saved.
 func refreshOp(device, monitor string) tweaks.Op {
 	return &tweaks.FuncOp{
 		KindName: "display", ID: strings.ToLower(device), Spec: displaySpec{Device: device, Monitor: monitor},
-		Desc: fmt.Sprintf("%s (%s) → maior taxa de atualização disponível na resolução atual (ChangeDisplaySettingsEx)", monitor, device),
+		Desc: fmt.Sprintf("%s (%s) → maior taxa de atualização disponível na resolução atual (ChangeDisplaySettingsEx, gravada só depois de você confirmar)", monitor, device),
 		SnapFn: func(c *tweaks.Ctx) (any, error) {
-			d, ok := findDisplay(c, device)
-			if !ok {
-				return nil, fmt.Errorf("monitor %s não encontrado", device)
+			d, err := connectedDisplay(c, device)
+			if err != nil {
+				return nil, err
 			}
 			return displaySnap{Device: d.Device, Width: d.Width, Height: d.Height, Hz: d.CurrentHz}, nil
 		},
 		InFn: func(c *tweaks.Ctx) (bool, error) {
-			d, ok := findDisplay(c, device)
-			if !ok {
-				return true, nil
+			// A monitor not connected now has no rate to read: unknown, not "applied".
+			d, err := connectedDisplay(c, device)
+			if err != nil {
+				return false, err
 			}
 			return d.MaxHzAtRes == 0 || d.CurrentHz >= d.MaxHzAtRes, nil
 		},
 		ApplyFn: func(c *tweaks.Ctx) error {
-			d, ok := findDisplay(c, device)
-			if !ok {
-				return fmt.Errorf("monitor %s não encontrado", device)
+			d, err := connectedDisplay(c, device)
+			if err != nil {
+				return err
 			}
-			return c.P.Native.SetDisplayMode(d.Device, d.Width, d.Height, d.MaxHzAtRes)
+			if c.Confirm == nil {
+				return errors.New("a troca de frequência só é feita com a janela do Axion aberta, para você confirmar que a imagem continua aparecendo; nada foi alterado")
+			}
+			if err := c.P.Native.SetDisplayMode(d.Device, d.Width, d.Height, d.MaxHzAtRes, false); err != nil {
+				return err
+			}
+			prompt := fmt.Sprintf("%s está agora a %d Hz (antes: %d Hz). Está vendo esta tela?", monitor, d.MaxHzAtRes, d.CurrentHz)
+			if c.Confirm(prompt, RefreshConfirmWait) {
+				return c.P.Native.SetDisplayMode(d.Device, d.Width, d.Height, d.MaxHzAtRes, true)
+			}
+			if err := c.P.Native.SetDisplayMode(d.Device, d.Width, d.Height, d.CurrentHz, false); err != nil {
+				return fmt.Errorf("a nova frequência não foi confirmada e a volta a %d Hz falhou: %w", d.CurrentHz, err)
+			}
+			return fmt.Errorf("a nova frequência não foi confirmada (Reverter ou sem resposta em %d s): o monitor voltou a %d Hz e nada foi gravado", int(RefreshConfirmWait/time.Second), d.CurrentHz)
 		},
 		RestoreFn: func(c *tweaks.Ctx, raw json.RawMessage) error {
 			var s displaySnap
 			if err := json.Unmarshal(raw, &s); err != nil {
 				return err
 			}
-			return c.P.Native.SetDisplayMode(s.Device, s.Width, s.Height, s.Hz)
+			// Already back in the mode from before (the apply that was not
+			// confirmed returned to it without saving anything): nothing to
+			// write. Otherwise the previous mode is set and saved.
+			if d, ok, err := findDisplay(c, s.Device); err == nil && ok && d.Width == s.Width && d.Height == s.Height && d.CurrentHz == s.Hz {
+				return nil
+			}
+			return c.P.Native.SetDisplayMode(s.Device, s.Width, s.Height, s.Hz, true)
 		},
 		CurFn: func(c *tweaks.Ctx) string {
-			d, ok := findDisplay(c, device)
+			d, ok, err := findDisplay(c, device)
+			if err != nil {
+				return "erro: " + err.Error()
+			}
 			if !ok {
 				return "(monitor não conectado)"
 			}
