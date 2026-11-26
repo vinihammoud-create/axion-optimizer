@@ -2,19 +2,12 @@ package app
 
 import "axion/internal/facts"
 
-// thermalZoneView adds to a zone whether its limit was read: the collector
-// stores a null "% Passive Limit" as 0, which is not a real limit.
-type thermalZoneView struct {
-	facts.ThermalZone
-	PassiveLimitRead bool `json:"passiveLimitRead"`
-}
-
 // thermalView adds the server's own "limiting now" verdict (the one the
-// diagnostic uses), so the page does not recompute it.
+// diagnostic uses), so the page does not recompute it. Whether a zone's
+// limit was read comes from the collector (facts.ThermalZone.PassiveLimitRead).
 type thermalView struct {
 	facts.ThermalInfo
-	Zones      []thermalZoneView `json:"zones,omitempty"`
-	LimitedNow bool              `json:"limitedNow"`
+	LimitedNow bool `json:"limitedNow"`
 }
 
 // factsView is what /api/facts serves: the facts with the thermal block
@@ -25,9 +18,5 @@ type factsView struct {
 }
 
 func newFactsView(f *facts.Facts) factsView {
-	v := thermalView{ThermalInfo: f.Thermal, LimitedNow: f.Thermal.LimitedNow()}
-	for _, z := range f.Thermal.Zones {
-		v.Zones = append(v.Zones, thermalZoneView{ThermalZone: z, PassiveLimitRead: z.PassiveLimitPct > 0})
-	}
-	return factsView{Facts: f, Thermal: v}
+	return factsView{Facts: f, Thermal: thermalView{ThermalInfo: f.Thermal, LimitedNow: f.Thermal.LimitedNow()}}
 }

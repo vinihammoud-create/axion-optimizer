@@ -29,7 +29,7 @@ func healthy() *facts.Facts {
 			ExclusionsRead: true, ExclPaths: []string{`D:\Jogos\Steam`}},
 		DirtyRead: true,
 		Updates:   facts.UpdateHealth{Read: true, Last: now.Add(-12 * 24 * time.Hour), LastKB: "5121794"},
-		Boot:      facts.BootHealth{Read: true, Samples: samples(14200, 13100, 12200, 13800, 15100)},
+		Boot:      facts.BootHealth{Read: true, SlowRead: true, Samples: samples(14200, 13100, 12200, 13800, 15100)},
 	}
 	return f
 }

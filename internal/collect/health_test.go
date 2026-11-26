@@ -2,6 +2,7 @@ package collect_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"axion/internal/collect"
 	"axion/internal/facts"
+	"axion/internal/health"
 	"axion/internal/sys"
 	"axion/internal/sys/mocksys"
 )
@@ -47,7 +49,7 @@ func TestHealthFromTheMock(t *testing.T) {
 		t.Errorf("falha antiga: %+v", u)
 	}
 	b := h.Boot
-	if !b.Read || len(b.Samples) != 5 || b.Samples[0].MainMs != 14200 || b.Samples[0].TotalMs != 25200 || b.Samples[0].Degraded || len(b.Slow) != 0 {
+	if !b.Read || !b.SlowRead || len(b.Samples) != 5 || b.Samples[0].MainMs != 14200 || b.Samples[0].TotalMs != 25200 || b.Samples[0].Degraded || len(b.Slow) != 0 {
 		t.Errorf("boot: %+v", b)
 	}
 	if !b.Samples[0].At.After(b.Samples[4].At) {
@@ -247,6 +249,48 @@ func TestHealthBootDegradationAndGarbage(t *testing.T) {
 	b := collect.Collect(context.Background(), m.Platform, nil).Health.Boot
 	if len(b.Samples) != 6 || b.Samples[0].MainMs != 61000 || !b.Samples[0].Degraded {
 		t.Errorf("boots: %+v", b.Samples)
+	}
+}
+
+// failingEventQuery answers like the mock except for one query.
+type failingEventQuery struct {
+	sys.EventLog
+	xpath string
+}
+
+func (e failingEventQuery) Query(channel, xpath string, max int) ([]sys.Event, error) {
+	if xpath == e.xpath {
+		return nil, errors.New("falha simulada")
+	}
+	return e.EventLog.Query(channel, xpath, max)
+}
+
+// G-003: the boot times were read but the query of the programs slow to
+// start failed: boot.apps is "not read", never "no program stood out".
+func TestBootSlowProgramsQueryFailureIsUnread(t *testing.T) {
+	m, _ := collectHealth(t)
+	p := *m.Platform
+	p.Events = failingEventQuery{EventLog: m.E, xpath: "*[System[(EventID=101)]]"}
+	f := collect.Collect(context.Background(), &p, nil)
+	if !f.Health.Boot.Read || len(f.Health.Boot.Samples) < health.BootMinSamples || f.Health.Boot.SlowRead {
+		t.Fatalf("boot: %+v", f.Health.Boot)
+	}
+	var apps *health.Check
+	for _, c := range health.Evaluate(f, time.Now()) {
+		if c.ID == "boot.apps" {
+			c := c
+			apps = &c
+		}
+	}
+	if apps == nil || apps.Status != health.Unread {
+		t.Errorf("consulta do evento 101 falhou: boot.apps deveria sair não lido: %+v", apps)
+	}
+	// The same PC with the query answering: in order, as before.
+	_, f = collectHealth(t)
+	for _, c := range health.Evaluate(f, time.Now()) {
+		if c.ID == "boot.apps" && c.Status != health.OK {
+			t.Errorf("leitura normal: %+v", c)
+		}
 	}
 }
 

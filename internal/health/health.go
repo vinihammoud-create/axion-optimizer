@@ -494,6 +494,8 @@ func bootChecks(f *facts.Facts) []Check {
 	switch {
 	case n < BootMinSamples:
 		apps = unread(apps, "Poucos boots no registro para dizer qual programa atrasa.")
+	case !b.SlowRead:
+		apps = unread(apps, "O registro dos programas que atrasaram a inicialização não pôde ser lido.")
 	case len(b.Slow) > 0:
 		var names []string
 		for _, a := range b.Slow {

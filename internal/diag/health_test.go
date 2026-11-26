@@ -28,7 +28,7 @@ func healthyWindows() *facts.Facts {
 		Defender:  facts.DefenderHealth{Read: true, Enabled: true, RealTime: true, Tamper: true, Mode: "Normal", SigAgeDays: 0, ExclusionsRead: true},
 		DirtyRead: true,
 		Updates:   facts.UpdateHealth{Read: true, Last: now.Add(-5 * 24 * time.Hour), LastKB: "5121794"},
-		Boot: facts.BootHealth{Read: true, Samples: []facts.BootSample{
+		Boot: facts.BootHealth{Read: true, SlowRead: true, Samples: []facts.BootSample{
 			{At: now.Add(-time.Hour), MainMs: 14000}, {At: now.Add(-30 * time.Hour), MainMs: 13000}, {At: now.Add(-60 * time.Hour), MainMs: 15000}}},
 	}
 	return f

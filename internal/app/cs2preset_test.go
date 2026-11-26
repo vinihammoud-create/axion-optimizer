@@ -346,6 +346,26 @@ func TestCS2BackupKeepsTen(t *testing.T) {
 	}
 }
 
+// G-004 / A-007: with too few classified frames the summary has no verdict
+// (Limiter empty) and the shares over the classified frames conclude
+// nothing, neither GPU nor CPU.
+func TestNoLimiterVerdictConcludesNothing(t *testing.T) {
+	f := &facts.Facts{Displays: []sys.DisplayMode{{Monitor: "Monitor 240", MaxHzAtRes: 240, MaxHzAny: 240, Primary: true}}, GPUs: []facts.GPUInfo{{Name: "RTX 3060", Vendor: "NVIDIA"}}}
+	info := games.CS2Info{Installed: true, Video: &games.CS2Video{Raw: map[string]string{"setting.msaa_samples": "2"}}}
+	for name, s := range map[string]*perf.Summary{
+		"GPU 100% de 2 quadros": {Frames: 1000, AvgFPS: 370, Low1FPS: 174, Limiter: "", GPUBoundPct: 100, ClassifiedFrac: 0.002},
+		"CPU 100% de 2 quadros": {Frames: 1000, AvgFPS: 370, Low1FPS: 174, Limiter: "", CPUBoundPct: 100, ClassifiedFrac: 0.002},
+	} {
+		m := &diag.Measured{Perf: s, PerfAt: time.Now()}
+		if short, why := gpuShort(f, m); short || strings.Contains(why, "CPU") {
+			t.Errorf("%s: gpuShort concluiu %v %q", name, short, why)
+		}
+		if it := videoAdvice(f, info, m); it.Status != "info" {
+			t.Errorf("%s: videoAdvice %s: %s", name, it.Status, it.Advice)
+		}
+	}
+}
+
 // gpuShort gives the same verdicts as videoAdvice (without the text).
 func TestGPUShortMatchesVideoAdvice(t *testing.T) {
 	f := &facts.Facts{Displays: []sys.DisplayMode{{Monitor: "Monitor 240", MaxHzAtRes: 240, MaxHzAny: 240, Primary: true}}, GPUs: []facts.GPUInfo{{Name: "RTX 3060", Vendor: "NVIDIA"}}}

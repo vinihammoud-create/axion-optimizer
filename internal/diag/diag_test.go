@@ -180,7 +180,7 @@ func base() *facts.Facts {
 			{CapacityBytes: 16 << 30, PartNumber: "F5-6000J3038F16G", Bank: "P0 CHANNEL A", Locator: "DIMM 1"},
 			{CapacityBytes: 16 << 30, PartNumber: "F5-6000J3038F16G", Bank: "P0 CHANNEL B", Locator: "DIMM 1"},
 		}},
-		Gaming: facts.GamingInfo{GameModeOn: true, GameBarInstalled: true, X3DServiceState: "em execução"},
+		Gaming: facts.GamingInfo{GameModeOn: true, GameBarInstalled: true, GameBarRead: true, X3DServiceState: "em execução"},
 		Power:  facts.PowerInfo{ActiveScheme: sys.SchemeBalanced},
 	}
 }

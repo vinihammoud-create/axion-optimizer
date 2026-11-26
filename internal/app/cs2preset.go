@@ -159,11 +159,12 @@ func gpuShort(f *facts.Facts, m *diag.Measured) (bool, string) {
 		return false, "sem medição do CS2 (grave 60 s na página Desempenho)"
 	}
 	s := m.Perf
-	gpuBound := s.Limiter == "gpu" || s.GPUBoundPct >= 50
+	// Only the verdict counts (Limiter needs enough classified frames).
+	gpuBound := s.Limiter == "gpu"
 	switch {
 	case s.Limiter == "limite" || s.CapLikely:
 		return false, "o jogo estava no próprio limite de FPS (fps_max)"
-	case s.Limiter == "cpu" || (s.CPUBoundPct >= 50 && !gpuBound):
+	case s.Limiter == "cpu":
 		return false, "a CPU limitou o FPS na última medição"
 	case !gpuBound:
 		return false, "a última medição não apontou um limitador claro"

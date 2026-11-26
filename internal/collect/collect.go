@@ -232,6 +232,15 @@ func (c *collector) os() {
 		f.OS.ActiveHoursPolicyStart = int(c.regInt(KeyActiveHoursPolicy, "ActiveHoursStart", -1))
 		f.OS.ActiveHoursPolicyEnd = int(c.regInt(KeyActiveHoursPolicy, "ActiveHoursEnd", -1))
 	}
+	// regInt answers the default both for "absent" and for a read that
+	// failed: the second must not become "not set by you".
+	f.OS.ActiveHoursRead = true
+	for _, v := range [][2]string{{KeyActiveHours, "ActiveHoursStart"}, {KeyActiveHours, "ActiveHoursEnd"}, {KeyActiveHours, "SmartActiveHoursState"}, {KeyActiveHoursPolicy, "SetActiveHours"}} {
+		if _, err := c.p.Reg.GetValue(v[0], v[1]); err != nil {
+			f.OS.ActiveHoursRead = false
+			c.errf("horário ativo (%s): %v", v[1], err)
+		}
+	}
 	if ts := c.regInt(keyNTCurrent, "InstallDate", 0); ts > 0 {
 		f.OS.InstallDate = time.Unix(ts, 0)
 	}
@@ -1065,8 +1074,15 @@ func (c *collector) gaming() {
 	}
 	g.X3DServiceState = "não verificado"
 	c.part(PartX3D, func() {
+		info, err := c.p.Svc.Query("amd3dvcacheSvc")
+		if err != nil {
+			// A query that fails is not "service absent".
+			c.errf("serviço amd3dvcacheSvc: %v", err)
+			c.f.Unread = append(c.f.Unread, PartX3D)
+			return
+		}
 		g.X3DServiceState = "ausente"
-		if info, err := c.p.Svc.Query("amd3dvcacheSvc"); err == nil && info.Exists {
+		if info.Exists {
 			g.X3DServiceState = "parado"
 			if info.Running {
 				g.X3DServiceState = "em execução"
@@ -1075,7 +1091,10 @@ func (c *collector) gaming() {
 	})
 	// Xbox Game Bar package registration for the current user.
 	repo := `HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages`
-	if subs, err := c.p.Reg.SubKeys(repo); err == nil {
+	if subs, err := c.p.Reg.SubKeys(repo); err != nil {
+		c.errf("pacotes do usuário (Game Bar): %v", err)
+	} else {
+		g.GameBarRead = true
 		for _, s := range subs {
 			if strings.HasPrefix(strings.ToLower(s), "microsoft.xboxgamingoverlay_") {
 				g.GameBarInstalled = true

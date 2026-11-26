@@ -224,6 +224,12 @@ func cpuCap(f *facts.Facts, add func(Finding), n int, use string, src tweaks.Sou
 // cpuText leaves the core count out when it was not read.
 func cpuText(f *facts.Facts) string {
 	name := orText(f.CPU.Name, "processador")
+	switch {
+	case f.CPU.Threads == 0 && f.CPU.Cores == 0:
+		return name + ": núcleos e threads não lidos"
+	case f.CPU.Threads == 0:
+		return fmt.Sprintf("%s: %d núcleos; threads não lidas", name, f.CPU.Cores)
+	}
 	if f.CPU.Cores == 0 {
 		return fmt.Sprintf("%s: %d threads", name, f.CPU.Threads)
 	}

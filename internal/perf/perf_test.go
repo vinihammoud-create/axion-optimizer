@@ -53,6 +53,23 @@ func TestParseCSVKeepsGameSwapchain(t *testing.T) {
 	}
 }
 
+// G-018: filtering by process, a row whose Application column is there but
+// empty is not the game's.
+func TestParseCSVRejectsUnnamedRowsWhenFiltering(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString(header26)
+	for i := 0; i < 50; i++ {
+		sb.WriteString(row("", "0xA", float64(i)*2.5, 2.5, 1.0, 1.4, 2.4, "Hardware: Independent Flip", "NA"))
+	}
+	if c, err := ParseCSV(strings.NewReader(sb.String()), "cs2.exe"); err != ErrNoFrames {
+		t.Errorf("linhas sem Application passaram no filtro de cs2.exe: %v %+v", err, c)
+	}
+	// Without a filter they are still read.
+	if c, err := ParseCSV(strings.NewReader(sb.String()), ""); err != nil || len(c.Frames) != 50 {
+		t.Errorf("sem filtro: %v", err)
+	}
+}
+
 // 990 frames of 2.5 ms and 10 hitches of 10 ms: the average hides the
 // hitches, the 1% low (mean of the slowest 1%) shows them, and the P1
 // percentile falls between the two groups.

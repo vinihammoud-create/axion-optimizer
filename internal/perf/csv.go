@@ -151,7 +151,8 @@ func ParseCSV(r io.Reader, process string) (*Capture, error) {
 			return nil, fmt.Errorf("CSV do PresentMon: %w", err)
 		}
 		app := strings.TrimSpace(field(rec, cApp))
-		if process != "" && app != "" && !sameExe(app, process) {
+		// With the column there, a row without a name is not the game's.
+		if process != "" && cApp >= 0 && (app == "" || !sameExe(app, process)) {
 			continue
 		}
 		key := app + "|" + field(rec, cPID) + "|" + field(rec, cSwap)

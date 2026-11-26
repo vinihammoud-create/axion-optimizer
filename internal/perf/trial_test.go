@@ -74,7 +74,15 @@ func TestConditionsDiffer(t *testing.T) {
 		{"modo", base(), mut(func(c *Conditions) { c.PowerMode = "Melhor desempenho" }), true},
 		{"economia", base(), mut(func(c *Conditions) { c.PowerSaver = true }), true},
 		{"Hz", base(), mut(func(c *Conditions) { c.DisplayHz = 240 }), true},
-		{"Hz desconhecido", base(), mut(func(c *Conditions) { c.DisplayHz = 0 }), false},
+		// G-014: read on one side only is not "the same"; read on neither
+		// side says nothing either way.
+		{"Hz lido de um lado só", base(), mut(func(c *Conditions) { c.DisplayHz = 0 }), true},
+		{"plano lido de um lado só", base(), mut(func(c *Conditions) { c.PowerScheme = "" }), true},
+		{"modo lido de um lado só", mut(func(c *Conditions) { c.PowerMode = "" }), base(), true},
+		{"nada lido dos dois lados", &Conditions{}, &Conditions{}, false},
+		{"HAGS", mut(func(c *Conditions) { c.HAGS = "on" }), mut(func(c *Conditions) { c.HAGS = "off" }), true},
+		{"HAGS lido de um lado só", base(), mut(func(c *Conditions) { c.HAGS = "on" }), true},
+		{"HAGS igual", mut(func(c *Conditions) { c.HAGS = "on" }), mut(func(c *Conditions) { c.HAGS = "on" }), false},
 		{"só programas ocupados", base(), mut(func(c *Conditions) { c.Busy = []Busy{{Name: "x.exe", Pct: 80}} }), false},
 		{"nil", nil, base(), true},
 		{"nil depois", base(), nil, true},

@@ -87,7 +87,10 @@ type BootApp struct {
 
 // BootHealth is the boot-time history, newest first.
 type BootHealth struct {
-	Read    bool         `json:"read"`
-	Samples []BootSample `json:"samples,omitempty"`
-	Slow    []BootApp    `json:"slow,omitempty"`
+	Read bool `json:"read"`
+	// SlowRead: the query of the programs slow to start (event 101)
+	// answered; without it Slow says nothing.
+	SlowRead bool         `json:"slowRead"`
+	Samples  []BootSample `json:"samples,omitempty"`
+	Slow     []BootApp    `json:"slow,omitempty"`
 }

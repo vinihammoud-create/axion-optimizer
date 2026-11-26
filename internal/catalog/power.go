@@ -72,7 +72,7 @@ func powerTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "power.plan.ultimate", Category: "energia", Title: "Plano Desempenho Máximo (Ultimate)",
-			Summary:  "Cria e ativa o plano oculto \"Desempenho Máximo\" da Microsoft, que vai além do Alto desempenho para eliminar microatrasos do gerenciamento fino de energia.",
+			Summary:  "Cria e ativa o plano oculto \"Desempenho Máximo\" da Microsoft, que a Microsoft descreve como um passo além do Alto desempenho, voltado às microlatências do gerenciamento fino de energia.",
 			Detail:   "PowerDuplicateScheme(e9a42b02-d5df-448d-aa00-03f14749eb61) e ativação da cópia. A Microsoft o anunciou para estações de trabalho e avisa que ele consome mais energia que o Equilibrado e não fica disponível na bateria. O Axion não mediu ganho em jogo. Ao desfazer, o plano anterior volta a ser o ativo e a cópia criada pelo Axion é apagada.",
 			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcUltimate},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"fps"}, OneClick: false, Group: "power.plan",
