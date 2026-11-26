@@ -156,12 +156,16 @@ type encBlock struct {
 // ParseLog reads one OBS log. at is the time the log started (it is in the
 // file name); the lines only carry the time of day. Sessions come in the order
 // of the log.
-func ParseLog(r io.Reader, name string, at time.Time) []Session {
+//
+// read says the log was read to the end. It is false when the reading stopped
+// midway (a line of MaxLineBytes or more, or an error from r): the sessions
+// returned are the ones read before the stop, and what came after is missing —
+// the log did not necessarily end there.
+func ParseLog(r io.Reader, name string, at time.Time) (sessions []Session, read bool) {
 	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	sc.Buffer(nil, MaxLineBytes) // the buffer grows from 4 KiB only if a line asks for it
 
 	var (
-		out       []Session
 		pending   []*Stat
 		byName    = map[string]*Stat{}
 		ctx       Context
@@ -219,7 +223,7 @@ func ParseLog(r io.Reader, name string, at time.Time) []Session {
 		for _, s := range pending {
 			sess.Stats = append(sess.Stats, *s)
 		}
-		out = append(out, sess)
+		sessions = append(sessions, sess)
 		pending, byName = nil, map[string]*Stat{}
 	}
 
@@ -300,10 +304,11 @@ func ParseLog(r io.Reader, name string, at time.Time) []Session {
 			finish(lastTS)
 		}
 	}
-	// A log that ends without "Video stopped" (OBS crashed or was killed): what
-	// was read is kept, without the encoder's count.
+	// A log that ends without "Video stopped" (OBS crashed or was killed), or a
+	// reading that stopped midway: what was read is kept, without the encoder's
+	// count.
 	finish(lastTS)
-	return out
+	return sessions, sc.Err() == nil
 }
 
 // logTime reads the start of a log from its file name ("2026-10-05 12-34-56.txt").
@@ -321,6 +326,9 @@ const (
 	MaxAge      = 60 * 24 * time.Hour // older logs say nothing about this PC today
 	MaxLogBytes = 64 << 20            // a log bigger than this is skipped
 	MaxSessions = 12
+	// MaxLineBytes is the longest log line that can be read; a longer one stops
+	// the reading of that log (ParseLog then returns read = false).
+	MaxLineBytes = 1 << 20
 )
 
 // Read reads the newest logs of dir and returns the sessions, newest first.
@@ -360,7 +368,10 @@ func Read(dir string, now time.Time) (sessions []Session, found bool) {
 		if err != nil {
 			continue
 		}
-		sessions = append(sessions, ParseLog(f, l.name, l.at)...)
+		// A log read only up to a huge line keeps the sessions read before it;
+		// the ones after it are missing, like those of a log skipped for size.
+		ss, _ := ParseLog(f, l.name, l.at)
+		sessions = append(sessions, ss...)
 		f.Close()
 	}
 	sort.SliceStable(sessions, func(i, j int) bool { return sessions[i].At.After(sessions[j].At) })
