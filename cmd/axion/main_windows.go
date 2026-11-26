@@ -95,6 +95,11 @@ func main() {
 	if len(os.Args) >= 2 && os.Args[1] == collectChildFlag {
 		os.Exit(runCollectChild(os.Args[2:]))
 	}
+	// The uninstaller's question (see activechanges.go): only reads the
+	// history, before the data folder is prepared or anything is written.
+	if len(os.Args) == 2 && os.Args[1] == activeChangesFlag {
+		os.Exit(activeExitCode(countActiveChanges(filepath.Join(programData(), "Axion"))))
+	}
 	dataDir := filepath.Join(programData(), "Axion")
 	// Nothing may fail silently: a panic anywhere in main shows a message
 	// (fatal runtime errors, which skip recover, go to crash.log below).

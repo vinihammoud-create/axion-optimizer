@@ -1,0 +1,256 @@
+# Compiles the installer from the release package and proves it on a clean
+# Windows: refused while Axion's lock is held, silent install, the read-only
+# history mode of Axion.exe that the uninstaller uses, silent uninstall that
+# removes the program and the WebView2 cache but keeps the data folder.
+name: Instalador
+
+on:
+  pull_request:
+    paths:
+      - "installer/**"
+      - "build/**"
+      - "cmd/axion/activechanges*.go"
+      - "cmd/axion/main_windows.go"
+      - ".github/workflows/instalador.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Inno Setup in a fixed version (the Chocolatey package checks the
+  # download's checksum). Change it here and in release.yml together.
+  INNO_VERSION: "6.7.1"
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      GOFLAGS: -mod=mod
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "0"
+    steps:
+      - name: Finais de linha como no repositório
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.x"
+          cache: false
+
+      - name: Testes do modo que lê o histórico (cmd/axion)
+        run: go test -run "TestCountActiveChanges|TestActiveExitCode" -v ./cmd/axion
+
+      - name: Inno Setup (versão fixa)
+        shell: pwsh
+        run: |
+          choco install innosetup --version=$env:INNO_VERSION -y --no-progress --allow-downgrade
+          if ($LASTEXITCODE) { throw 'choco install innosetup falhou' }
+          # ISCC.exe has no version resource: the version is the one Inno
+          # Setup's own installer records (the image may already have it).
+          $v = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1', 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1' -ErrorAction SilentlyContinue | Select-Object -First 1).DisplayVersion
+          "Inno Setup $v"
+          if ($v -ne $env:INNO_VERSION) { throw "Inno Setup '$v' instalado, esperado $env:INNO_VERSION" }
+
+      - name: Versão
+        shell: pwsh
+        run: |
+          $m = Select-String -Path cmd/axion/version.go -Pattern 'Version = "(\d+\.\d+\.\d+)"'
+          if (-not $m) { throw 'versão não encontrada em cmd/axion/version.go' }
+          "VERSION=$($m.Matches[0].Groups[1].Value)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Pacote
+        shell: powershell
+        run: .\build\build.ps1 -Version $env:VERSION -SkipTests
+
+      - name: Instalador
+        shell: powershell
+        run: .\build\installer.ps1 -Version $env:VERSION
+
+      - name: Funções dos testes
+        shell: powershell
+        run: |
+          $helpers = @'
+          $ErrorActionPreference = 'Stop'
+          $setup = Join-Path $env:GITHUB_WORKSPACE "dist\Axion-$env:VERSION-setup.exe"
+          $pkg = Join-Path $env:GITHUB_WORKSPACE "dist\Axion-$env:VERSION-win64"
+          $dir = Join-Path $env:ProgramFiles 'Axion Optimizer'
+          $data = Join-Path $env:ProgramData 'Axion'
+          $lnk = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Axion Optimizer.lnk'
+          $uninstKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{4541B26D-04F0-449D-8AB2-ACB1C82C7AAD}_is1'
+          $presentMon = (Get-ChildItem $pkg -Filter 'PresentMon-*.exe').Name
+          $files = 'Axion.exe', 'WebView2Loader.dll', $presentMon, 'LEIA-ME.txt', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt', 'MATRIZ-DE-EVIDENCIAS.md', 'SHA256SUMS.txt', 'unins000.exe'
+
+          # Runs a program and returns its exit code; a program that does not
+          # end (a window waiting for someone) fails the step instead of
+          # hanging the job.
+          function Invoke-Timed([string]$File, [string[]]$ArgList, [int]$Seconds = 120) {
+            $p = Start-Process $File -ArgumentList $ArgList -PassThru
+            $null = $p.Handle
+            if (-not $p.WaitForExit($Seconds * 1000)) { $p.Kill(); throw "$File não terminou em $Seconds s" }
+            $p.ExitCode
+          }
+
+          # unins000.exe hands the work to a copy of itself (_iu*.tmp) and
+          # ends early: wait for that copy.
+          function Wait-Uninstaller {
+            Start-Sleep -Seconds 2
+            $deadline = (Get-Date).AddSeconds(120)
+            while ((Get-CimInstance Win32_Process -Filter "Name LIKE '[_]iu%'") -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+            if (Get-CimInstance Win32_Process -Filter "Name LIKE '[_]iu%'") { throw 'o desinstalador não terminou em 120 s' }
+          }
+
+          # The Axion lock as Axion.exe creates it: Global namespace, access
+          # for Administrators and SYSTEM only.
+          function New-AxionLock {
+            $sec = New-Object System.Security.AccessControl.MutexSecurity
+            $sec.SetAccessRuleProtection($true, $false)
+            foreach ($s in 'S-1-5-32-544', 'S-1-5-18') {
+              $id = New-Object System.Security.Principal.SecurityIdentifier($s)
+              $sec.AddAccessRule((New-Object System.Security.AccessControl.MutexAccessRule($id, [System.Security.AccessControl.MutexRights]::FullControl, [System.Security.AccessControl.AccessControlType]::Allow)))
+            }
+            $created = $false
+            $m = [System.Threading.Mutex]::new($false, 'Global\AxionOptimizer.SingleInstance', [ref]$created, $sec)
+            if (-not $created) { throw 'a trava do Axion já existia no runner' }
+            $m
+          }
+
+          function Show-Log([string]$Path) { if (Test-Path $Path) { Get-Content $Path -Encoding UTF8 } }
+          '@
+          [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'helpers.ps1'), $helpers, (New-Object Text.UTF8Encoding($true)))
+
+      - name: Instalação recusada com o Axion aberto (AppMutex)
+        shell: powershell
+        run: |
+          . (Join-Path $env:RUNNER_TEMP 'helpers.ps1')
+          if (Test-Path $dir) { throw "o runner já tem $dir" }
+          $log = Join-Path $env:RUNNER_TEMP 'install-locked.log'
+          $lock = New-AxionLock
+          try {
+            $code = Invoke-Timed $setup @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`"")
+          } finally { $lock.Dispose() }
+          Show-Log $log
+          if ($code -eq 0) { throw 'a instalação terminou com sucesso com o Axion aberto' }
+          if (Test-Path (Join-Path $dir 'Axion.exe')) { throw 'arquivos instalados com o Axion aberto' }
+          if (-not (Select-String -Path $log -Pattern 'aberto neste PC' -Quiet)) { throw 'o log não mostra a mensagem do Axion aberto' }
+          "recusada como esperado (código $code)"
+
+      - name: Instalação silenciosa
+        shell: powershell
+        run: |
+          . (Join-Path $env:RUNNER_TEMP 'helpers.ps1')
+          $log = Join-Path $env:RUNNER_TEMP 'install.log'
+          $code = Invoke-Timed $setup @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`"")
+          Show-Log $log
+          if ($code -ne 0) { throw "instalação falhou: código $code" }
+          foreach ($f in $files) {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "falta $f em $dir" }
+          }
+          foreach ($f in 'Axion.exe', 'WebView2Loader.dll', $presentMon) {
+            $a = (Get-FileHash (Join-Path $pkg $f)).Hash; $b = (Get-FileHash (Join-Path $dir $f)).Hash
+            if ($a -ne $b) { throw "$f instalado difere do pacote" }
+          }
+          if (-not (Test-Path $lnk)) { throw "atalho do menu Iniciar não existe: $lnk" }
+          $sh = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+          if ($sh.TargetPath -ne (Join-Path $dir 'Axion.exe')) { throw "o atalho aponta para $($sh.TargetPath)" }
+          if (Test-Path (Join-Path $env:Public 'Desktop\Axion Optimizer.lnk')) { throw 'o atalho da área de trabalho não deveria existir por padrão' }
+          if (-not (Test-Path $uninstKey)) { throw 'o Windows não lista o Axion em Aplicativos instalados' }
+          'instalado em ' + $dir
+
+      - name: Axion.exe lê o histórico sem abrir a janela
+        shell: powershell
+        run: |
+          . (Join-Path $env:RUNNER_TEMP 'helpers.ps1')
+          $axion = Join-Path $dir 'Axion.exe'
+          function Get-ActiveCode { Invoke-Timed $axion @('--axion-ajustes-ativos') 60 }
+          if (Test-Path $data) { Remove-Item $data -Recurse -Force }
+          $c = Get-ActiveCode
+          if ($c -ne 0) { throw "sem histórico: código $c, esperado 0" }
+          New-Item -ItemType Directory -Force $data | Out-Null
+          $j = Join-Path $data 'journal.json'
+          Set-Content -Encoding ascii $j '{"version":1,"entries":[{"id":"ci1","tweakId":"ci","status":"applied","ops":[{"kind":"reg","before":"1"}]},{"id":"ci2","tweakId":"ci2","status":"reverted","ops":[{"kind":"reg","before":"1","revertVerified":true}]}]}'
+          $c = Get-ActiveCode
+          if ($c -ne 11) { throw "uma alteração ativa: código $c, esperado 11" }
+          Set-Content -Encoding ascii $j '{"version":1,"entries":[{"id":"ci2","tweakId":"ci2","status":"reverted","ops":[{"kind":"reg","before":"1","revertVerified":true}]}]}'
+          $c = Get-ActiveCode
+          if ($c -ne 0) { throw "tudo desfeito: código $c, esperado 0" }
+          Set-Content -Encoding ascii $j '{"version":1,"entries":['
+          $c = Get-ActiveCode
+          if ($c -ne 1) { throw "histórico ilegível: código $c, esperado 1" }
+          $left = Get-ChildItem $data -Recurse | ForEach-Object Name
+          if (($left -join ',') -ne 'journal.json') { throw "o modo de leitura escreveu na pasta de dados: $($left -join ', ')" }
+          Remove-Item $data -Recurse -Force
+          'códigos 0, 11, 0 e 1 como esperado'
+
+      - name: Desinstalação recusada com o Axion aberto (AppMutex)
+        shell: powershell
+        run: |
+          . (Join-Path $env:RUNNER_TEMP 'helpers.ps1')
+          $log = Join-Path $env:RUNNER_TEMP 'uninstall-locked.log'
+          $lock = New-AxionLock
+          try {
+            $null = Invoke-Timed (Join-Path $dir 'unins000.exe') @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`"")
+            Wait-Uninstaller
+          } finally { $lock.Dispose() }
+          Show-Log $log
+          foreach ($f in $files) {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "$f foi removido com o Axion aberto" }
+          }
+          if (-not (Select-String -Path $log -Pattern 'aberto neste PC' -Quiet)) { throw 'o log não mostra a mensagem do Axion aberto' }
+          'recusada como esperado'
+
+      - name: Desinstalação silenciosa
+        shell: powershell
+        run: |
+          . (Join-Path $env:RUNNER_TEMP 'helpers.ps1')
+          # A history with one change still applied, the WebView2 profile, the
+          # loader copy and the profile of older versions in LOCALAPPDATA.
+          New-Item -ItemType Directory -Force (Join-Path $data 'WebView2\EBWebView'), (Join-Path $data 'bin'), (Join-Path $data 'desempenho') | Out-Null
+          Set-Content -Encoding ascii (Join-Path $data 'journal.json') '{"version":1,"entries":[{"id":"ci1","tweakId":"ci","status":"applied","ops":[{"kind":"reg","before":"1"}]}]}'
+          Set-Content (Join-Path $data 'WebView2\EBWebView\Local State') '{}'
+          Copy-Item (Join-Path $dir 'WebView2Loader.dll') (Join-Path $data 'bin')
+          Set-Content (Join-Path $data 'desempenho\medicao.json') '{}'
+          $old = Join-Path $env:LOCALAPPDATA 'Axion'
+          New-Item -ItemType Directory -Force (Join-Path $old 'WebView2\EBWebView') | Out-Null
+          Set-Content (Join-Path $old 'WebView2\EBWebView\Local State') '{}'
+
+          $log = Join-Path $env:RUNNER_TEMP 'uninstall.log'
+          $code = Invoke-Timed (Join-Path $dir 'unins000.exe') @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`"")
+          Wait-Uninstaller
+          Show-Log $log
+          if ($code -ne 0) { throw "desinstalação falhou: código $code" }
+
+          if (Test-Path $dir) { Get-ChildItem $dir -Recurse | Select-Object FullName; throw "a pasta de instalação não foi removida: $dir" }
+          if (Test-Path $lnk) { throw "o atalho do menu Iniciar não foi removido: $lnk" }
+          if (Test-Path $uninstKey) { throw 'o Axion continua em Aplicativos instalados' }
+          if (-not (Select-String -Path $log -Pattern 'terminou com o c.{1,2}digo 11\.' -Quiet)) { throw 'o desinstalador não leu a alteração ativa pelo Axion.exe' }
+          # The data stays: history, measurements.
+          foreach ($f in 'journal.json', 'desempenho\medicao.json') {
+            if (-not (Test-Path (Join-Path $data $f))) { throw "$f foi apagado da pasta de dados" }
+          }
+          # The cache goes.
+          foreach ($p in (Join-Path $data 'WebView2'), (Join-Path $data 'bin'), $old) {
+            if (Test-Path $p) { throw "o cache não foi removido: $p" }
+          }
+          Remove-Item $data -Recurse -Force
+          'desinstalado; dados mantidos, cache removido'
+
+      - name: Logs
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($n in 'install-locked.log', 'install.log', 'uninstall-locked.log', 'uninstall.log') {
+            $p = Join-Path $env:RUNNER_TEMP $n
+            if (Test-Path $p) { "===== $n"; Get-Content $p -Encoding utf8 }
+          }
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Axion-setup
+          path: dist/Axion-*-setup.exe
+          if-no-files-found: error
