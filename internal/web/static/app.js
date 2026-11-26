@@ -430,6 +430,30 @@
     blocked: ['bloqueado', 'bad'], failed: ['falhou', 'bad'], reverted: ['desfeito', 'ok'], conflict: ['conflito', 'warn'], nothing: ['nada a desfazer', 'outline'],
   };
 
+  // confirmAsk shows the question a job waits on (the refresh rate: "Está
+  // vendo esta tela?"). The time limit is the server's: without "Manter" in
+  // time it goes back by itself, whether or not this dialog is seen.
+  function confirmAsk(job) {
+    const q = job.confirm;
+    const count = h('div', { class: 'small', 'aria-live': 'polite' });
+    let end = Date.now() + (q.leftMs || 0), timer = 0;
+    const tick = () => {
+      const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      count.textContent = s > 0 ? 'Sem resposta, volta sozinho à frequência anterior em ' + s + ' s.' : 'Voltando à frequência anterior…';
+    };
+    const answer = keep => async () => {
+      keepB.disabled = backB.disabled = true;
+      try { await api('POST', '/api/jobs/' + job.id + '/confirm', { confirm: q.id, keep }); } catch (e) { toast(e.message, 'bad'); }
+      close();
+    };
+    const backB = btn('Reverter', answer(false), 'ghost');
+    const keepB = btn('Manter', answer(true), 'primary');
+    const m = modal({ title: 'Manter esta frequência?', dismiss: false, body: h('div', null, h('p', { text: q.prompt }), count), actions: [backB, keepB] });
+    function close() { clearInterval(timer); m.close(); }
+    tick(); timer = setInterval(tick, 250);
+    return { id: q.id, close, left(ms) { end = Date.now() + (ms || 0); } };
+  }
+
   async function runJob(start, opts) {
     opts = opts || {};
     let job;
@@ -449,9 +473,13 @@
       actions: [cancel],
     });
     S.busy = job; renderTopbar();
+    let ask = null; // the open question of the job, if any
     for (;;) {
       await sleep(350);
       try { job = await api('GET', '/api/jobs/' + job.id); } catch (e) { continue; }
+      if (ask && (!job.confirm || job.confirm.id !== ask.id)) { ask.close(); ask = null; }
+      if (job.confirm && !ask) ask = confirmAsk(job);
+      if (ask) ask.left(job.confirm.leftMs);
       fill.style.width = Math.round((job.progress || 0) * 100) + '%';
       step.textContent = job.step || '…';
       cancel.style.display = job.noCancel ? 'none' : '';
@@ -461,6 +489,7 @@
       S.busy = job; renderTopbar();
       if (job.status !== 'running') break;
     }
+    if (ask) ask.close();
     S.busy = null;
     invalidate();
     await refreshState();

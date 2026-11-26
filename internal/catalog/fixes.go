@@ -315,8 +315,8 @@ func fixTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "fix.services.apps", Category: "correcoes", Title: "Reativar serviços opcionais (Xbox, Store, Bluetooth, relatórios de erro…)",
-			Summary:  "Serviços usados pelo app Xbox/Game Pass (inclusive o salvamento na nuvem), Microsoft Store, Bluetooth, câmera/microfone, teclado virtual e caneta, teclas especiais e relatórios de erro foram desativados. Voltam para Manual (iniciam só quando usados).",
-			Detail:   "Voltam ao tipo de inicialização de uma instalação limpa do Windows 11; em Manual ficam parados até algo precisar deles. Desativados, causam erros difíceis de diagnosticar (login do Xbox, Discord sem microfone, controle sem atualização, travamentos sem relatório).",
+			Summary:  "Serviços usados pelo app Xbox/Game Pass (inclusive o salvamento na nuvem), Microsoft Store, Bluetooth, câmera/microfone, teclado virtual e caneta, teclas especiais e relatórios de erro foram desativados. Voltam ao tipo de inicialização padrão do Windows: quase todos em Manual (iniciam só quando usados) e o Auxiliar IP (iphlpsvc) em Automático, que é o padrão dele.",
+			Detail:   "Voltam ao tipo de inicialização de uma instalação limpa do Windows 11; em Manual ficam parados até algo precisar deles, e o Auxiliar IP volta a Automático. Desativados, causam erros difíceis de diagnosticar (login do Xbox, Discord sem microfone, controle sem atualização, travamentos sem relatório).",
 			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcServices},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"estabilidade"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {

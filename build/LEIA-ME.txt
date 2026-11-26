@@ -248,6 +248,25 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
     GPU/CPU, a página diz que não dá para apontar o que limitou.
   - Modo navegador: aviso fixo no topo recomendando instalar o WebView2
     Runtime da Microsoft, com o link oficial.
+  Frequência do monitor (taxa de atualização máxima)
+  - A nova frequência é trocada sem ser gravada e o Axion pergunta "Manter ou
+    Reverter?". Sem resposta em 15 segundos, ou com Reverter, o monitor volta
+    sozinho à frequência anterior e nada fica gravado; se o PC travar antes,
+    o reinício usa o modo antigo. Só com Manter o modo é gravado. Testado só
+    no simulador, não num monitor real.
+  - Monitor desconectado deixa de contar como "já na frequência máxima".
+  Outros
+  - Recurso opcional do Windows com estado não informado (InstallState vazio
+    ou desconhecido) não conta mais como "já desativado".
+  - Serviço cuja leitura o Windows nega passa a ser "não lido", não "parado".
+  - Relatório da Partida: um único retrato da lista de processos a cada
+    verificação, em vez de um por jogo ligado.
+  - Textos: as políticas de histórico de atividades, pesquisa no Iniciar,
+    Widgets, compartilhamento de atualizações e drivers pelo Windows Update
+    avisam que a Microsoft não as lista para o Windows Home; a reativação de
+    serviços opcionais diz que o Auxiliar IP volta a Automático; EEE e
+    moderação de interrupção da placa de rede não prometem microssegundos, e
+    em notebook o EEE lembra que economiza bateria.
 
 NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
   Interface

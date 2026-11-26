@@ -266,6 +266,9 @@ type ApplyOpts struct {
 	AllowBlocked bool   // user explicitly overrode a RecBlocked
 	Progress     func(done, total int, title string)
 	Log          func(format string, args ...any)
+	// Confirm is handed to the operations (Ctx.Confirm): the apply job of the
+	// interface fills it; nil means nobody is there to answer.
+	Confirm func(prompt string, timeout time.Duration) bool
 }
 
 // Outcomes.
@@ -372,6 +375,7 @@ func (e *Engine) applyOne(ctx context.Context, f *facts.Facts, t *Tweak, o Apply
 	}
 	ctx = steady(ctx)
 	c := e.ctx(ctx, f, o.Log)
+	c.Confirm = o.Confirm
 	sid := e.userSID()
 	// Mutually exclusive group: revert the currently active member first.
 	if t.Group != "" {

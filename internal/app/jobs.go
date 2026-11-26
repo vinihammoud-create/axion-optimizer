@@ -39,8 +39,24 @@ type Job struct {
 	// NoCancel explains why the current step cannot be interrupted (e.g. a
 	// Windows Update operation); the interface hides its Cancel button.
 	NoCancel string `json:"noCancel,omitempty"`
+	// Confirm is the question the job is waiting on (JobCtl.Confirm); the
+	// interface shows it and answers through POST /api/jobs/{id}/confirm.
+	Confirm *JobConfirm `json:"confirm,omitempty"`
 
 	cancel context.CancelFunc
+}
+
+// JobConfirm is a "keep or go back" question with a time limit. Without
+// "Manter" before the limit the job takes it as "Reverter" on its own, so
+// nothing depends on the interface being able to show the question.
+type JobConfirm struct {
+	ID      string `json:"id"`
+	Prompt  string `json:"prompt"`
+	Seconds int    `json:"seconds"` // the whole limit
+	LeftMs  int64  `json:"leftMs"`  // what is left of it when read
+
+	deadline time.Time
+	answer   chan bool
 }
 
 // JobCtl is handed to the job function to report progress.
@@ -108,6 +124,50 @@ func (c *JobCtl) Step(step string) {
 	c.m.update(c.id, func(j *Job) { j.Step = step })
 }
 
+// Confirm publishes a question in the job and waits up to timeout for the
+// answer. It reports true only for "Manter" before the limit; the limit
+// passing, "Reverter" or a cancel of the job are false.
+func (c *JobCtl) Confirm(prompt string, timeout time.Duration) bool {
+	if limit := c.m.confirmMax; limit > 0 && timeout > limit {
+		timeout = limit
+	}
+	q := &JobConfirm{ID: tweaks.NewID(), Prompt: prompt, Seconds: int((timeout + time.Second - 1) / time.Second),
+		deadline: time.Now().Add(timeout), answer: make(chan bool, 1)}
+	c.m.update(c.id, func(j *Job) { j.Confirm = q })
+	defer c.m.update(c.id, func(j *Job) {
+		if j.Confirm == q {
+			j.Confirm = nil
+		}
+	})
+	t := time.NewTimer(timeout)
+	defer t.Stop()
+	select {
+	case keep := <-q.answer:
+		return keep
+	case <-t.C:
+		return false
+	}
+}
+
+// Answer delivers the answer to the question a running job is waiting on.
+// A question that is no longer open (answered, or its time is over) is
+// refused: the job already went back.
+func (m *Jobs) Answer(jobID, confirmID string, keep bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	j, ok := m.jobs[jobID]
+	if !ok {
+		return errNotFound
+	}
+	q := j.Confirm
+	if q == nil || q.ID != confirmID || !time.Now().Before(q.deadline) {
+		return fmt.Errorf("%w: a pergunta já não está aberta (o prazo acabou ou ela já foi respondida)", errBadRequest)
+	}
+	q.answer <- keep // buffered (1) and sent once: the question is closed below
+	j.Confirm = nil
+	return nil
+}
+
 // Logf appends a line to the job log (capped).
 func (c *JobCtl) Logf(format string, args ...any) {
 	line := time.Now().Format("15:04:05") + "  " + fmt.Sprintf(format, args...)
@@ -125,6 +185,8 @@ type Jobs struct {
 	exclusive string // id of the running exclusive job
 	held      int    // quick changes running through RunExclusive
 	OnDone    func(j Job)
+	// confirmMax, when set (tests), shortens the time limit of JobCtl.Confirm.
+	confirmMax time.Duration
 }
 
 // NewJobs builds a job manager.
@@ -238,6 +300,12 @@ func snapshot(j *Job) Job {
 	c := *j
 	c.Log = append([]string(nil), j.Log...)
 	c.cancel = nil
+	if j.Confirm != nil {
+		q := *j.Confirm
+		q.LeftMs = max(0, time.Until(q.deadline).Milliseconds())
+		q.answer = nil
+		c.Confirm = &q
+	}
 	return c
 }
 
@@ -278,6 +346,11 @@ func (m *Jobs) Cancel(id string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if j, ok := m.jobs[id]; ok && j.Status == JobRunning && j.cancel != nil && j.NoCancel == "" {
+		// Cancelling while a question is open is "Reverter".
+		if q := j.Confirm; q != nil {
+			q.answer <- false
+			j.Confirm = nil
+		}
 		j.cancel()
 		return true
 	}
@@ -346,6 +419,11 @@ func (a *App) Shutdown(max time.Duration, slow func(title string)) bool {
 		}
 		if running && exitCancellable[j.Kind] {
 			a.Jobs.Cancel(j.ID) // refused while the step cannot be interrupted
+		}
+		// With the window closing nobody can answer a question: go back now
+		// instead of waiting for its time limit.
+		if running && j.Confirm != nil {
+			_ = a.Jobs.Answer(j.ID, j.Confirm.ID, false)
 		}
 		if time.Since(start) >= max {
 			return false

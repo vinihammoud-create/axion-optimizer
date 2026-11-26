@@ -666,16 +666,24 @@ func emit(opts sys.RunOpts, res sys.Result, skip int) {
 
 // Native is a fake native layer with a plausible gaming desktop.
 type Native struct {
-	mu        sync.Mutex
-	Elevated  bool
-	Build     [4]int
-	Displays  []sys.DisplayMode
-	Mem       sys.MemoryLists
-	Timer     sys.TimerResolution
-	Procs     []sys.ProcessInfo
-	Purges    int
-	Mouse     [3]int
-	OpenedURL []string
+	mu       sync.Mutex
+	Elevated bool
+	Build    [4]int
+	Displays []sys.DisplayMode
+	// DisplaySaved holds, by lower-case device, the mode SetDisplayMode
+	// wrote to the registry (persist), and DisplayWrites counts those writes;
+	// a dynamic change leaves both alone.
+	DisplaySaved  map[string]sys.DisplayMode
+	DisplayWrites int
+	Mem           sys.MemoryLists
+	Timer         sys.TimerResolution
+	Procs         []sys.ProcessInfo
+	// ProcSnapshots counts the snapshots of the process list (PIDsByName,
+	// RunningNames).
+	ProcSnapshots int
+	Purges        int
+	Mouse         [3]int
+	OpenedURL     []string
 
 	RestorePoints []string
 	FreeBytes     uint64 // extra free space on C: (component cleanup)

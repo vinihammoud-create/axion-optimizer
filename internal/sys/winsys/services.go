@@ -5,6 +5,7 @@ package winsys
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 	"unsafe"
 
@@ -54,7 +55,7 @@ func withService(name string, access uint32, fn func(h windows.Handle) error) er
 // needed to read it (QUERY_CONFIG | QUERY_STATUS): anti-cheat and other
 // protected services deny SERVICE_ALL_ACCESS even to administrators, and
 // were then taken as "not installed". A service whose even that is denied
-// exists (its start type is then unknown).
+// is a read error (queryOutcome): its state was not read.
 func (Services) Query(name string) (sys.ServiceInfo, error) {
 	info := sys.ServiceInfo{Name: name}
 	err := withService(name, windows.SERVICE_QUERY_CONFIG|windows.SERVICE_QUERY_STATUS, func(h windows.Handle) error {
@@ -102,14 +103,20 @@ func (Services) Query(name string) (sys.ServiceInfo, error) {
 		}
 		return nil
 	})
+	return queryOutcome(name, info, err)
+}
+
+// queryOutcome maps the result of opening and reading a service. Absent is a
+// state (Exists false, no error). Access denied says the service is there
+// but nothing about how it is: a read error, never "stopped" or a start type.
+func queryOutcome(name string, info sys.ServiceInfo, err error) (sys.ServiceInfo, error) {
 	switch {
 	case err == nil:
 		return info, nil
 	case errors.Is(err, windows.ERROR_SERVICE_DOES_NOT_EXIST):
 		return sys.ServiceInfo{Name: name}, nil
 	case errors.Is(err, windows.ERROR_ACCESS_DENIED):
-		info.Exists = true // protected: it is there, the details are not readable
-		return info, nil
+		return sys.ServiceInfo{Name: name, Exists: true}, fmt.Errorf("o Windows negou a leitura do serviço %s: %w", name, err)
 	}
 	return info, err
 }

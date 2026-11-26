@@ -292,7 +292,9 @@ func roundTrip(t *testing.T, m *mocksys.Mock, f *facts.Facts, e *tweaks.Engine, 
 	}
 	before := m.World()
 	keysBefore := m.R.KeyCount()
-	res := e.Apply(context.Background(), f, []string{tw.ID}, tweaks.ApplyOpts{AllowBlocked: true})
+	// The person at the screen answers "Manter" to every confirmation (the
+	// refresh rate): the other answers have their own tests.
+	res := e.Apply(context.Background(), f, []string{tw.ID}, tweaks.ApplyOpts{AllowBlocked: true, Confirm: keepAnswer})
 	if len(res) != 1 {
 		t.Fatalf("resultados inesperados: %+v", res)
 	}

@@ -191,6 +191,17 @@ func (s *Server) routes() http.Handler {
 	api("POST /api/jobs/{id}/cancel", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		return map[string]bool{"cancelled": s.App.Jobs.Cancel(r.PathValue("id"))}, nil
 	})
+	// The answer to the question a job is waiting on ("Manter" or "Reverter").
+	api("POST /api/jobs/{id}/confirm", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var req struct {
+			Confirm string `json:"confirm"`
+			Keep    bool   `json:"keep"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			return nil, err
+		}
+		return nil, s.App.Jobs.Answer(r.PathValue("id"), req.Confirm, req.Keep)
+	})
 	api("GET /api/facts", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		if f := s.App.Facts(); f != nil {
 			return newFactsView(f), nil

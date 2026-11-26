@@ -775,8 +775,11 @@ type Native interface {
 	CPUTimes() (idle, kernel, user uint64, err error)
 
 	// SetDisplayMode changes a display's refresh rate at its current resolution
-	// (ChangeDisplaySettingsEx with CDS_UPDATEREGISTRY).
-	SetDisplayMode(device string, width, height, hz int) error
+	// (ChangeDisplaySettingsEx, after CDS_TEST). With persist false the change
+	// is dynamic only (dwflags 0: nothing is written to the registry, and the
+	// next boot uses the saved mode); with persist true it is also saved
+	// (CDS_UPDATEREGISTRY).
+	SetDisplayMode(device string, width, height, hz int, persist bool) error
 	// CreateRestorePoint creates a System Restore point (SRSetRestorePointW).
 	CreateRestorePoint(description string) error
 	// RecycleBin returns size and item count of all recycle bins.
@@ -801,6 +804,11 @@ type Native interface {
 	DNSQuery(server, host string, timeout time.Duration) (time.Duration, error)
 	// GameRunning returns the PIDs of running processes with the given exe name.
 	PIDsByName(name string) []uint32
+	// RunningNames tells which of the exe names have a running process, from
+	// one snapshot of the process list (no process handle is opened). A name
+	// that is not running, or a snapshot that failed, is left out, as in
+	// PIDsByName. Keys are the names as given.
+	RunningNames(names []string) map[string]bool
 	// MoveToQuarantine moves a file or folder (for the uninstaller leftovers).
 	MovePath(src, dst string) error
 	// FirmwareType returns "UEFI", "BIOS" or "" (GetFirmwareType).

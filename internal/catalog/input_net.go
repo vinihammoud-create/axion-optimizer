@@ -384,8 +384,9 @@ func networkTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "net.nic.eee", Category: "rede", Title: "Ethernet sem economia de energia (EEE/Green Ethernet)",
-			Summary:  "Desliga o Energy-Efficient Ethernet e equivalentes do fabricante, que colocam o link em baixo consumo entre pacotes.",
-			Detail:   "Propriedades avançadas do driver (*EEE e variantes Realtek/Intel: AdvancedEEE, EnableGreenEthernet, GigaLite, PowerSavingMode) = 0, só nas que o driver expõe, em todas as placas com cabo (conectadas ou não). O despertar do link custa microssegundos; o motivo principal é que o EEE causa quedas de link em algumas placas Realtek. O adaptador alterado é reiniciado.",
+			Summary: "Desliga o Energy-Efficient Ethernet e equivalentes do fabricante, que colocam o link em baixo consumo entre pacotes.",
+			Detail: "Propriedades avançadas do driver (*EEE e variantes Realtek/Intel: AdvancedEEE, EnableGreenEthernet, GigaLite, PowerSavingMode) = 0, só nas que o driver expõe, em todas as placas com cabo (conectadas ou não). O tempo para o link acordar é pequeno diante da latência da internet e o Axion não mediu ganho de latência; o motivo principal é que o EEE causa quedas de link em algumas placas Realtek. " +
+				"Num notebook, o EEE economiza bateria com a rede parada. O adaptador alterado é reiniciado.",
 			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcNdisKeywords},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"rede", "estabilidade"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {
@@ -394,14 +395,19 @@ func networkTweaks() []*tweaks.Tweak {
 				}
 				return true, ""
 			},
-			Recommend: neutral("inofensivo em desktop; ajuda principalmente em placas Realtek com quedas de conexão"),
-			Ops:       func(f *facts.Facts) []tweaks.Op { return nicKeywordOps(f, eeeKeywords, "0", true) },
-			Post:      restartAdapters(true),
+			Recommend: func(f *facts.Facts) tweaks.Recommendation {
+				if f.Power.IsLaptop {
+					return tweaks.Rec(tweaks.RecNeutral, "num notebook o EEE economiza bateria com a rede parada; desligue só se a conexão por cabo cai ou trava")
+				}
+				return tweaks.Rec(tweaks.RecNeutral, "inofensivo em desktop; ajuda principalmente em placas Realtek com quedas de conexão")
+			},
+			Ops:  func(f *facts.Facts) []tweaks.Op { return nicKeywordOps(f, eeeKeywords, "0", true) },
+			Post: restartAdapters(true),
 		},
 		{
 			ID: "net.nic.intmod", Category: "rede", Title: "Moderação de interrupção desligada",
 			Summary:  "Faz a placa de rede avisar a CPU a cada pacote, em vez de agrupar vários pacotes por interrupção.",
-			Detail:   "*InterruptModeration = 0 no driver. Reduz a latência local em microssegundos, com mais uso de CPU em tráfego pesado. É invisível diante da latência da internet (milissegundos); só vale em LAN ou para quem quer extrair o último microssegundo.",
+			Detail:   "*InterruptModeration = 0 no driver. Pode reduzir a latência dentro da rede local, com mais uso de CPU em tráfego pesado; o Axion não mediu o ganho. Diante da latência da internet (milissegundos) a diferença não aparece; só faz sentido em rede local.",
 			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcIntMod, srcIntModTuning},
 			Risk: tweaks.RiskModerate, Reboot: tweaks.RebootNone, Tags: []string{"rede", "latencia"}, OneClick: false,
 			Applicable: func(f *facts.Facts) (bool, string) {
@@ -410,7 +416,7 @@ func networkTweaks() []*tweaks.Tweak {
 				}
 				return true, ""
 			},
-			Recommend: neutral("ganho de microssegundos, imperceptível na latência da internet"),
+			Recommend: neutral("ganho não medido pelo Axion e imperceptível diante da latência da internet"),
 			Ops:       func(f *facts.Facts) []tweaks.Op { return nicKeywordOps(f, []string{"*InterruptModeration"}, "0", true) },
 			Post:      restartAdapters(true),
 		},

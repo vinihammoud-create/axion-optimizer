@@ -53,6 +53,7 @@ var (
 	srcTelemetryCSP   = tweaks.Source{Title: "Microsoft Learn — Policy CSP System/AllowTelemetry: o valor 0 fora do Enterprise/Education equivale a 1", URL: "https://learn.microsoft.com/windows/client-management/mdm/policy-csp-system"}
 	srcActivity       = tweaks.Source{Title: "Microsoft Learn — Policy CSP: Privacy/PublishUserActivities", URL: "https://learn.microsoft.com/windows/client-management/mdm/policy-csp-privacy"}
 	srcWUDrivers      = tweaks.Source{Title: "Microsoft Learn — Policy CSP: Update/ExcludeWUDriversInQualityUpdate", URL: "https://learn.microsoft.com/windows/client-management/mdm/policy-csp-update"}
+	srcDOCSP          = tweaks.Source{Title: "Microsoft Learn — Policy CSP: DeliveryOptimization/DODownloadMode (valores e edições em que a política vale)", URL: "https://learn.microsoft.com/windows/client-management/mdm/policy-csp-deliveryoptimization"}
 	srcDO             = tweaks.Source{Title: "Microsoft Learn — Referência do Delivery Optimization (DownloadMode)", URL: "https://learn.microsoft.com/windows/deployment/do/waas-delivery-optimization-reference"}
 	srcMenuDelay      = tweaks.Source{Title: "Microsoft Learn — SPI_SETMENUSHOWDELAY", URL: "https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-systemparametersinfow"}
 	srcFileExt        = tweaks.Source{Title: "Microsoft Support — Extensões de nome de arquivo comuns no Windows", URL: "https://support.microsoft.com/windows/common-file-name-extensions-in-windows-da4a4430-8e76-89c5-59f7-1cdbbc75cb01"}
@@ -125,6 +126,31 @@ func yes(reason string) func(*facts.Facts) tweaks.Recommendation {
 
 func neutral(reason string) func(*facts.Facts) tweaks.Recommendation {
 	return func(*facts.Facts) tweaks.Recommendation { return tweaks.Rec(tweaks.RecNeutral, reason) }
+}
+
+// policyHomeNote goes in the text of the policies whose Policy CSP page lists
+// Pro, Enterprise and Education (and IoT Enterprise) but not Home.
+const policyHomeNote = " A página da Microsoft sobre esta política lista as edições Pro, Enterprise e Education, não a Home: no Windows Home ela pode não ter efeito (o Axion não mediu)."
+
+// homeEdition reports Windows Home (EditionID Core, CoreN,
+// CoreSingleLanguage, CoreCountrySpecific).
+func homeEdition(f *facts.Facts) bool {
+	if f == nil {
+		return false
+	}
+	return strings.HasPrefix(strings.ToLower(f.OS.Edition), "core") || strings.Contains(strings.ToLower(f.OS.Caption), " home")
+}
+
+// policyRec adds to a policy's recommendation, on Windows Home, that the
+// policy may have no effect there (see policyHomeNote).
+func policyRec(rec func(*facts.Facts) tweaks.Recommendation) func(*facts.Facts) tweaks.Recommendation {
+	return func(f *facts.Facts) tweaks.Recommendation {
+		r := rec(f)
+		if homeEdition(f) {
+			r.Reason += "; no Windows Home a Microsoft não lista esta política, então ela pode não ter efeito"
+		}
+		return r
+	}
 }
 
 // All returns the full catalog in display order.

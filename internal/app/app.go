@@ -822,6 +822,9 @@ func (a *App) startApply(req ApplyRequest) (Job, error) {
 				}
 			},
 			Log: c.Logf,
+			// The refresh-rate change asks "Está vendo esta tela?" here;
+			// with no answer in time the job goes back by itself.
+			Confirm: c.Confirm,
 		})
 		for _, r := range res {
 			c.Logf("%s: %s %s", r.Title, outcomeText(r.Outcome), r.Message)
