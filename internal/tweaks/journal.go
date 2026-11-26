@@ -380,7 +380,11 @@ func (j *Journal) Active() []*Entry {
 // created along the way). A key created by more than one tweak only belongs to
 // Axion until the last of them is undone, so an apply captures it as absent
 // and whichever undo empties it removes it.
-func (j *Journal) CreatedRegKeys() map[string]bool {
+//
+// A HKCU key only counts when the entry was applied for the same Windows
+// account (userSID): another user's HKCU is another hive, and treating a key
+// this user already had as created by Axion would delete it on undo.
+func (j *Journal) CreatedRegKeys(userSID string) map[string]bool {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	out := map[string]bool{}
@@ -391,6 +395,9 @@ func (j *Journal) CreatedRegKeys() map[string]bool {
 		for i := range e.Ops {
 			r := &e.Ops[i]
 			if r.Kind != "registry" || !onMachine(r) {
+				continue
+			}
+			if usesHKCU(r.Target) && e.UserSID != userSID {
 				continue
 			}
 			var s regSnap
