@@ -5,6 +5,7 @@ package winsys
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -158,10 +159,25 @@ func (p Power) WriteValue(scheme, sub, setting string, ac bool, value uint32) er
 }
 
 // DuplicateScheme implements sys.Power.
-func (Power) DuplicateScheme(source string) (string, error) {
+func (Power) DuplicateScheme(source, dest string) (string, error) {
 	g, err := parseGUID(source)
 	if err != nil {
 		return "", err
+	}
+	if dest != "" {
+		// A non-NULL pointer gives the copy this GUID (ERROR_ALREADY_EXISTS if
+		// it is taken); the memory is ours, so nothing is freed.
+		d, err := parseGUID(dest)
+		if err != nil {
+			return "", err
+		}
+		dp := &d
+		r, _, _ := procPowerDuplicateScheme.Call(0, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(&dp)))
+		runtime.KeepAlive(dp)
+		if err := powerErr("PowerDuplicateScheme", r); err != nil {
+			return "", err
+		}
+		return guidString(d), nil
 	}
 	var dst *windows.GUID
 	r, _, _ := procPowerDuplicateScheme.Call(0, uintptr(unsafe.Pointer(&g)), uintptr(unsafe.Pointer(&dst)))

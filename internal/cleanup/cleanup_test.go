@@ -60,7 +60,7 @@ func TestScanAndCleanTemp(t *testing.T) {
 		t.Logf("sem privilégio para criar o link simbólico; o resto do teste segue sem ele: %v", err)
 	}
 
-	tg := Targets(sys.Paths{UserTemp: tmp})[0]
+	tg := Targets(sys.Paths{UserTemp: tmp, LocalAppData: filepath.Dir(tmp)})[0]
 	if tg.ID != "temp.user" {
 		t.Fatalf("primeiro alvo: %s", tg.ID)
 	}
@@ -151,6 +151,35 @@ func TestTempFallbackToProfileIsRefused(t *testing.T) {
 	}
 }
 
+// TEMP is inherited from the environment: any program of the account can point
+// it at another folder named Temp (on another drive, or a shared one). The
+// cleanup takes the profile's LocalAppData\Temp, from the known-folders API,
+// and never the folder TEMP points to outside the profile.
+func TestTempOutsideProfileIsNotCleaned(t *testing.T) {
+	base := t.TempDir()
+	profile := filepath.Join(base, "Users", "Joao")
+	local := filepath.Join(profile, "AppData", "Local")
+	outside := filepath.Join(base, "Dados", "Temp")
+	kept := filepath.Join(outside, "projeto.bak")
+	write(t, kept, 10, 90*24*time.Hour)
+	age(t, outside, 90*24*time.Hour)
+	p := sys.Paths{UserTemp: outside, UserProfile: profile, LocalAppData: local, WindowsDir: filepath.Join(base, "Windows")}
+	tg := Targets(p)[0]
+	if len(tg.Dirs) != 1 || !samePath(tg.Dirs[0], filepath.Join(local, "Temp")) {
+		t.Fatalf("esperado só LocalAppData\\Temp, obtido %v", tg.Dirs)
+	}
+	Clean(tg, time.Now())
+	if _, err := os.Stat(kept); err != nil {
+		t.Fatalf("arquivo da pasta apontada pelo TEMP (fora do perfil) foi apagado: %v", err)
+	}
+
+	// Without LocalAppData, TEMP outside the profile is refused outright.
+	p.LocalAppData = ""
+	if d := Targets(p)[0].Dirs; len(d) != 0 {
+		t.Errorf("sem LocalAppData, a pasta fora do perfil não pode ser limpa: %v", d)
+	}
+}
+
 // An installer extracting right now restores old modification times; its
 // fresh folder keeps the payload.
 func TestFreshExtractionIsKept(t *testing.T) {
@@ -158,7 +187,7 @@ func TestFreshExtractionIsKept(t *testing.T) {
 	tmp := filepath.Join(base, "AppData", "Local", "Temp")
 	payload := filepath.Join(tmp, "is-ABC12.tmp", "setup_data.bin")
 	write(t, payload, 5000, 3*365*24*time.Hour) // folder created now, file time from the archive
-	tg := Targets(sys.Paths{UserTemp: tmp})[0]
+	tg := Targets(sys.Paths{UserTemp: tmp, LocalAppData: filepath.Dir(tmp)})[0]
 	r := Clean(tg, time.Now())
 	if _, err := os.Stat(payload); err != nil {
 		t.Fatalf("instalação em andamento apagada (deleted=%d): %v", r.Deleted, err)
@@ -171,7 +200,7 @@ func TestKeepListIsHonoured(t *testing.T) {
 	tmp := filepath.Join(base, "Temp")
 	f := filepath.Join(tmp, "driver_update.sys")
 	write(t, f, 100, 10*24*time.Hour)
-	tg := Targets(sys.Paths{UserTemp: tmp})[0]
+	tg := Targets(sys.Paths{UserTemp: tmp, LocalAppData: filepath.Dir(tmp)})[0]
 	tg.Keep = map[string]bool{strings.ToLower(filepath.Clean(f)): true}
 	if m := Scan(tg, time.Now(), 0); m.Files != 0 || m.Kept != 1 {
 		t.Fatalf("medição: %+v", m)

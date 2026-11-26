@@ -89,6 +89,25 @@ O QUE ESTA VERSÃO FAZ
   - Perfil do driver NVIDIA: lê e, com desfazer exato, corrige ajustes do
     driver deixados por outros programas.
 
+NOVO NA PRÓXIMA VERSÃO (ainda sem número)
+  Desfazer
+  - Dois ajustes que criam a mesma chave nova no registro: o último a ser
+    desfeito apaga a chave, em qualquer ordem. Chaves de outra conta do
+    Windows nunca contam.
+  - Hibernação: desfazer devolve também o tipo (completo ou reduzido) e o
+    tamanho do arquivo de hibernação, pelo powercfg.
+  - Plano Desempenho Máximo: o Axion registra o identificador da cópia antes
+    de criá-la; se o PC desligar no meio, o desfazer ainda apaga a cópia.
+  Limpeza
+  - Temporários do usuário: só a pasta Temp do perfil (LocalAppData\Temp). Se
+    a variável TEMP apontar para fora do perfil, essa pasta não é limpa.
+  Classificação de ajustes
+  - Energia USB de mouse e teclado: grava na chave de hardware do
+    dispositivo; saiu do 1 clique e passou a risco moderado.
+  - Modo MSI da placa de vídeo: só na placa dedicada, nunca na integrada.
+  - Leituras que falharam (periféricos, arquivo de paginação, anti-cheats)
+    viram "não lido" em vez de estado normal ou recomendação.
+
 NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
   Interface
   - Visual novo, com sete entradas no menu (Início, Otimizar, Diagnóstico,

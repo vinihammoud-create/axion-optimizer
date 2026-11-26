@@ -42,6 +42,45 @@ func assertWorldRestored(t *testing.T, before, after map[string]string) {
 	}
 }
 
+// The process dies right after Windows creates the Ultimate Performance copy
+// (power loss, killed process). The interrupted entry is undone after the
+// next start: no plan may be left over and the marker must go too.
+func TestUltimatePlanCrashAfterCopyLeavesNoOrphan(t *testing.T) {
+	m, err := mocksys.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tw := powerPlanTweak()
+	ctx, f := context.Background(), &facts.Facts{}
+	plansBefore := schemeGUIDs(t, m)
+	activeBefore, _ := m.Platform.Power.ActiveScheme()
+
+	m.P.AfterDuplicate = func(string) { panic("queda de energia") }
+	e := newEngine(t, m, tw)
+	func() {
+		defer func() { _ = recover() }()
+		e.Apply(ctx, f, []string{"t.ultimate"}, tweaks.ApplyOpts{})
+	}()
+	m.P.AfterDuplicate = nil
+
+	e2 := newEngine(t, m, tw)
+	e2.J.RecoverInterrupted()
+	for _, r := range e2.RevertAll(ctx, f, tweaks.RevertOpts{}) {
+		if r.Outcome != tweaks.OutReverted && r.Outcome != tweaks.OutNothing {
+			t.Fatalf("desfazer a entrada interrompida: %+v", r)
+		}
+	}
+	if got := schemeGUIDs(t, m); strings.Join(got, ",") != strings.Join(plansBefore, ",") {
+		t.Errorf("a cópia do plano ficou órfã: antes %v, depois %v", plansBefore, got)
+	}
+	if act, _ := m.Platform.Power.ActiveScheme(); !strings.EqualFold(act, activeBefore) {
+		t.Errorf("plano ativo mudou: %s -> %s", activeBefore, act)
+	}
+	if n := m.R.KeyCountUnder(`HKLM\SOFTWARE\Axion\Power`); n != 0 {
+		t.Errorf("o marcador do plano ficou para trás (%d chaves)", n)
+	}
+}
+
 // The Ultimate Performance copy is created before its marker is written. If
 // the marker cannot be written, no copy may stay behind (the undo only
 // recognises copies by the marker) and the active plan must not change; once

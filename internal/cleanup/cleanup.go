@@ -57,9 +57,13 @@ type Target struct {
 func Targets(p sys.Paths) []Target {
 	var t []Target
 	add := func(x Target) { t = append(t, x) }
-	userTemp := TempDir(p, p.UserTemp)
-	if userTemp == "" {
-		userTemp = TempDir(p, join(p.LocalAppData, "Temp"))
+	// The profile's LocalAppData\Temp (known-folders API), not the inherited
+	// TEMP variable, which any program of the account can point elsewhere.
+	// TEMP is only a fallback when LocalAppData is unknown, and only inside
+	// the user profile.
+	userTemp := TempDir(p, join(p.LocalAppData, "Temp"))
+	if userTemp == "" && p.LocalAppData == "" && insideDir(p.UserTemp, p.UserProfile) {
+		userTemp = TempDir(p, p.UserTemp)
 	}
 	add(Target{ID: "temp.user", Title: "Arquivos temporários do usuário", Kind: KindFiles, Recurse: true, MinAge: 24 * time.Hour, Default: true,
 		Dirs:    nonEmpty(userTemp),
@@ -146,6 +150,15 @@ func protected(p sys.Paths) []string {
 
 func samePath(a, b string) bool {
 	return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
+}
+
+// insideDir reports whether path is below dir (not dir itself), ignoring case.
+func insideDir(path, dir string) bool {
+	if path == "" || dir == "" {
+		return false
+	}
+	rel, err := filepath.Rel(strings.ToLower(filepath.Clean(dir)), strings.ToLower(filepath.Clean(path)))
+	return err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 // driveRoot turns "C:" into "C:\" (a bare drive letter means the current

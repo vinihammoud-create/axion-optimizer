@@ -344,7 +344,10 @@ type Power interface {
 	// ReadValue reads the AC (ac=true) or DC value index of a setting in a scheme.
 	ReadValue(scheme, subgroup, setting string, ac bool) (uint32, error)
 	WriteValue(scheme, subgroup, setting string, ac bool, value uint32) error
-	DuplicateScheme(source string) (string, error)
+	// DuplicateScheme copies a scheme and returns the copy's GUID. With dest
+	// set the copy gets that GUID (the caller can record it before the copy
+	// exists); with dest empty Windows chooses one.
+	DuplicateScheme(source, dest string) (string, error)
 	DeleteScheme(guid string) error
 	// ActiveOverlay returns the Windows "Power mode" overlay applied on AC
 	// ("" means the default "Balanced"/recommended mode).
