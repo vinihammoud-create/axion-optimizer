@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"math"
 	"strings"
 
 	"axion/internal/facts"
@@ -36,7 +37,11 @@ func (c *collector) thermal() {
 			if read {
 				limit = int(r.Int("PercentPassiveLimit"))
 			}
-			t.Zones = append(t.Zones, facts.ThermalZone{Name: name, TempC: temp, PassiveLimitPct: limit, PassiveLimitRead: read, Reasons: uint32(r.Uint("ThrottleReasons"))})
+			var reasons uint32 // bit flags; a value wider than 32 bits is not one
+			if u := r.Uint("ThrottleReasons"); u <= math.MaxUint32 {
+				reasons = uint32(u)
+			}
+			t.Zones = append(t.Zones, facts.ThermalZone{Name: name, TempC: temp, PassiveLimitPct: limit, PassiveLimitRead: read, Reasons: reasons})
 		}
 	} else {
 		c.errf("zonas térmicas: %v", err)
