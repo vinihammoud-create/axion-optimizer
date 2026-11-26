@@ -158,13 +158,16 @@ func (a *Accum) Summary() Summary {
 	s.CPUBusyAvg, s.GPUBusyAvg = round(a.cpu.mean(), 3), round(a.gpu.mean(), 3)
 	s.UntilDisplayedAvg, s.InputLatencyAvg = round(a.ud.mean(), 2), round(a.in.mean(), 2)
 	s.ClickLatencyAvg, s.PCLatencyAvg = round(a.cl.mean(), 2), round(a.pcl.mean(), 2)
-	s.GPUBoundPct, s.CPUBoundPct, s.WaitPct = -1, -1, -1
+	s.GPUBoundPct, s.CPUBoundPct, s.WaitPct, s.ClassifiedFrac = -1, -1, -1, -1
 	if a.classified > 0 {
 		c := float64(a.classified)
 		s.GPUBoundPct = round(100*float64(a.gpuB)/c, 1)
 		s.CPUBoundPct = round(100*float64(a.cpuB)/c, 1)
 		s.WaitPct = round(100*float64(a.waitB)/c, 1)
+		s.ClassifiedFrac = round(c/float64(n), 3)
 		switch {
+		case c < minClassifiedFrac*float64(n):
+			// too few classified frames: no verdict, Limiter stays empty
 		case s.GPUBoundPct >= 50:
 			s.Limiter = "gpu"
 		case s.CPUBoundPct >= 50:

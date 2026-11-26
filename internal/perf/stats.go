@@ -23,6 +23,12 @@ const (
 	cpuWaitShare  = 0.10
 )
 
+// minClassifiedFrac is the share of the frames that must carry GPU Busy and
+// CPU Wait before the capture gets a Limiter. It is the Axion's criterion (not
+// a published figure): below it the percentages describe too few frames to
+// name who limited the capture.
+const minClassifiedFrac = 0.5
+
 // Summary holds the numbers of one capture. -1 means "not available".
 type Summary struct {
 	Frames  int     `json:"frames"`
@@ -52,7 +58,10 @@ type Summary struct {
 	GPUBoundPct float64 `json:"gpuBoundPct"`
 	CPUBoundPct float64 `json:"cpuBoundPct"`
 	WaitPct     float64 `json:"waitPct"`
-	Limiter     string  `json:"limiter"` // gpu | cpu (CPU or the game's own limiter) | limite | misto | "" (unknown)
+	// ClassifiedFrac is the share (0 to 1) of frames that carried GPU Busy and
+	// CPU Wait, the ones the percentages above count; -1 when none did.
+	ClassifiedFrac float64 `json:"classifiedFrac"`
+	Limiter        string  `json:"limiter"` // gpu | cpu (CPU or the game's own limiter) | limite | misto | "" (unknown)
 	// CapLikely: limited by the CPU side with a very steady frame time,
 	// the signature of an in-game FPS limit (fps_max) rather than a slow CPU.
 	CapLikely bool `json:"capLikely,omitempty"`
