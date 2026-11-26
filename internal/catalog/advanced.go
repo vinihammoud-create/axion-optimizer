@@ -12,12 +12,12 @@ func advancedTweaks() []*tweaks.Tweak {
 	return []*tweaks.Tweak{
 		{
 			ID: "adv.vbs.off", Category: "avancado", Title: "Integridade de Memória (HVCI) e VBS desligadas",
-			Summary: "Desliga a virtualização de segurança do Windows. A Microsoft diz que, em alguns cenários e configurações, esses recursos podem afetar o desempenho em jogos.",
+			Summary: "Desliga a virtualização de segurança do Windows. Em alguns jogos e configurações ela pode custar desempenho; a página da Microsoft que dizia isso foi retirada, e o Axion não mediu.",
 			Detail: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\\Scenarios\\HypervisorEnforcedCodeIntegrity Enabled=0 e DeviceGuard EnableVirtualizationBasedSecurity=0. " +
-				"A Microsoft recomenda religar ao terminar de jogar. Uma política de grupo, o bloqueio UEFI (lock) ou outro recurso que use o VBS fazem o Windows ignorar a mudança: depois de reiniciar, o Axion confere se o VBS parou de verdade e, se não parou, diz o motivo. " +
+				"Se desligar, religue ao terminar de jogar. Uma política de grupo, o bloqueio UEFI (lock) ou outro recurso que use o VBS fazem o Windows ignorar a mudança: depois de reiniciar, o Axion confere se o VBS parou de verdade e, se não parou, diz o motivo. " +
 				"BLOQUEADO quando FACEIT ou Riot Vanguard estão instalados: o FACEIT exige VBS (para o IOMMU) de parte dos jogadores, em etapas, e pode pedir a Integridade de Memória; o Vanguard pode exigir a Integridade de Memória. " +
 				"A partir de outubro de 2026 o Windows 11 passa a ligar a Integridade de Memória sozinho em PCs compatíveis, por atualização de qualidade; segundo a cobertura do anúncio, quem a desligou de propósito não é alterado. Se ela voltar a ligar, o Axion avisa que o ajuste foi desfeito.",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcVMP, srcMemIntegrity, srcMemIntExpand, srcMemIntNews, srcFaceitReq, srcFaceitFAQ, srcFaceitKnown, srcVanguardReq},
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcMemIntegrity, srcMemIntExpand, srcMemIntNews, srcFaceitReq, srcFaceitFAQ, srcFaceitKnown, srcVanguardReq},
 			Risk: tweaks.RiskAdvanced, RiskNote: "reduz a proteção contra drivers maliciosos e exploits de kernel",
 			Reboot: tweaks.RebootRestart, Tags: []string{"fps", "seguranca"}, OneClick: false,
 			Applicable: func(f *facts.Facts) (bool, string) {
@@ -33,7 +33,7 @@ func advancedTweaks() []*tweaks.Tweak {
 				if f.HasAntiCheat("Gamers Club") {
 					return tweaks.Rec(tweaks.RecNo, "a Gamers Club anunciou TPM 2.0 e VBS em teste no anti-cheat 2.0 (março de 2026): desligar pode impedir de jogar quando a exigência valer")
 				}
-				return tweaks.Rec(tweaks.RecNeutral, "pode ajudar em alguns jogos e configurações, com perda de segurança; a Microsoft sugere religar depois de jogar")
+				return tweaks.Rec(tweaks.RecNeutral, "pode ajudar em alguns jogos e configurações, com perda de segurança; religue depois de jogar")
 			},
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{
@@ -55,9 +55,9 @@ func advancedTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "adv.vmp.off", Category: "avancado", Title: "Virtual Machine Platform desligado",
-			Summary:  "Desativa o componente de virtualização usado pelo WSL2 e pelo Android no Windows. A Microsoft diz que, em alguns cenários, ele pode afetar o desempenho em jogos, junto com a Integridade de Memória.",
-			Detail:   "DISM /online /disable-feature /featurename:VirtualMachinePlatform. Não desligue se você usa WSL2, Windows Sandbox, Docker Desktop ou emuladores que dependem do Hyper-V. A Microsoft sugere religar depois de jogar se você usa esses recursos.",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcVMP},
+			Summary:  "Desativa o componente de virtualização que o WSL 2 exige (e que o Android no Windows usava). Há relatos de que, junto com a Integridade de Memória, ele pode custar desempenho em alguns jogos; a página da Microsoft que dizia isso foi retirada, e o Axion não mediu.",
+			Detail:   "DISM /online /disable-feature /featurename:VirtualMachinePlatform. Não desligue se você usa WSL2, Windows Sandbox, Docker Desktop ou emuladores que dependem do Hyper-V. Se usa esses recursos, religue depois de jogar.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcWSLVMP},
 			Risk: tweaks.RiskModerate, Reboot: tweaks.RebootRestart, Tags: []string{"fps"}, OneClick: false,
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if !f.Security.VMPEnabled {
@@ -77,9 +77,10 @@ func advancedTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "adv.timer.global", Category: "avancado", Title: "Resolução de timer global (Windows 11)",
-			Summary: "Faz um pedido de timer de alta resolução (ex.: 0,5 ms da Sessão de Jogo) valer para todos os processos, como era antes do Windows 10 2004.",
-			Detail: "GlobalTimerResolutionRequests=1 em HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel (lido pelo kernel do Windows 11 e Server 2022+). " +
-				"Sozinho não muda nada: só tem efeito quando algum processo pede resolução maior. As medições públicas de ganho em frametime/latência são inconsistentes; aumenta o consumo de energia.",
+			Summary: "Faz um pedido de timer de alta resolução valer para todos os processos, como era antes do Windows 10 2004. Valor não documentado pela Microsoft.",
+			Detail: "GlobalTimerResolutionRequests=1 em HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel. " +
+				"O valor não está na documentação da Microsoft: aparece num comentário de leitor no blog de Bruce Dawson, que respondeu que não o recomendaria fora de teste e que um programa não deveria gravá-lo no PC do usuário. Por isso é só experimental, manual e com medição. " +
+				"Sozinho não muda nada: só tem efeito quando algum processo pede resolução maior; resolução maior aumenta o consumo de energia.",
 			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcTimer, srcTimerDawson},
 			Risk: tweaks.RiskModerate, Reboot: tweaks.RebootRestart, Tags: []string{"latencia"}, OneClick: false, MinBuild: 22000,
 			Recommend: neutral("experimental: compare no seu jogo (FPS médio e 1% low) antes de manter"),

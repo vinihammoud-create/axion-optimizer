@@ -127,8 +127,8 @@ func privacyTweaks() []*tweaks.Tweak {
 			ID: "privacy.telemetry.tasks", Category: "privacidade", Title: "Tarefas de coleta de compatibilidade desligadas",
 			Summary: "Desativa tarefas agendadas de coleta de dados de compatibilidade e de experiência do usuário (Microsoft Compatibility Appraiser e afins), que rodam em segundo plano.",
 			Detail: "Agendador de Tarefas: \\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser, \\ProgramDataUpdater; \\Customer Experience Improvement Program\\Consolidator, \\UsbCeip; \\Feedback\\Siuf\\DmClient, \\DmClientOnScenarioDownload. Tarefas inexistentes na sua versão são ignoradas. " +
-				"O ganho é de privacidade; não há medição publicada de efeito em FPS. O Appraiser também informa a compatibilidade do PC para atualizações do Windows.",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcSchedTasks, srcTelemetry},
+				"O ganho é de privacidade; não há medição publicada de efeito em FPS. As fontes citadas descrevem o desligamento de tarefas e os dados de diagnóstico em geral, não estas seis tarefas. O Appraiser também informa a compatibilidade do PC para atualizações do Windows.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcSchedTasks, srcTelemetry},
 			Risk: tweaks.RiskModerate, Reboot: tweaks.RebootNone, Tags: []string{"privacidade"}, OneClick: false,
 			RiskNote:  "O Microsoft Compatibility Appraiser é o que avalia se o PC é compatível com a próxima versão do Windows: com ele desligado essa avaliação não roda, e a oferta de uma atualização de versão pode atrasar ou não aparecer. Por isso o item fica fora do 1 clique.",
 			Recommend: yes("menos coleta em segundo plano, sem efeito nos jogos"),
@@ -319,17 +319,24 @@ func serviceTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "services.sysmain.hdd", Category: "servicos", Title: "SysMain (Superfetch) desligado em HDD",
-			Summary:  "Em PCs com Windows num disco rígido mecânico, o SysMain pode deixar o disco em 100% por minutos após o boot.",
-			Detail:   "Serviço SysMain → Desativado. Em SSD o SysMain é benéfico (pré-carrega apps que você usa) e fica recomendado manter ligado.",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcServices},
-			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"disco"}, OneClick: true,
+			Summary:  "Em PCs com Windows num disco rígido mecânico, desliga o SysMain, o serviço que mantém e melhora o desempenho do sistema com o tempo.",
+			Detail:   "Serviço SysMain → Desativado. A fonte descreve só o que o serviço faz; o Axion não mediu o efeito em disco rígido, e por isso o item é manual (fora do 1 clique). Em SSD o item não se aplica.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcServices},
+			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"disco"},
 			Applicable: func(f *facts.Facts) (bool, string) {
-				if d := f.SystemDisk(); d == nil || !strings.EqualFold(d.MediaType, "HDD") {
+				d := f.SystemDisk()
+				if d == nil {
+					return false, "disco do sistema não lido"
+				}
+				switch {
+				case strings.EqualFold(d.MediaType, "HDD"):
+					return true, ""
+				case strings.EqualFold(d.MediaType, "SSD"):
 					return false, "o Windows está em SSD: mantenha o SysMain ligado"
 				}
-				return true, ""
+				return false, "tipo do disco do sistema não identificado"
 			},
-			Recommend: yes("o Windows está em HDD, onde o SysMain costuma causar disco em 100%"),
+			Recommend: neutral("o Windows está em disco rígido; o efeito de desligar o SysMain nele não foi medido pelo Axion"),
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{tweaks.Svc("SysMain", sys.StartDisabled, true)}
 			},

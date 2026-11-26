@@ -105,8 +105,13 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
   - Energia USB de mouse e teclado: grava na chave de hardware do
     dispositivo; saiu do 1 clique e passou a risco moderado.
   - Modo MSI da placa de vídeo: só na placa dedicada, nunca na integrada.
-  - Leituras que falharam (periféricos, arquivo de paginação, anti-cheats)
-    viram "não lido" em vez de estado normal ou recomendação.
+  - Leituras que falharam (periféricos, arquivo de paginação, anti-cheats,
+    tipo do disco do sistema) viram "não lido" em vez de estado normal ou
+    recomendação.
+  - Fontes revistas: onde nenhuma fonte aberta diz o que o texto afirmava, a
+    evidência passou a baixa e a frase saiu. Saíram do 1 clique o SysMain em
+    disco rígido e a volta do PowerThrottlingOff ao padrão; a aceleração do
+    mouse só vem recomendada quando está ligada.
 
 NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
   Interface

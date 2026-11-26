@@ -32,7 +32,7 @@ func schemeName(guid string) string {
 func cpuNeedsBalanced(f *facts.Facts) (bool, string) {
 	switch {
 	case f.CPU.IsDualCCDX3D:
-		return true, "no " + f.CPU.Name + " o driver da AMD estaciona o CCD sem 3D V-Cache usando o plano Equilibrado + Modo de Jogo; outros planos atrapalham esse mecanismo"
+		return true, "no " + f.CPU.Name + " o driver de chipset da AMD estaciona os núcleos do CCD sem 3D V-Cache quando a Game Bar reconhece o jogo, e a AMD recomenda o plano Equilibrado para isso funcionar"
 	case f.Power.IsLaptop:
 		return true, "em notebook o plano Equilibrado com o Modo de energia \"Melhor desempenho\" na tomada entrega o mesmo desempenho sem desperdiçar bateria"
 	}
@@ -44,9 +44,9 @@ func powerTweaks() []*tweaks.Tweak {
 		{
 			ID: "power.plan.balanced", Category: "energia", Title: "Plano de energia Equilibrado",
 			Summary: "Ativa o plano Equilibrado. Nos Ryzen X3D de 2 CCDs ele faz parte do mecanismo que manda o jogo para o CCD com 3D V-Cache; em notebooks é o plano correto para jogos.",
-			Detail: "PowerSetActiveScheme(381b4222-f694-41f0-9685-ff5bb260df2e). O Equilibrado sobe o clock sob demanda em milissegundos; os planos de alto desempenho mantêm a frequência mínima alta, gastando mais energia e calor. " +
-				"Fora dos X3D de 2 CCDs, a diferença em jogos, quando existe, é pequena: meça antes de trocar.",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcX3D, srcX3DGuide, srcPowerOpts},
+			Detail: "PowerSetActiveScheme(381b4222-f694-41f0-9685-ff5bb260df2e). Nos Ryzen X3D de 2 CCDs, o driver de chipset da AMD estaciona os núcleos sem 3D V-Cache quando a Game Bar reconhece o jogo, e a AMD recomenda o Equilibrado (análise da Notebookcheck). Os planos de alto desempenho economizam menos energia e gastam mais em repouso. " +
+				"Fora dos X3D de 2 CCDs, o Axion não mediu diferença em jogos: meça antes de trocar.",
+			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcX3DNbc, srcX3D, srcX3DGuide, srcUltimate},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"estabilidade"}, OneClick: true, Group: "power.plan",
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if len(f.Power.Schemes) > 0 && !f.Power.HasScheme(sys.SchemeBalanced) {
@@ -64,9 +64,9 @@ func powerTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "power.plan.high", Category: "energia", Title: "Plano de energia Alto desempenho",
-			Summary:  "Ativa o plano Alto desempenho: processador com frequência mínima de 100% e sem economia de energia em PCIe/USB.",
-			Detail:   "PowerSetActiveScheme(8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c). Pode reduzir microatrasos de subida de clock em CPUs antigas; em CPUs atuais o efeito medido em FPS é pequeno. Aumenta consumo e temperatura em repouso.",
-			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcPowerOpts},
+			Summary:  "Ativa o plano Alto desempenho do Windows, que troca economia de energia por desempenho.",
+			Detail:   "PowerSetActiveScheme(8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c). O Axion não mediu ganho em jogo com este plano: compare no seu jogo (1% low) antes de manter. Aumenta consumo e temperatura em repouso.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcUltimate},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"fps"}, OneClick: false, Group: "power.plan",
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if len(f.Power.Schemes) > 0 && !f.Power.HasScheme(sys.SchemeHighPerformance) {
@@ -86,9 +86,9 @@ func powerTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "power.plan.ultimate", Category: "energia", Title: "Plano Desempenho Máximo (Ultimate)",
-			Summary:  "Cria e ativa o plano oculto \"Desempenho Máximo\" da Microsoft, que remove micro-economias de energia além do Alto desempenho.",
-			Detail:   "PowerDuplicateScheme(e9a42b02-d5df-448d-aa00-03f14749eb61) e ativação da cópia. Pensado pela Microsoft para estações de trabalho. Mesmo trade-off do Alto desempenho, com consumo ainda maior em repouso. Ao desfazer, o plano anterior volta a ser o ativo e a cópia criada pelo Axion é apagada.",
-			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcPowerOpts},
+			Summary:  "Cria e ativa o plano oculto \"Desempenho Máximo\" da Microsoft, que vai além do Alto desempenho para eliminar microatrasos do gerenciamento fino de energia.",
+			Detail:   "PowerDuplicateScheme(e9a42b02-d5df-448d-aa00-03f14749eb61) e ativação da cópia. A Microsoft o anunciou para estações de trabalho e avisa que ele consome mais energia que o Equilibrado e não fica disponível na bateria. O Axion não mediu ganho em jogo. Ao desfazer, o plano anterior volta a ser o ativo e a cópia criada pelo Axion é apagada.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcUltimate},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"fps"}, OneClick: false, Group: "power.plan",
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if f.Power.IsLaptop {
