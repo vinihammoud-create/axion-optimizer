@@ -193,7 +193,7 @@ func (s *Server) routes() http.Handler {
 	})
 	api("GET /api/facts", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		if f := s.App.Facts(); f != nil {
-			return f, nil
+			return newFactsView(f), nil
 		}
 		return nil, ErrNoScan
 	})
