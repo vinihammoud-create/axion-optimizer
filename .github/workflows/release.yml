@@ -43,21 +43,46 @@ jobs:
       # signpath/github-action-submit-signing-request) antes de montar o
       # pacote. Até lá, o pacote sai sem assinatura.
 
+      # Mesma versão do Inno Setup do fluxo Instalador (instalador.yml).
+      - name: Inno Setup (versão fixa)
+        shell: pwsh
+        env:
+          INNO_VERSION: "6.7.1"
+        run: |
+          choco install innosetup --version=$env:INNO_VERSION -y --no-progress --allow-downgrade
+          if ($LASTEXITCODE) { throw 'choco install innosetup falhou' }
+          $v = (Get-Item (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe')).VersionInfo.ProductVersion
+          if ($v -notlike "$env:INNO_VERSION*") { throw "Inno Setup $v instalado, esperado $env:INNO_VERSION" }
+
+      # O instalador leva o Axion.exe do pacote: com a assinatura, ele já
+      # chega assinado aqui. O instalador em si seria assinado de um destes
+      # jeitos: o setup.exe pronto vai para a SignPath logo depois deste passo
+      # (o desinstalador que vai dentro dele fica sem assinatura), ou o ISCC
+      # assina o instalador e o desinstalador durante a compilação, com
+      # -SignTool '<comando com $f>' (SignTool em installer\axion.iss). Até
+      # lá, o instalador sai sem assinatura.
+      - name: Instalador
+        shell: powershell
+        run: .\build\installer.ps1 -Version $env:VERSION
+
       - name: Rascunho da versão
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $zip = "dist/Axion-$env:VERSION-win64.zip"
-          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  Axion-$env:VERSION-win64.zip" | Out-File -Encoding ascii -NoNewline dist/SHA256SUMS.txt
+          $setup = "dist/Axion-$env:VERSION-setup.exe"
+          foreach ($f in $zip, $setup) { if (-not (Test-Path $f)) { throw "falta $f" } }
+          $sums = foreach ($f in $zip, $setup) { '{0}  {1}' -f (Get-FileHash $f -Algorithm SHA256).Hash.ToLower(), (Split-Path $f -Leaf) }
+          [IO.File]::WriteAllText((Join-Path $PWD 'dist/SHA256SUMS.txt'), (($sums -join "`n") + "`n"), (New-Object Text.UTF8Encoding($false)))
+          Get-Content dist/SHA256SUMS.txt
           $tag = "v$env:VERSION"
           gh release view $tag 2>$null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag $zip dist/SHA256SUMS.txt --clobber
+            gh release upload $tag $zip $setup dist/SHA256SUMS.txt --clobber
             if ($LASTEXITCODE) { throw 'gh release upload falhou' }
             gh release edit $tag --target $env:GITHUB_SHA
           } else {
-            gh release create $tag $zip dist/SHA256SUMS.txt --draft --target $env:GITHUB_SHA --title "Axion $env:VERSION" --notes-file CHANGELOG.md
+            gh release create $tag $zip $setup dist/SHA256SUMS.txt --draft --target $env:GITHUB_SHA --title "Axion $env:VERSION" --notes-file CHANGELOG.md
           }
           if ($LASTEXITCODE) { throw 'gh release falhou' }

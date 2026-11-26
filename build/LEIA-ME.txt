@@ -90,6 +90,40 @@ O QUE ESTA VERSÃO FAZ
     driver deixados por outros programas.
 
 NOVO NA PRÓXIMA VERSÃO (ainda sem número)
+  Instalador
+  - Além do ZIP, a versão sai também como instalador
+    (Axion-<versão>-setup.exe). Os dois trazem os mesmos arquivos e o mesmo
+    Axion.exe; o SHA256SUMS.txt da página da versão tem o hash de ambos.
+    - Instalador: copia o Axion para Arquivos de Programas\Axion Optimizer,
+      cria o atalho no menu Iniciar (o da área de trabalho é opcional) e
+      aparece em Configurações > Aplicativos, de onde se desinstala.
+    - ZIP (portátil): extraia numa pasta e abra o Axion.exe; nada é
+      instalado. Para remover, apague a pasta.
+    Nos dois casos os dados ficam em C:\ProgramData\Axion.
+  - O instalador mostra antes o que o Axion faz e a licença (MIT). Se o
+    WebView2 Runtime não for encontrado, a última página avisa que o Axion
+    vai abrir no navegador e leva à página oficial da Microsoft para
+    instalar; o instalador não baixa nada.
+  - Com o Axion aberto (em qualquer conta do PC), o instalador e o
+    desinstalador pedem para fechá-lo antes, porque ele pode estar aplicando
+    ou desfazendo um ajuste.
+  - Desinstalar NÃO desfaz os ajustes: o que o Axion mudou no Windows
+    continua mudado. Para voltar ao que era, abra o Axion e use
+    Histórico > Desfazer tudo antes de desinstalar. O desinstalador lê o
+    histórico pelo próprio Axion.exe (sem abrir a janela) e, se houver
+    alterações ativas, diz quantas e recomenda desfazer antes; se não
+    conseguir ler o histórico, diz isso em vez de seguir como se não
+    houvesse nada.
+  - A desinstalação remove o programa, os atalhos e o cache da janela (o
+    perfil do WebView2 em C:\ProgramData\Axion\WebView2, a cópia do
+    WebView2Loader.dll em C:\ProgramData\Axion\bin e a pasta antiga
+    %LOCALAPPDATA%\Axion\WebView2). A pasta de dados (histórico para
+    desfazer, quarentena, medições e registros) só é apagada se você
+    responder Sim; o padrão é manter, e um Axion instalado de novo continua
+    podendo desfazer o que foi aplicado.
+  - O instalador ainda não tem assinatura digital, como o Axion.exe: vale o
+    mesmo aviso do SmartScreen e do Controle Inteligente de Aplicativos de
+    COMO USAR.
   Desfazer
   - Dois ajustes que criam a mesma chave nova no registro: o último a ser
     desfeito apaga a chave, em qualquer ordem. Chaves de outra conta do
