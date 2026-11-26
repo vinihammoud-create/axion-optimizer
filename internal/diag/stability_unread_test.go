@@ -35,3 +35,21 @@ func TestWHEAFindingDoesNotClaimNoSymptomsWhenUnread(t *testing.T) {
 		t.Errorf("sem o perfil do PC o texto continua: %s", x.Evidence)
 	}
 }
+
+func TestWHEATitleAndExplanationDoNotClaimNoSymptomsWhenUnread(t *testing.T) {
+	x := whFindingWith(t, wheaOnly(), &facts.Facts{Unread: []string{diag.PartSymptoms}}, nil)
+	if strings.Contains(x.Title, "sem sintoma") {
+		t.Errorf("a consulta de sintomas falhou, mas o título afirma que não há sintoma: %s", x.Title)
+	}
+	if strings.Contains(x.Explanation, "sem sintoma") {
+		t.Errorf("a consulta de sintomas falhou, mas a explicação afirma que não há sintoma: %s", x.Explanation)
+	}
+
+	full := whFindingWith(t, wheaOnly(), &facts.Facts{}, nil)
+	if !strings.Contains(full.Title, "sem sintoma") || !strings.Contains(full.Explanation, "sem erro grave, sem sintoma e sem rajada") {
+		t.Errorf("com a leitura completa o texto continua: %s / %s", full.Title, full.Explanation)
+	}
+	if x.Severity != full.Severity {
+		t.Errorf("a severidade mudou: %v em vez de %v", x.Severity, full.Severity)
+	}
+}
