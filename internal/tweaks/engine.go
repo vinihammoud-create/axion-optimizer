@@ -746,7 +746,7 @@ func (e *Engine) revertOne(ctx context.Context, f *facts.Facts, ent *Entry, o Re
 	}
 	// HKCU is resolved to the account signed in now; the profile this entry
 	// changed may be another one, and the history is shared by all accounts.
-	if ent.UserSID != "" && c.P.Native.Paths().UserSID != ent.UserSID {
+	if cur := c.P.Native.Paths().UserSID; ent.UserSID != "" && cur != "" && cur != ent.UserSID {
 		for _, p := range pairs {
 			if usesHKCU(recs[p.idx].Target) {
 				res.Outcome = OutFailed

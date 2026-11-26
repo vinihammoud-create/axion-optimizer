@@ -471,6 +471,19 @@ func TestRevertRefusesOtherUser(t *testing.T) {
 	}
 }
 
+// When the account of this run could not be resolved (empty SID), the guard
+// cannot tell it is another user, so it must not refuse the undo.
+func TestRevertDoesNotRefuseWhenCurrentUserUnknown(t *testing.T) {
+	m, _ := mocksys.New(t.TempDir())
+	e, f := applyUserTweak(t, m, "t.user")
+
+	m.SwitchUser("")
+	r := e.RevertTweaks(context.Background(), f, []string{"t.user"}, tweaks.RevertOpts{})
+	if strings.Contains(r[0].Message, "outro usuário do Windows") {
+		t.Fatalf("SID atual desconhecido não pode virar \"outro usuário\": %+v", r[0])
+	}
+}
+
 // An entry written before the history kept the account has no SID: it is
 // undone as before, whoever is signed in.
 func TestRevertEntryWithoutUserSID(t *testing.T) {
