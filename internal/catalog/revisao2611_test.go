@@ -68,7 +68,7 @@ func (r hiberbootRun) Run(ctx context.Context, exe string, args []string, opts s
 func TestHibernateUndoRemovesHiberbootItDidNotFind(t *testing.T) {
 	m, _, e := setup(t)
 	_ = m.R.DeleteValue(keySessionPowerTest, "HiberbootEnabled")
-	m.Platform.Run = hiberbootRun{Runner: m.Platform.Run, reg: m.R}
+	m.Run = hiberbootRun{Runner: m.Run, reg: m.R}
 	f := collect.Collect(context.Background(), m.Platform, nil)
 	ctx := context.Background()
 	if r := e.Apply(ctx, f, []string{"power.hibernate"}, tweaks.ApplyOpts{AllowBlocked: true}); r[0].Outcome != tweaks.OutApplied {
@@ -90,7 +90,7 @@ func TestHibernateUndoRemovesHiberbootItDidNotFind(t *testing.T) {
 func TestHibernateUnreadableIsNotOff(t *testing.T) {
 	m, _, e := setup(t)
 	f := collect.Collect(context.Background(), m.Platform, nil)
-	m.Platform.Reg = failingRegValue{Registry: m.R, name: "HibernateEnabled"}
+	m.Reg = failingRegValue{Registry: m.R, name: "HibernateEnabled"}
 	tw := e.Catalog.Get("power.hibernate")
 	if st := e.StateOf(context.Background(), f, tw); st.Status == "on" {
 		t.Errorf("leitura que falhou não pode mostrar o ajuste como aplicado: %+v", st)
