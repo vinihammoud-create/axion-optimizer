@@ -247,8 +247,14 @@ func TestNVDRSVSyncWithVRRIsOptional(t *testing.T) {
 	}
 	m.N.DRS.VRR[`\\.\DISPLAY1`] = sys.NVVRRInfo{Device: `\\.\DISPLAY1`, Read: true}
 	f = collect.Collect(context.Background(), m.Platform, nil)
-	if r := tw.Recommendation(f); r.Level != tweaks.RecYes {
-		t.Errorf("sem VRR: %+v", r)
+	// CATALOGO-3 F01: a valid forced V-Sync may be the player's own choice in
+	// the NVIDIA panel (Blur Busters recommends it per game): the Axion cannot
+	// tell who wrote it, so it is not marked for the one-click plan.
+	if r := tw.Recommendation(f); r.Level != tweaks.RecNeutral || !strings.Contains(r.Reason, "Painel NVIDIA") {
+		t.Errorf("sem VRR, V-Sync forçado válido não pode vir marcado: %+v", r)
+	}
+	if strings.Contains(tw.Summary, "outro programa") || !strings.Contains(tw.Detail, "Painel NVIDIA") {
+		t.Errorf("o texto afirma procedência que o código não sabe ou não avisa da escolha do jogador: %q / %q", tw.Summary, tw.Detail)
 	}
 	m.N.DRS.VRR = map[string]sys.NVVRRInfo{}
 	f = collect.Collect(context.Background(), m.Platform, nil)

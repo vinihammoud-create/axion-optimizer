@@ -94,7 +94,7 @@ var cs2Items = []CS2Item{
 		Summary: "Troca o MSAA pelo CMAA2, um anti-aliasing de pós-processamento bem mais barato para a placa de vídeo; as bordas finas ficam um pouco menos lisas.",
 		Detail: "setting.msaa_samples = 0 e setting.r_csgo_cmaa_enable = 1. Critério do Axion: é assim que o menu Vídeo → Avançado → Modo de anti-aliasing grava o CMAA2 (dedução, a Valve não documenta; confira no menu depois de aplicar). " +
 			"Num artigo da Intel (cena Bistro, fora do CS2; a Intel chama os números de estimativas de engenharia), o CMAA2 custou de 0,10 a 0,73 ms por quadro em 1080p, conforme o equipamento (de uma placa GeForce, Vega e dois NUCs da Intel). " +
-			"Em outra tabela do mesmo artigo, sem a cena nomeada, o MSAA 2x custou 1,12 e 1,23 ms em 4K nas GTX 1080 e Vega 64, contra 0,38 e 0,24 ms do CMAA2 em 4K. " +
+			"Em outra tabela do mesmo artigo, sem a cena nomeada, o MSAA 2x custou 1,12 e 1,23 ms em 4K nas GTX 1080 e Vega 64, contra 0,37 e 0,24 ms do CMAA2 em 4K. " +
 			"Quanto isso vira de FPS no CS2 depende da placa e da resolução, e só ajuda quando a placa de vídeo é quem limita: meça 60 s antes e depois na página Desempenho.",
 		Sets:     []CS2Set{{"setting.msaa_samples", "0", []string{"1"}}, {"setting.r_csgo_cmaa_enable", "1", nil}},
 		Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcIntelCMAA2},

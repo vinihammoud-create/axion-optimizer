@@ -63,14 +63,14 @@ func StartupProvider(id string, f *facts.Facts) *tweaks.Tweak {
 	if enabled {
 		verb, summary = "ligar", loc.Name+" volta a abrir quando você entra no Windows. Dá para desfazer no Histórico."
 	}
-	detail := fmt.Sprintf("Grava em %s o valor \"%s\" (REG_BINARY), o mesmo que o Gerenciador de Tarefas usa: 03 seguido da data da mudança desliga, 02 liga. O valor anterior é guardado byte a byte e volta exatamente como estava ao desfazer (se não existia, é apagado). Vale a partir do próximo login.", loc.Key, loc.Value)
+	detail := fmt.Sprintf("Grava em %s o valor \"%s\" (REG_BINARY), o mesmo que o Gerenciador de Tarefas usa: 03 seguido da data da mudança desliga, 02 liga (formato observado pelo Axion; a Microsoft documenta as chaves Run, não este valor). O valor anterior é guardado byte a byte e volta exatamente como estava ao desfazer (se não existia, é apagado). Vale a partir do próximo login.", loc.Key, loc.Value)
 	if loc.Task != "" {
-		detail = "Muda o estado da tarefa agendada " + loc.Task + " (gatilho ao entrar no Windows) pelo Agendador de Tarefas, como o Gerenciador de Tarefas faz; desfazer devolve o estado anterior. Vale a partir do próximo login."
+		detail = "Muda o estado da tarefa agendada " + loc.Task + " (gatilho ao entrar no Windows) pelo Agendador de Tarefas (a página citada não trata de tarefas agendadas); desfazer devolve o estado anterior. Vale a partir do próximo login."
 	}
 	return &tweaks.Tweak{
 		ID: id, Category: "inicializacao", Title: "Inicialização: " + verb + " " + loc.Name,
 		Summary: summary, Detail: detail,
-		Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcStartupApproved},
+		Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcStartupApproved},
 		Risk: tweaks.RiskSafe, Reboot: tweaks.RebootSignOut, OneClick: false,
 		Recommend: neutral("escolha feita por você na página Inicialização"),
 		Ops:       func(*facts.Facts) []tweaks.Op { return []tweaks.Op{startupOp(loc, enabled)} },

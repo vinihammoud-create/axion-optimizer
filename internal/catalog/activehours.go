@@ -66,9 +66,9 @@ func ActiveHoursProvider(id string, f *facts.Facts) *tweaks.Tweak {
 	return &tweaks.Tweak{
 		ID: id, Category: "update", Title: fmt.Sprintf("Horário ativo do Windows Update: das %02d:00 às %02d:00", start, end),
 		Summary: "Dentro do horário ativo o Windows não reinicia o PC para instalar atualizações: coloque nele as horas em que você joga, transmite ou trabalha.",
-		Detail: fmt.Sprintf("ActiveHoursStart = %d e ActiveHoursEnd = %d (REG_DWORD, horas de 0 a 23) em %s, os mesmos valores que Configurações › Windows Update › Opções avançadas › Horário ativo grava. A janela tem no máximo %d horas. ", start, end, KeyActiveHours, ActiveHoursMaxSpan) +
+		Detail: fmt.Sprintf("ActiveHoursStart = %d e ActiveHoursEnd = %d (REG_DWORD, horas de 0 a 23) em %s, os mesmos valores que Configurações › Windows Update › Opções avançadas › Horário ativo grava (chave observada pelo Axion). A fonte é a política equivalente, em outra chave (Software\\Policies\\Microsoft\\Windows\\WindowsUpdate), de onde vêm o intervalo 0 a 23, a janela de no máximo %d horas e a regra de não reiniciar dentro dela. ", start, end, KeyActiveHours, ActiveHoursMaxSpan) +
 			"Se o ajuste automático do horário ativo estiver ligado, o Windows pode mover a janela pelas suas horas de uso; nesse caso o item avisa que não está valendo e mostra onde escolher \"Manualmente\".",
-		Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcActiveHours},
+		Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcActiveHours},
 		Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"estabilidade"}, OneClick: false,
 		Recommend: neutral("escolha o horário em que o PC não pode reiniciar; a janela vale para todas as atualizações"),
 		Ops: func(*facts.Facts) []tweaks.Op {

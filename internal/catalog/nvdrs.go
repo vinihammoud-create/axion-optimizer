@@ -230,10 +230,10 @@ func nvdrsFixTweaks() []*tweaks.Tweak {
 	return []*tweaks.Tweak{
 		{
 			ID: "fix.nvdrs.vsync", Category: "correcoes", Title: "V-Sync do driver NVIDIA de volta ao padrão (decisão do jogo)",
-			Summary: "Remove o V-Sync forçado (ou com valor inválido) que outro programa deixou no perfil do driver NVIDIA, devolvendo a escolha ao jogo.",
+			Summary: "Remove o V-Sync forçado (ou com valor inválido) dos perfis do driver NVIDIA, devolvendo a escolha ao jogo.",
 			Detail: "Apaga o valor de usuário de Sincronização vertical (0x00A879CF) nos perfis onde ele força o V-Sync ligado ou tem um valor que não está na lista do driver; o driver volta ao padrão \"Usar a configuração do aplicativo 3D\" (0x60925292, NvApiDriverSettings.h). " +
 				"Sem monitor G-SYNC/VRR, o V-Sync faz cada quadro esperar o ciclo do monitor e, segundo a Blur Busters, acrescenta atraso de entrada (G-SYNC 101, p. 4); para jogadores competitivos, V-Sync desligado é o de menor atraso, ao custo de cortes na imagem (p. 9). Com G-SYNC, V-Sync ligado no painel é uma configuração válida: nesse caso o item não é recomendado. " +
-				"Vale ao reabrir o jogo; o valor anterior fica no histórico e volta exatamente com Desfazer.",
+				"O Axion não sabe quem gravou o valor: um V-Sync que você mesmo ligou no Painel NVIDIA para um jogo também aparece aqui; confira antes. Vale ao reabrir o jogo; o valor anterior fica no histórico e volta exatamente com Desfazer.",
 			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcNvSettingsH, srcBBGsync4Cat, srcBBGsync9Cat, srcBBGsyncCat, srcNvDRSAPI},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootRestartApp, Tags: []string{"latencia"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) { return nvdrsReadable(f, vsyncOps) },
@@ -247,9 +247,9 @@ func nvdrsFixTweaks() []*tweaks.Tweak {
 				capable, known := f.NvidiaVRR()
 				switch {
 				case invalid:
-					return tweaks.Rec(tweaks.RecYes, "valor que o driver não conhece, deixado por outro otimizador")
+					return tweaks.Rec(tweaks.RecYes, "valor que o driver não conhece e que o Painel NVIDIA não oferece")
 				case known && !capable:
-					return tweaks.Rec(tweaks.RecYes, "V-Sync forçado sem G-SYNC/VRR ativo: mais atraso de entrada")
+					return tweaks.Rec(tweaks.RecNeutral, "V-Sync forçado sem G-SYNC/VRR ativo dá mais atraso de entrada; se foi você que o escolheu no Painel NVIDIA, pode manter")
 				case capable:
 					return tweaks.Rec(tweaks.RecNo, "com G-SYNC, V-Sync ligado no driver é uma das configurações recomendadas")
 				}
