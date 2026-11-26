@@ -9,6 +9,7 @@
 package sys
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -82,9 +83,16 @@ func ParseRegKind(s string) RegKind {
 }
 
 // RegValue is a typed registry value. Exists=false means the value is absent.
+//
+// RegNone stands for every type without its own Kind (REG_NONE, REG_LINK,
+// REG_DWORD_BIG_ENDIAN, ...): Type is the Windows type number and Bin the raw
+// bytes. For RegSZ and RegExpandSZ, Bin is set only when the stored bytes are
+// not what Str alone would produce (data after the first NUL, no terminator),
+// so the value can be written back identical.
 type RegValue struct {
 	Exists bool     `json:"exists"`
 	Kind   RegKind  `json:"kind"`
+	Type   uint32   `json:"type,omitempty"`
 	Str    string   `json:"str,omitempty"`
 	Strs   []string `json:"strs,omitempty"`
 	Int    uint64   `json:"int,omitempty"`
@@ -130,7 +138,9 @@ func (v RegValue) Equal(o RegValue) bool {
 	}
 	switch v.Kind {
 	case RegSZ, RegExpandSZ:
-		return v.Str == o.Str
+		return v.Str == o.Str && bytes.Equal(v.Bin, o.Bin)
+	case RegNone:
+		return v.Type == o.Type && bytes.Equal(v.Bin, o.Bin)
 	case RegDWord, RegQWord:
 		return v.Int == o.Int
 	case RegMultiSZ:
@@ -144,15 +154,7 @@ func (v RegValue) Equal(o RegValue) bool {
 		}
 		return true
 	case RegBinary:
-		if len(v.Bin) != len(o.Bin) {
-			return false
-		}
-		for i := range v.Bin {
-			if v.Bin[i] != o.Bin[i] {
-				return false
-			}
-		}
-		return true
+		return bytes.Equal(v.Bin, o.Bin)
 	}
 	return true
 }
@@ -172,20 +174,26 @@ func (v RegValue) Display() string {
 	case RegMultiSZ:
 		return fmt.Sprintf("%q", v.Strs)
 	case RegBinary:
-		var sb strings.Builder
-		for i, b := range v.Bin {
-			if i > 0 {
-				sb.WriteByte(' ')
-			}
-			if i >= 24 {
-				sb.WriteString("…")
-				break
-			}
-			fmt.Fprintf(&sb, "%02X", b)
-		}
-		return sb.String()
+		return hexBytes(v.Bin)
+	case RegNone:
+		return fmt.Sprintf("tipo %d: %s", v.Type, hexBytes(v.Bin))
 	}
 	return "?"
+}
+
+func hexBytes(b []byte) string {
+	var sb strings.Builder
+	for i, c := range b {
+		if i > 0 {
+			sb.WriteByte(' ')
+		}
+		if i >= 24 {
+			sb.WriteString("…")
+			break
+		}
+		fmt.Fprintf(&sb, "%02X", c)
+	}
+	return sb.String()
 }
 
 // Registry is the registry surface. Paths use the usual textual form, e.g.

@@ -8,7 +8,6 @@ package winsys
 import (
 	"errors"
 	"strings"
-	"unicode/utf16"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -75,28 +74,6 @@ func isNotExist(err error) bool {
 	return errors.Is(err, registry.ErrNotExist) || errors.Is(err, windows.ERROR_FILE_NOT_FOUND) || errors.Is(err, windows.ERROR_PATH_NOT_FOUND)
 }
 
-func utf16BytesToString(b []byte) string {
-	if len(b) < 2 {
-		return ""
-	}
-	u := unsafe.Slice((*uint16)(unsafe.Pointer(&b[0])), len(b)/2)
-	for i, c := range u {
-		if c == 0 {
-			u = u[:i]
-			break
-		}
-	}
-	return string(utf16.Decode(u))
-}
-
-// multiSZ splits REG_MULTI_SZ data. Empty strings in the middle are kept
-// (PendingFileRenameOperations uses them for "delete" and a value copied
-// for quarantine must come back identical); only the terminating empty
-// strings at the end are dropped.
-func multiSZ(b []byte) []string {
-	return splitMultiSZ(unsafe.Slice((*uint16)(unsafe.Pointer(unsafe.SliceData(b))), len(b)/2))
-}
-
 // GetValue implements sys.Registry.
 func (Registry) GetValue(path, name string) (sys.RegValue, error) {
 	k, err := open(path, registry.QUERY_VALUE)
@@ -122,29 +99,7 @@ func (Registry) GetValue(path, name string) (sys.RegValue, error) {
 		}
 		return sys.RegValue{}, err
 	}
-	buf = buf[:n]
-	v := sys.RegValue{Exists: true}
-	switch typ {
-	case registry.SZ:
-		v.Kind, v.Str = sys.RegSZ, utf16BytesToString(buf)
-	case registry.EXPAND_SZ:
-		v.Kind, v.Str = sys.RegExpandSZ, utf16BytesToString(buf)
-	case registry.MULTI_SZ:
-		v.Kind, v.Strs = sys.RegMultiSZ, multiSZ(buf)
-	case registry.DWORD:
-		v.Kind = sys.RegDWord
-		if len(buf) >= 4 {
-			v.Int = uint64(uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24)
-		}
-	case registry.QWORD:
-		v.Kind = sys.RegQWord
-		for i := 0; i < 8 && i < len(buf); i++ {
-			v.Int |= uint64(buf[i]) << (8 * i)
-		}
-	default:
-		v.Kind, v.Bin = sys.RegBinary, append([]byte(nil), buf...)
-	}
-	return v, nil
+	return decodeRegValue(typ, buf[:n]), nil
 }
 
 // SetValue implements sys.Registry.
@@ -158,6 +113,9 @@ func (Registry) SetValue(path, name string, v sys.RegValue) error {
 		return err
 	}
 	defer k.Close()
+	if typ, data, ok := rawRegValue(v); ok {
+		return setRawValue(k, name, typ, data)
+	}
 	switch v.Kind {
 	case sys.RegDWord:
 		return k.SetDWordValue(name, uint32(v.Int))
@@ -173,6 +131,26 @@ func (Registry) SetValue(path, name string, v sys.RegValue) error {
 		return k.SetBinaryValue(name, v.Bin)
 	}
 	return errors.New("tipo de valor não suportado")
+}
+
+// procRegSetValueEx is called directly because the registry package only
+// exposes typed setters, and REG_NONE and the other rare types have none.
+var procRegSetValueEx = windows.NewLazySystemDLL("advapi32.dll").NewProc("RegSetValueExW")
+
+func setRawValue(k registry.Key, name string, typ uint32, data []byte) error {
+	n, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return err
+	}
+	var p *byte
+	if len(data) > 0 {
+		p = &data[0]
+	}
+	r, _, _ := procRegSetValueEx.Call(uintptr(k), uintptr(unsafe.Pointer(n)), 0, uintptr(typ), uintptr(unsafe.Pointer(p)), uintptr(len(data)))
+	if r != 0 {
+		return windows.Errno(r)
+	}
+	return nil
 }
 
 // DeleteValue implements sys.Registry.
