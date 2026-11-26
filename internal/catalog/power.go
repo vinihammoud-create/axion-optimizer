@@ -11,20 +11,6 @@ import (
 	"axion/internal/tweaks"
 )
 
-func schemeName(guid string) string {
-	switch strings.ToLower(guid) {
-	case sys.SchemeBalanced:
-		return "Equilibrado"
-	case sys.SchemeHighPerformance:
-		return "Alto desempenho"
-	case sys.SchemePowerSaver:
-		return "Economia de energia"
-	case sys.SchemeUltimateTemplate:
-		return "Desempenho Máximo"
-	}
-	return guid
-}
-
 // cpuNeedsBalanced reports machines where the Balanced plan is part of how
 // the hardware is meant to work: dual-CCD X3D (the AMD driver parks the CCD
 // without 3D V-Cache through Balanced + Game Mode) and laptops. (Intel

@@ -21,7 +21,6 @@ import (
 
 var (
 	srcGameMode       = tweaks.Source{Title: "Xbox Support — Usar o Modo de Jogo no PC (impede instalação de drivers pelo Windows Update e avisos de reinício; taxa de quadros mais estável, conforme o jogo e o PC)", URL: "https://support.xbox.com/en-US/help/games-apps/game-setup-and-play/use-game-mode-gaming-on-pc"}
-	srcGameOpt11      = tweaks.Source{Title: "Microsoft Support — Opções para otimizar o desempenho de jogos no Windows 11 (página em inglês)", URL: "https://support.microsoft.com/en-us/windows/options-to-optimize-gaming-performance-in-windows-11-a255f612-2949-4373-a566-ff6f3f474613"}
 	srcWindowedOpt    = tweaks.Source{Title: "Microsoft Support — Otimizações para jogos em janela no Windows 11", URL: "https://support.microsoft.com/windows/optimizations-for-windowed-games-in-windows-11-3f006843-2c7e-4ed0-9a5e-f9389e535952"}
 	srcFlipModel      = tweaks.Source{Title: "Microsoft Learn — Para melhor desempenho, use o flip model do DXGI", URL: "https://learn.microsoft.com/windows/win32/direct3ddxgi/for-best-performance--use-dxgi-flip-model"}
 	srcHAGS           = tweaks.Source{Title: "DirectX Developer Blog — Hardware Accelerated GPU Scheduling", URL: "https://devblogs.microsoft.com/directx/hardware-accelerated-gpu-scheduling/"}
@@ -96,10 +95,6 @@ var (
 // Machine predicates
 // ---------------------------------------------------------------------------
 
-func win11(f *facts.Facts) bool { return f.OS.IsWin11 || f.OS.Build >= 22000 }
-
-func hasGPU(f *facts.Facts, vendor string) bool { return f.HasGPUVendor(vendor) }
-
 func nvidiaFGCapable(f *facts.Facts) bool {
 	for _, g := range f.GPUs {
 		n := strings.ToUpper(g.Name)
@@ -123,8 +118,6 @@ func ethernetActive(f *facts.Facts) bool {
 	a := f.ActiveAdapter()
 	return a != nil && a.Kind == "Ethernet"
 }
-
-func always(*facts.Facts) (bool, string) { return true, "" }
 
 func yes(reason string) func(*facts.Facts) tweaks.Recommendation {
 	return func(*facts.Facts) tweaks.Recommendation { return tweaks.Rec(tweaks.RecYes, reason) }

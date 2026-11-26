@@ -477,7 +477,7 @@ func (p *Power) duplicate(source, dest string) (string, error) {
 	if _, ok := p.schemes[dest]; dest != "" && ok {
 		return "", errors.New("PowerDuplicateScheme: ERROR_ALREADY_EXISTS")
 	}
-	name := "Cópia"
+	var name string
 	if source == sys.SchemeUltimateTemplate {
 		name = "Desempenho Máximo"
 	} else if n, ok := p.schemes[source]; ok {
@@ -676,7 +676,6 @@ type Native struct {
 	Purges    int
 	Mouse     [3]int
 	OpenedURL []string
-	pingSeq   int
 
 	RestorePoints []string
 	FreeBytes     uint64 // extra free space on C: (component cleanup)

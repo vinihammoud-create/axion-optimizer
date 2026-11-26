@@ -104,7 +104,7 @@ func TestGrades(t *testing.T) {
 	var s []ByteSample
 	for i := 0; i <= 40; i++ {
 		at := time.Duration(i) * 250 * time.Millisecond
-		b := int64(i) * 3_125_000 // 100 Mbit/s
+		var b int64 // 100 Mbit/s after the slow start
 		if i < 8 {
 			b = int64(i) * 1_000_000
 		} else {

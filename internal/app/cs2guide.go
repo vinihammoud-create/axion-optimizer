@@ -44,7 +44,6 @@ var (
 	srcBBGsync    = tweaks.Source{Title: "Blur Busters — G-SYNC 101 (p. 14): configurações ótimas (V-Sync no painel, limite ≥ 3 FPS abaixo da taxa, Reflex limita sozinho)", URL: "https://blurbusters.com/gsync/gsync101-input-lag-tests-and-settings/14/"}
 	srcCS2Buffer  = tweaks.Source{Title: "Valve — Notas do CS2 de 6/2 e 15/2/2024: buffer contra perda de pacotes (troca atraso por suavidade) e telemetria", URL: "https://store.steampowered.com/news/posts/?feed=steam_community_announcements&appids=730&enddate=1708400000"}
 	srcRawInputMS = tweaks.Source{Title: "Microsoft Learn — Movimento de mouse de alta resolução: WM_INPUT (raw input) não recebe a aceleração do ponteiro", URL: "https://learn.microsoft.com/windows/win32/dxtecharts/taking-advantage-of-high-dpi-mouse-movement"}
-	srcSDR        = tweaks.Source{Title: "Steamworks — Steam Datagram Relay (rede de relays da Valve)", URL: "https://partner.steamgames.com/doc/features/multiplayer/steamdatagramrelay"}
 	srcDND        = tweaks.Source{Title: "Suporte da Microsoft — Notificações e Não perturbe no Windows (ligar automaticamente \"ao jogar um jogo\")", URL: "https://support.microsoft.com/windows/notifications-and-do-not-disturb-in-windows-feeca47f-0baf-5680-16f0-8801db1a8466"}
 )
 
