@@ -22,7 +22,7 @@ const forumExcerpt = `20:27:54.013: Output 'rtmp multitrack video': Total frames
 `
 
 func TestParseTheForumExcerpt(t *testing.T) {
-	ss := ParseLog(strings.NewReader(forumExcerpt), "2026-10-05 20-00-00.txt", logStart)
+	ss, _ := ParseLog(strings.NewReader(forumExcerpt), "2026-10-05 20-00-00.txt", logStart)
 	if len(ss) != 1 || len(ss[0].Stats) != 1 {
 		t.Fatalf("sessões: %+v", ss)
 	}
@@ -74,7 +74,7 @@ func sampleLog(bitrate int, skipped, lagged, dropped string, stamped bool) strin
 
 func TestParseCompleteLogWithContext(t *testing.T) {
 	for _, stamped := range []bool{true, false} {
-		ss := ParseLog(strings.NewReader(sampleLog(6000, "130/216000 (0.1%)", "3 (0.0%)", "1000 (0.5%)", stamped)), "2026-10-05 20-00-00.txt", logStart)
+		ss, _ := ParseLog(strings.NewReader(sampleLog(6000, "130/216000 (0.1%)", "3 (0.0%)", "1000 (0.5%)", stamped)), "2026-10-05 20-00-00.txt", logStart)
 		if len(ss) != 1 {
 			t.Fatalf("stamped=%v: %+v", stamped, ss)
 		}
@@ -104,7 +104,7 @@ func TestParseX264AndOtherBlocks(t *testing.T) {
 20:00:30.000: Output 'simple_stream': Total frames output: 100
 20:00:30.000: Video stopped, number of skipped frames due to encoding lag: 5/100 (5.0%)
 `
-	ss := ParseLog(strings.NewReader(log), "x", logStart)
+	ss, _ := ParseLog(strings.NewReader(log), "x", logStart)
 	if len(ss) != 1 {
 		t.Fatalf("%+v", ss)
 	}
@@ -124,7 +124,7 @@ func TestStreamAndRecordingTogether(t *testing.T) {
 20:00:30.100: Output 'adv_file_output': Number of lagged frames due to rendering lag/stalls: 40 (4.0%)
 20:00:30.200: Video stopped, number of skipped frames due to encoding lag: 3/1000 (0.3%)
 `
-	ss := ParseLog(strings.NewReader(log), "x", logStart)
+	ss, _ := ParseLog(strings.NewReader(log), "x", logStart)
 	if len(ss) != 1 || len(ss[0].Stats) != 2 {
 		t.Fatalf("%+v", ss)
 	}
@@ -150,7 +150,7 @@ func TestSeveralSessionsMidnightAndACrash(t *testing.T) {
 00:40:00.000: Output 'simple_stream': Number of dropped frames due to insufficient bandwidth/connection stalls: 30 (10.0%)
 `
 	start := time.Date(2026, 10, 5, 23, 45, 0, 0, time.Local)
-	ss := ParseLog(strings.NewReader(log), "x", start)
+	ss, _ := ParseLog(strings.NewReader(log), "x", start)
 	if len(ss) != 3 {
 		t.Fatalf("sessões: %d", len(ss))
 	}
@@ -167,12 +167,37 @@ func TestParseIgnoresNoiseAndCommaDecimals(t *testing.T) {
 	log := "garbage line\n" + strings.Repeat("20:00:00.000: nothing here\n", 50) +
 		"20:00:30.000: Output 'adv_stream': Number of lagged frames due to rendering lag/stalls: 5 (0,5%)\n" +
 		"20:00:30.100: Video stopped, number of skipped frames due to encoding lag: 1/100 (1,0%)\n"
-	ss := ParseLog(strings.NewReader(log), "x", logStart)
+	ss, _ := ParseLog(strings.NewReader(log), "x", logStart)
 	if len(ss) != 1 || ss[0].Stats[0].LaggedPct != 0.5 || ss[0].Stats[0].SkippedPct != 1 {
 		t.Errorf("%+v", ss)
 	}
-	if len(ParseLog(strings.NewReader(""), "x", logStart)) != 0 || len(ParseLog(strings.NewReader("Video stopped, number of skipped frames due to encoding lag: 1/2 (50.0%)\n"), "x", logStart)) != 0 {
+	empty, _ := ParseLog(strings.NewReader(""), "x", logStart)
+	noOutput, _ := ParseLog(strings.NewReader("Video stopped, number of skipped frames due to encoding lag: 1/2 (50.0%)\n"), "x", logStart)
+	if len(empty) != 0 || len(noOutput) != 0 {
 		t.Error("sem nenhuma saída não há sessão")
+	}
+}
+
+// Uma linha de 1 MiB ou mais estoura o limite do leitor e para a leitura no
+// meio do arquivo: o que vem depois dela não é lido. ParseLog precisa dizer
+// que a leitura foi cortada, em vez de devolver o pedaço lido como se o log
+// tivesse acabado ali.
+func TestParseLogReportsACutRead(t *testing.T) {
+	huge := strings.Repeat("a", 1<<20) + "\n"
+	ss, read := ParseLog(strings.NewReader(forumExcerpt+huge+forumExcerpt), "x", logStart)
+	if read {
+		t.Error("linha de 1 MiB: a leitura foi cortada e read saiu verdadeiro")
+	}
+	if len(ss) != 1 || len(ss[0].Stats) != 1 || ss[0].Stats[0].Dropped != 69888 {
+		t.Errorf("o que foi lido antes do corte continua valendo: %+v", ss)
+	}
+	// Uma linha logo abaixo do limite ainda é lida inteira.
+	ok := strings.Repeat("a", (1<<20)-1) + "\n"
+	if ss, read := ParseLog(strings.NewReader(ok+forumExcerpt), "x", logStart); !read || len(ss) != 1 {
+		t.Errorf("linha de 1 MiB - 1 byte: read=%v sessões=%d", read, len(ss))
+	}
+	if ss, read := ParseLog(strings.NewReader(forumExcerpt), "x", logStart); !read || len(ss) != 1 {
+		t.Errorf("entrada normal: read=%v sessões=%d", read, len(ss))
 	}
 }
 
@@ -238,7 +263,7 @@ func finding(a Analysis, id string) *Finding {
 }
 
 func analyzeLog(bitrate int, skipped, lagged, dropped string, upload float64) Analysis {
-	ss := ParseLog(strings.NewReader(sampleLog(bitrate, skipped, lagged, dropped, true)), "x", logStart)
+	ss, _ := ParseLog(strings.NewReader(sampleLog(bitrate, skipped, lagged, dropped, true)), "x", logStart)
 	return Analyze(Pick(ss), upload)
 }
 
@@ -285,7 +310,7 @@ func TestAnalyzeEncodingAdviceFollowsTheEncoder(t *testing.T) {
 		t.Errorf("NVENC: %+v", nv)
 	}
 	x264 := strings.NewReplacer("NVENC encoder", "x264 encoder").Replace(sampleLog(6000, skipped, "0 (0.0%)", "0 (0.0%)", true))
-	ss := ParseLog(strings.NewReader(x264), "x", logStart)
+	ss, _ := ParseLog(strings.NewReader(x264), "x", logStart)
 	f := finding(Analyze(Pick(ss), 40), "encoding")
 	if f == nil || !strings.Contains(f.Text, "x264") || !strings.Contains(f.Text, "NVENC") || strings.Contains(f.Text, "HAGS") {
 		t.Errorf("x264: %+v", f)
@@ -323,7 +348,7 @@ func TestAnalyzeRecordingAndEdgeCases(t *testing.T) {
 20:00:30.000: Output 'adv_file_output': Number of lagged frames due to rendering lag/stalls: 300 (6.0%)
 20:00:30.100: Video stopped, number of skipped frames due to encoding lag: 0/5000 (0.0%)
 `
-	ss := ParseLog(strings.NewReader(rec), "x", logStart)
+	ss, _ := ParseLog(strings.NewReader(rec), "x", logStart)
 	a := Analyze(Pick(ss), 40)
 	if f := finding(a, "rendering"); f == nil || f.Level != LevelImportant || !strings.Contains(a.Findings[0].Title, "6,0%") {
 		t.Errorf("gravação: %+v", a)
@@ -333,7 +358,8 @@ func TestAnalyzeRecordingAndEdgeCases(t *testing.T) {
 20:00:30.000: Output 'adv_stream': Number of dropped frames due to insufficient bandwidth/connection stalls: 60 (10.0%)
 20:00:30.100: Video stopped, number of skipped frames due to encoding lag: 0/600 (0.0%)
 `
-	if a := Analyze(Pick(ParseLog(strings.NewReader(short), "x", logStart)), 40); finding(a, "short") == nil || finding(a, "network") == nil {
+	ss, _ = ParseLog(strings.NewReader(short), "x", logStart)
+	if a := Analyze(Pick(ss), 40); finding(a, "short") == nil || finding(a, "network") == nil {
 		t.Errorf("sessão curta: %+v", a)
 	}
 	// With a stream and a recording the stream is the one read.
@@ -343,7 +369,8 @@ func TestAnalyzeRecordingAndEdgeCases(t *testing.T) {
 20:00:30.000: Output 'adv_stream': Number of lagged frames due to rendering lag/stalls: 0 (0.0%)
 20:00:30.100: Video stopped, number of skipped frames due to encoding lag: 0/5000 (0.0%)
 `
-	if a := Analyze(Pick(ParseLog(strings.NewReader(both), "x", logStart)), 40); a.Level != LevelOK {
+	ss, _ = ParseLog(strings.NewReader(both), "x", logStart)
+	if a := Analyze(Pick(ss), 40); a.Level != LevelOK {
 		t.Errorf("lê a transmissão: %+v", a)
 	}
 	// Texts never promise.
@@ -360,7 +387,8 @@ func TestSessionLogNeverKeepsRawLines(t *testing.T) {
 	// A log line with something secret-looking: nothing of it can reach the session.
 	log := `20:00:01.000: [rtmp stream: 'adv_stream'] Connecting to RTMP URL rtmp://live.twitch.tv/app/live_123456_SECRETKEY...
 ` + forumExcerpt
-	b := fmt.Sprintf("%+v", ParseLog(strings.NewReader(log), "x", logStart))
+	ss, _ := ParseLog(strings.NewReader(log), "x", logStart)
+	b := fmt.Sprintf("%+v", ss)
 	if strings.Contains(b, "SECRETKEY") || strings.Contains(b, "twitch") {
 		t.Errorf("a sessão guardou texto do log: %s", b)
 	}
