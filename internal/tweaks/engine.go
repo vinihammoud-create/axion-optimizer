@@ -365,6 +365,10 @@ func (e *Engine) applyOne(ctx context.Context, f *facts.Facts, t *Tweak, o Apply
 			}
 		}
 	}
+	// Keys another tweak still applied created do not count as found on the
+	// machine: this apply captures them as absent, so its undo removes them
+	// if it is the last one to leave the key empty.
+	c.CreatedKeys = e.J.CreatedRegKeys()
 	ops := t.Ops(f)
 	entry := &Entry{
 		ID: NewID(), Batch: o.Batch, BatchLabel: o.Label, TweakID: t.ID, TweakTitle: t.Title, Category: t.Category,

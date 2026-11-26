@@ -19,6 +19,17 @@ type Ctx struct {
 	// Touched holds the targets (Op.Target) of the operations an apply or a
 	// revert changed, for Post.
 	Touched []string
+	// CreatedKeys holds the registry keys (lowercase) that exist only because
+	// a tweak still applied created them. They count as absent when capturing,
+	// so a key two tweaks write into is removed by whichever of them is undone
+	// last. It is empty outside an apply.
+	CreatedKeys map[string]bool
+}
+
+// keyCreatedByAxion reports whether the registry key is only on the machine
+// because a tweak still applied created it.
+func (c *Ctx) keyCreatedByAxion(path string) bool {
+	return c.CreatedKeys[strings.ToLower(path)]
 }
 
 // TouchedTarget reports whether an operation on target changed in this
@@ -90,12 +101,15 @@ func parentKey(p string) string {
 	return p[:i]
 }
 
-func deepestExisting(r sys.Registry, p string) string {
+func deepestExisting(c *Ctx, p string) string {
 	for cur := p; cur != ""; cur = parentKey(cur) {
 		if !strings.Contains(cur, `\`) {
 			return cur // hive root always exists
 		}
-		if ok, err := r.KeyExists(cur); err == nil && ok {
+		if c.keyCreatedByAxion(cur) {
+			continue
+		}
+		if ok, err := c.P.Reg.KeyExists(cur); err == nil && ok {
 			return cur
 		}
 	}
@@ -138,9 +152,9 @@ func (o *RegOp) Capture(c *Ctx) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := regSnap{Value: v, KeyExisted: ke}
-	if !ke {
-		s.Ancestor = deepestExisting(c.P.Reg, o.Path)
+	s := regSnap{Value: v, KeyExisted: ke && !c.keyCreatedByAxion(o.Path)}
+	if !s.KeyExisted {
+		s.Ancestor = deepestExisting(c, o.Path)
 	}
 	return json.Marshal(s)
 }

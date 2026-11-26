@@ -126,23 +126,20 @@ func TestRegNoneValueRoundTrip(t *testing.T) {
 	}
 }
 
-// Two tweaks write into a key neither found on the machine. Whichever order
-// they are undone in, the key Axion created must be gone at the end.
+// Two tweaks write into a key neither found on the machine. The key belongs
+// to Axion until the last of them is undone, so whichever order they are
+// undone in, the key is gone at the end.
 func TestSharedNewKeyBetweenTweaks(t *testing.T) {
 	const shared = testKey + `\Novo\Compartilhada`
 	orders := map[string]struct {
-		ids  []string
-		skip string
+		ids []string
 	}{
-		"primeiro A, depois B": {ids: []string{"t.a", "t.b"}, skip: "achado: desfazer A e depois B deixa 3 chaves vazias no registro (AxionTest, Novo e Compartilhada); a chave só some se B for desfeito antes de A (internal/tweaks/ops.go, RegOp.Capture/Restore)"},
+		"primeiro A, depois B": {ids: []string{"t.a", "t.b"}},
 		"primeiro B, depois A": {ids: []string{"t.b", "t.a"}},
 	}
 	for name, tc := range orders {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			if tc.skip != "" {
-				t.Skip(tc.skip)
-			}
 			m, err := mocksys.New(t.TempDir())
 			if err != nil {
 				t.Fatal(err)

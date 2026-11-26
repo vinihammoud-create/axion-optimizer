@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -372,6 +373,51 @@ func (j *Journal) Active() []*Entry {
 		}
 	}
 	return out
+}
+
+// CreatedRegKeys returns, in lowercase, every registry key created by a tweak
+// whose changes are still on the machine (including the intermediate keys
+// created along the way). A key created by more than one tweak only belongs to
+// Axion until the last of them is undone, so an apply captures it as absent
+// and whichever undo empties it removes it.
+func (j *Journal) CreatedRegKeys() map[string]bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	out := map[string]bool{}
+	for _, e := range j.entries {
+		if !revertible(e) {
+			continue
+		}
+		for i := range e.Ops {
+			r := &e.Ops[i]
+			if r.Kind != "registry" || !onMachine(r) {
+				continue
+			}
+			var s regSnap
+			if json.Unmarshal(r.Before, &s) != nil || s.KeyExisted || s.Ancestor == "" {
+				continue
+			}
+			anc := strings.ToLower(s.Ancestor)
+			path := regPathOf(r.Target)
+			if !strings.HasPrefix(path, anc+`\`) {
+				continue
+			}
+			for p := path; len(p) > len(anc); p = parentKey(p) {
+				out[p] = true
+			}
+		}
+	}
+	return out
+}
+
+// regPathOf returns the key path (lowercase) of a registry record's target.
+func regPathOf(target string) string {
+	t := strings.TrimPrefix(target, "reg:")
+	i := strings.LastIndex(t, "|")
+	if i < 0 {
+		return ""
+	}
+	return t[:i]
 }
 
 // RecoverInterrupted marks entries left in "applying" by a previous run
