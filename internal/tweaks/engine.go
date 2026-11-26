@@ -370,6 +370,7 @@ func (e *Engine) applyOne(ctx context.Context, f *facts.Facts, t *Tweak, o Apply
 		ID: NewID(), Batch: o.Batch, BatchLabel: o.Label, TweakID: t.ID, TweakTitle: t.Title, Category: t.Category,
 		Time: time.Now(), Reboot: t.Reboot.String(), Status: StatusApplying,
 	}
+	entry.UserSID = e.P.Native.Paths().UserSID
 	if f != nil {
 		entry.WinBuild = f.OS.Build
 	}
@@ -742,6 +743,17 @@ func (e *Engine) revertOne(ctx context.Context, f *facts.Facts, ent *Entry, o Re
 			return res
 		}
 		pairs = append(pairs, pair{op, i})
+	}
+	// HKCU is resolved to the account signed in now; the profile this entry
+	// changed may be another one, and the history is shared by all accounts.
+	if cur := c.P.Native.Paths().UserSID; ent.UserSID != "" && cur != "" && cur != ent.UserSID {
+		for _, p := range pairs {
+			if usesHKCU(recs[p.idx].Target) {
+				res.Outcome = OutFailed
+				res.Message = "este ajuste foi aplicado para outro usuário do Windows; entre nessa conta para desfazer"
+				return res
+			}
+		}
 	}
 	// Conflict detection: every resource must still hold what Axion wrote.
 	if !o.Force {

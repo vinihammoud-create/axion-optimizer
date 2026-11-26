@@ -114,6 +114,10 @@ func Reg(path, name string, want sys.RegValue, alt ...sys.RegValue) *RegOp {
 	return &RegOp{Path: sys.NormalizeRegPath(path), Name: name, Want: want, AltOK: alt}
 }
 
+// usesHKCU reports whether an operation target (Op.Target) is a value under
+// HKEY_CURRENT_USER.
+func usesHKCU(target string) bool { return strings.HasPrefix(target, `reg:hkcu\`) }
+
 func (o *RegOp) Kind() string { return "registry" }
 func (o *RegOp) Target() string {
 	return "reg:" + strings.ToLower(o.Path) + "|" + strings.ToLower(o.Name)

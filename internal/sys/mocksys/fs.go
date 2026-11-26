@@ -29,7 +29,7 @@ func mockPaths(root string) sys.Paths {
 		AppData: filepath.Join(user, "AppData", "Roaming"), LocalAppData: filepath.Join(user, "AppData", "Local"),
 		StartupUser:   filepath.Join(user, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup"),
 		StartupCommon: j("ProgramData", "Microsoft", "Windows", "Start Menu", "Programs", "StartUp"),
-		SystemDrive:   root, UserProfile: user,
+		SystemDrive:   root, UserProfile: user, UserSID: DefaultUserSID,
 	}
 }
 
@@ -89,4 +89,16 @@ func seedFS(p sys.Paths) {
 		_ = os.Chtimes(d, when, when)
 		backdateCreation(d, when)
 	}
+}
+
+// DefaultUserSID is the account the simulated PC starts with.
+const DefaultUserSID = "S-1-5-21-1000000000-2000000000-3000000000-1001"
+
+// SwitchUser makes sid the signed-in account: HKEY_CURRENT_USER becomes that
+// account's own hive (empty the first time) and Paths reports its SID.
+func (m *Mock) SwitchUser(sid string) {
+	m.R.switchHKCU(sid)
+	m.N.mu.Lock()
+	m.N.paths.UserSID = sid
+	m.N.mu.Unlock()
 }

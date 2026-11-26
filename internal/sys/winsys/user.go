@@ -45,6 +45,8 @@ type userContext struct {
 	// SID is the console account's SID string; empty when the process
 	// account is used.
 	SID string
+	// ProcessSID is the SID string of the process token's account.
+	ProcessSID string
 	// ProcessName is DOMAIN\user of the process token when it differs from
 	// the console account (the administrator who answered UAC).
 	ProcessName string
@@ -103,6 +105,7 @@ func resolveConsoleUser() userContext {
 	}
 	procSID := tu.User.Sid
 	ctx.Name = accountName(procSID)
+	ctx.ProcessSID = procSID.String()
 
 	// The session Axion itself runs in (the window the person uses), not
 	// the physical console: over Remote Desktop they differ.
@@ -237,6 +240,10 @@ func hkcuRoot() (registry.Key, string) {
 func userPaths(p *sys.Paths) {
 	u := consoleUser()
 	p.User = u.Name
+	p.UserSID = u.ProcessSID
+	if u.Differs {
+		p.UserSID = u.SID
+	}
 	if !u.Differs || u.Profile == "" {
 		return
 	}
