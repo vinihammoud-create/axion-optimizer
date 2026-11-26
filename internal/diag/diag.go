@@ -1052,7 +1052,7 @@ var rules = []rule{
 					Actions:     []Action{{Kind: "page", Label: "Ver guia de BIOS", Page: "bios"}},
 					Sources:     srcs})
 			}
-			if !s.VBSRunning {
+			if s.DeviceGuardRead && !s.VBSRunning {
 				add(Finding{ID: "sec.anticheat.vbs", Area: AreaSeguranca, Severity: SevWarning, Title: "VBS desligado: o anti-cheat pode pedir para ligar",
 					Evidence:    "Anti-cheat instalado: " + acs + ". Segurança baseada em virtualização (VBS) não está em execução.",
 					Explanation: "O FACEIT passou a exigir VBS (para o IOMMU) em etapas, não de todos os jogadores, e em alguns casos pede a Integridade de Memória. Se o cliente do FACEIT não reclamar, pode dispensar este aviso; se pedir, ative a virtualização da CPU (SVM/VT-x) e o IOMMU na BIOS e a Isolamento de Núcleo no Windows.",
@@ -1067,7 +1067,7 @@ var rules = []rule{
 					Actions:     []Action{{Kind: "page", Label: "Ver guia de BIOS", Page: "bios"}},
 					Sources:     srcs})
 			}
-			if len(hard) == 0 && s.VBSRunning && !iommuOff && s.TPMRead {
+			if len(hard) == 0 && s.VBSRunning && !iommuOff && s.TPMRead && s.SecureBoot != "unknown" {
 				add(Finding{ID: "sec.anticheat", Area: AreaSeguranca, Severity: SevGood, Title: "Requisitos do anti-cheat atendidos",
 					Evidence:    fmt.Sprintf("%s: TPM %s, Secure Boot %s, VBS em execução%s.", acs, orText(s.TPMVersion, "não encontrado"), onOff(s.SecureBoot), iommuNote(s)),
 					Explanation: "Por isso o Axion bloqueia qualquer ajuste que desligue VBS/Integridade de Memória neste PC."})
@@ -1080,7 +1080,9 @@ var rules = []rule{
 		// is a hard requirement here.
 		if f.HasAntiCheat("Gamers Club") && !f.HasAntiCheat("FACEIT", "Vanguard") {
 			srcGC := srcMS("Draft5 — Gamers Club anuncia o Anti-Cheat 2.0: Secure Boot para todos; TPM 2.0 e VBS em teste (12/03/2026)", "https://draft5.gg/noticia/gamers-club-anuncia-melhorias-no-anti-cheat-2-0")
-			if s.SecureBoot != "on" {
+			if s.SecureBoot == "unknown" {
+				// Not read: neither an alarm nor "requirement met".
+			} else if s.SecureBoot != "on" {
 				ex := "A Gamers Club exige o Secure Boot de todos os jogadores desde março de 2026 (TPM 2.0 e VBS ainda em teste). Ative na BIOS, com o CSM desligado — o guia de BIOS mostra onde." + mbrCaution(f)
 				add(Finding{ID: "sec.anticheat.gc", Area: AreaSeguranca, Severity: SevCritical, Title: "Requisito da Gamers Club não atendido: Secure Boot",
 					Evidence:    "Anti-cheat instalado: Gamers Club. Secure Boot: " + onOff(s.SecureBoot) + ".",
