@@ -98,6 +98,30 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
     tamanho do arquivo de hibernação, pelo powercfg.
   - Plano Desempenho Máximo: o Axion registra o identificador da cópia antes
     de criá-la; se o PC desligar no meio, o desfazer ainda apaga a cópia.
+  - Mais de uma conta do Windows no mesmo PC: o que o Axion mudou no perfil
+    de uma conta (aceleração do mouse, atalhos de acessibilidade, preferência
+    de placa de vídeo e modo de tela cheia por jogo, além dos valores de
+    HKCU) não aparece como aplicado para a outra, não é desfeito a partir da
+    outra e não se mistura com o que a outra aplicar. Cada conta desfaz o
+    que é seu; ao tentar pela outra, o Axion diz em qual conta entrar.
+  - Cancelar no meio: um ajuste que já começou a ser aplicado ou desfeito vai
+    até o fim (inclusive a reversão automática quando a aplicação falha). O
+    cancelamento vale entre um ajuste e o próximo; os que não começaram
+    continuam como estavam e o resultado diz isso.
+  - DNS: se a lista de DNS IPv6 fixo ou a configuração de DNS sobre HTTPS do
+    adaptador não puder ser lida, o ajuste não é aplicado. Antes, a leitura
+    que falhava era registrada como "sem DNS IPv6", e o desfazer apagava o
+    DNS IPv6 que estava configurado.
+  - Hibernação: leitura que falha não conta mais como "hibernação
+    desligada"; e o valor HiberbootEnabled que não existia antes não fica
+    para trás quando o desfazer religa a hibernação.
+  - Perfis de jogo (preferência de placa de vídeo, otimizações de tela
+    cheia): a chave do registro criada pelo ajuste é removida no desfazer
+    quando fica vazia.
+  - Preset do CS2: a cópia de segurança do cs2_video.txt é feita dentro da
+    tarefa de aplicar; um pedido recusado por haver outra tarefa em andamento
+    não cria cópia, e o jogo aberto nesse intervalo é detectado antes de o
+    arquivo ser tocado.
   Limpeza
   - Temporários do usuário: só a pasta Temp do perfil (LocalAppData\Temp). Se
     a variável TEMP apontar para fora do perfil, essa pasta não é limpa. O

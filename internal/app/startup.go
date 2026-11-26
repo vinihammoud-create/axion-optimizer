@@ -39,7 +39,7 @@ func (a *App) Startup() StartupView {
 	for i := range v.Items {
 		it := &v.Items[i]
 		// The current state was put there by Axion (and is undone in the Histórico).
-		it.ByAxion = a.Engine.J.ActiveFor(catalog.StartupID(it.ID, it.Enabled)) != nil
+		it.ByAxion = a.Engine.ActiveFor(catalog.StartupID(it.ID, it.Enabled)) != nil
 	}
 	for _, it := range v.Items {
 		if it.New {
@@ -92,7 +92,7 @@ func (a *App) SetStartup(req StartupRequest) (StartupView, error) {
 		// records an entry when it flipped the state). Forced: the user asks
 		// for it explicitly, even if Task Manager touched the value since.
 		// A new entry on top of it would leave two entries over one value.
-		if other := catalog.StartupID(id, !req.Enabled); a.Engine.J.ActiveFor(other) != nil {
+		if other := catalog.StartupID(id, !req.Enabled); a.Engine.ActiveFor(other) != nil {
 			undone := true
 			for _, r := range a.Engine.RevertTweaks(ctx, f, []string{other}, tweaks.RevertOpts{Force: true, Log: log.Printf}) {
 				if r.Outcome != tweaks.OutReverted && r.Outcome != tweaks.OutNothing {

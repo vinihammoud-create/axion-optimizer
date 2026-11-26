@@ -312,13 +312,21 @@ func (a *App) StartCS2Preset(ids []string) (Job, error) {
 			return Job{}, fmt.Errorf("%w: %s: %s", errBadRequest, id, why)
 		}
 	}
-	if _, running := a.Jobs.Running(); running {
-		return Job{}, ErrBusy
-	}
-	if _, err := a.backupCS2Video(path); err != nil {
-		return Job{}, fmt.Errorf("cópia de segurança do cs2_video.txt: %w", err)
-	}
-	return a.startApply(ApplyRequest{IDs: ids, Label: catalog.CS2PresetLabel})
+	// The copy is made, and the game checked once more, inside the job: by
+	// then no other job can start, so a request refused as busy leaves no
+	// copy behind (and rotates none out), and a game opened since the check
+	// above is still caught before the file is touched.
+	return a.startApply(ApplyRequest{IDs: ids, Label: catalog.CS2PresetLabel, pre: func(c *JobCtl) error {
+		if len(a.P.Native.PIDsByName("cs2.exe")) > 0 {
+			return fmt.Errorf("%w: o Counter-Strike 2 foi aberto: feche o jogo e aplique de novo (nada foi alterado)", errBadRequest)
+		}
+		dst, err := a.backupCS2Video(path)
+		if err != nil {
+			return fmt.Errorf("cópia de segurança do cs2_video.txt: %w (nada foi alterado)", err)
+		}
+		c.Logf("cópia de segurança do cs2_video.txt: %s", dst)
+		return nil
+	}})
 }
 
 // backupCS2Video copies the file to <DataDir>\cs2\cs2_video-AAAAMMDD-HHMMSS.txt

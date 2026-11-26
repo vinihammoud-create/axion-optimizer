@@ -704,6 +704,10 @@ type ApplyRequest struct {
 	// Skipped are the plan items the user unchecked: not applied, but shown
 	// in the result and kept in the batch log.
 	Skipped []string `json:"skipped,omitempty"`
+	// pre runs inside the job, right before anything is applied (the job
+	// already holds the lock that keeps other jobs out). An error ends the
+	// job with nothing changed.
+	pre func(c *JobCtl) error
 }
 
 // BatchResult summarises an apply or revert batch.
@@ -783,6 +787,11 @@ func (a *App) startApply(req ApplyRequest) (Job, error) {
 				panic(r)
 			}
 		}()
+		if req.pre != nil {
+			if err := req.pre(c); err != nil {
+				return nil, err
+			}
+		}
 		f := a.Facts()
 		before := a.scoreNow()
 		skipped := a.skippedItems(f, req.Skipped, req.IDs)

@@ -646,7 +646,9 @@ func (a *App) StartTrialUndo(req TrialIDRequest) (Job, error) {
 	}
 	return a.Jobs.Start("revert", "Desfazendo: "+o.TweakTitle, true, func(ctx context.Context, c *JobCtl) (any, error) {
 		before := a.scoreNow()
-		res := a.Engine.RevertEntries(ctx, a.Facts(), []*tweaks.Entry{ent}, tweaks.RevertOpts{Log: c.Logf})
+		c.NoCancel("o ajuste está sendo desfeito pelo histórico")
+		res := a.Engine.RevertEntries(context.WithoutCancel(ctx), a.Facts(), []*tweaks.Entry{ent}, tweaks.RevertOpts{Log: c.Logf})
+		c.NoCancel("")
 		for _, r := range res {
 			c.Logf("%s: %s %s", r.Title, outcomeText(r.Outcome), r.Message)
 		}

@@ -55,7 +55,7 @@ func bitsClearOp(path, name string, mask, def int, label string) tweaks.Op {
 	}
 	return &tweaks.FuncOp{
 		KindName: "registry-bits", ID: strings.ToLower(path + "|" + name + "|" + strconv.Itoa(mask)),
-		Spec: bitsSpec{Path: path, Name: name, Mask: mask, Def: def, Label: label},
+		Spec: bitsSpec{Path: path, Name: name, Mask: mask, Def: def, Label: label}, PerUser: isHKCU(path),
 		Desc: fmt.Sprintf(`%s → "%s": desliga o bit 0x%X (%s), preservando os demais`, path, name, mask, label),
 		SnapFn: func(c *tweaks.Ctx) (any, error) {
 			v, err := read(c)

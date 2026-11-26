@@ -33,6 +33,19 @@ func (c *Ctx) keyCreatedByAxion(path string) bool {
 	return c.CreatedKeys[strings.ToLower(path)]
 }
 
+// KeyMissing reports whether a registry key is not really on the machine:
+// absent, or there only because a tweak still applied created it. An
+// operation that is about to create the key records this in its snapshot
+// (a "createdKey" member with the key's path), so its undo removes the key
+// when it leaves it empty and the journal knows the key is Axion's.
+func (c *Ctx) KeyMissing(path string) (bool, error) {
+	ok, err := c.P.Reg.KeyExists(path)
+	if err != nil {
+		return false, err
+	}
+	return !ok || c.keyCreatedByAxion(sys.NormalizeRegPath(path)), nil
+}
+
 // TouchedTarget reports whether an operation on target changed in this
 // apply or revert.
 func (c *Ctx) TouchedTarget(target string) bool {
@@ -129,9 +142,28 @@ func Reg(path, name string, want sys.RegValue, alt ...sys.RegValue) *RegOp {
 	return &RegOp{Path: sys.NormalizeRegPath(path), Name: name, Want: want, AltOK: alt}
 }
 
-// usesHKCU reports whether an operation target (Op.Target) is a value under
-// HKEY_CURRENT_USER.
-func usesHKCU(target string) bool { return strings.HasPrefix(target, `reg:hkcu\`) }
+// perUserPrefixes are the starts of the targets (Op.Target) that name
+// something in the profile of the signed-in account: values under
+// HKEY_CURRENT_USER, whichever kind of operation writes them, and the mouse
+// settings of the session. The journal keeps only the target of each
+// operation, so this list is how an entry is known to belong to one account.
+// A new per-user operation needs its prefix here; the catalog's test
+// TestPerUserOpsAreRecognized fails until it is.
+var perUserPrefixes = []string{
+	`reg:hkcu\`, `registry-flag:hkcu\`, `registry-bits:hkcu\`, `registry-merge:hkcu\`,
+	"registry-layer:", "mouse:",
+}
+
+// PerUserTarget reports whether an operation target (Op.Target) belongs to
+// the profile of the signed-in account (see perUserPrefixes).
+func PerUserTarget(target string) bool {
+	for _, p := range perUserPrefixes {
+		if strings.HasPrefix(target, p) {
+			return true
+		}
+	}
+	return false
+}
 
 func (o *RegOp) Kind() string { return "registry" }
 func (o *RegOp) Target() string {
@@ -774,6 +806,10 @@ type FuncOp struct {
 	// EqFn optionally decides whether two snapshots describe the same state
 	// (default: identical JSON), e.g. to ignore parts Windows may remove.
 	EqFn func(a, b json.RawMessage) bool
+	// PerUser declares that the operation changes the profile of the
+	// signed-in account (HKEY_CURRENT_USER, session settings) and not the
+	// machine. Its target must be one PerUserTarget recognizes.
+	PerUser bool
 }
 
 // SnapEqual implements the engine's snapshot comparison.
