@@ -134,6 +134,23 @@ func TestSummarizeGPU(t *testing.T) {
 	}
 }
 
+func TestSummarizeGPUIgnoresUnreadTemperature(t *testing.T) {
+	na := GPUSample{TempC: 0, ClockMHz: 1500, PowerW: -1, UtilPct: -1}
+	g := SummarizeGPU([]GPUSample{{TempC: 60}, {TempC: 80}, na, na})
+	if g.AvgTempC != 70 || g.MaxTempC != 80 {
+		t.Errorf("temperatura sem leitura entrou na média: avg=%v max=%d", g.AvgTempC, g.MaxTempC)
+	}
+	h := SummarizeGPU([]GPUSample{na, na, na})
+	if h.AvgTempC != 0 || h.MaxTempC != 0 {
+		t.Errorf("nenhuma leitura de temperatura: %+v", h)
+	}
+	for _, x := range Remarks(&Run{Sensors: &Sensors{GPU: h}}) {
+		if strings.Contains(x.Title, "°C de média") {
+			t.Errorf("não pode afirmar temperatura que não foi lida: %q", x.Title)
+		}
+	}
+}
+
 func TestSummarizeCPU(t *testing.T) {
 	if SummarizeCPU([]CPUSample{{}, {}}) != nil {
 		t.Error("menos de 3 leituras")
@@ -145,6 +162,27 @@ func TestSummarizeCPU(t *testing.T) {
 	idle := SummarizeCPU([]CPUSample{{FreqPct: 40, UtilPct: 5}, {FreqPct: 45, UtilPct: 8}, {FreqPct: 50, UtilPct: 3}})
 	if idle.BusySamples != 0 || idle.BusyFreqPct != -1 {
 		t.Errorf("sem leitura ocupada: %+v", idle)
+	}
+}
+
+func TestCompareConditionsHAGS(t *testing.T) {
+	base := func(h string) *Conditions {
+		return &Conditions{PowerScheme: "Equilibrado", PowerMode: "Equilibrado", DisplayHz: 240, HAGS: h}
+	}
+	got := CompareConditions(base("on"), base("off"))
+	if len(got) != 1 || !strings.Contains(got[0], "HAGS") {
+		t.Fatalf("HAGS diferente deveria aparecer: %v", got)
+	}
+	for _, w := range []string{"aumenta", "melhora", "reduz", "piora", "ganho", "perda"} {
+		if strings.Contains(got[0], w) {
+			t.Errorf("não pode afirmar o efeito do HAGS no FPS (%q): %s", w, got[0])
+		}
+	}
+	if got := CompareConditions(base("on"), base("on")); len(got) != 0 {
+		t.Errorf("HAGS igual: %v", got)
+	}
+	if got := CompareConditions(base(""), base("off")); len(got) != 0 {
+		t.Errorf("HAGS não lido de um lado não é diferença: %v", got)
 	}
 }
 

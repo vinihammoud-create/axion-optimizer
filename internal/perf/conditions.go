@@ -21,6 +21,7 @@ type Conditions struct {
 	PowerMode   string    `json:"powerMode,omitempty"`   // "Melhor desempenho", "Equilibrado" or "Melhor eficiência energética"
 	Efficiency  bool      `json:"efficiency,omitempty"`  // the Windows power mode is "Best power efficiency"
 	DisplayHz   int       `json:"displayHz"`             // 0 unknown
+	HAGS        string    `json:"hags,omitempty"`        // hardware-accelerated GPU scheduling: "on", "off", "unsupported"; "" not read
 	Busy        []Busy    `json:"busy,omitempty"`        // other programs that used the processor during the recording
 }
 
@@ -96,6 +97,16 @@ type Remark struct {
 	Text  string `json:"text,omitempty"`
 }
 
+func hagsText(s string) string {
+	switch s {
+	case "on":
+		return "ligado"
+	case "off":
+		return "desligado"
+	}
+	return "sem suporte"
+}
+
 func comma(v float64, dec int) string {
 	return strings.Replace(fmt.Sprintf("%.*f", dec, v), ".", ",", 1)
 }
@@ -141,7 +152,10 @@ func Remarks(r *Run) []Remark {
 		if s.RatedClockMHz > 0 {
 			clock += fmt.Sprintf(" (máximo da placa: %d MHz)", s.RatedClockMHz)
 		}
-		info(fmt.Sprintf("Placa de vídeo: %s, %s °C de média, %d °C no máximo", clock, comma(s.AvgTempC, 0), s.MaxTempC), "Lido pelo nvidia-smi uma vez por segundo durante a gravação.")
+		if s.AvgTempC > 0 {
+			clock += fmt.Sprintf(", %s °C de média, %d °C no máximo", comma(s.AvgTempC, 0), s.MaxTempC)
+		}
+		info("Placa de vídeo: "+clock, "Lido pelo nvidia-smi uma vez por segundo durante a gravação.")
 	}
 	if g := r.Sensors; g != nil && g.CPU != nil && g.CPU.Samples >= 3 {
 		s := g.CPU
@@ -180,6 +194,9 @@ func CompareConditions(a, b *Conditions) []string {
 	}
 	if a.DisplayHz > 0 && b.DisplayHz > 0 && a.DisplayHz != b.DisplayHz {
 		out = append(out, fmt.Sprintf("A taxa de atualização do monitor mudou (%d Hz para %d Hz).", a.DisplayHz, b.DisplayHz))
+	}
+	if a.HAGS != "" && b.HAGS != "" && a.HAGS != b.HAGS {
+		out = append(out, fmt.Sprintf("O agendamento de GPU acelerado por hardware (HAGS) estava %s em uma medição e %s na outra. É uma diferença entre as medições; este resultado não diz quanto ela pesa no FPS.", hagsText(a.HAGS), hagsText(b.HAGS)))
 	}
 	names := func(c *Conditions) map[string]bool {
 		m := map[string]bool{}
@@ -225,7 +242,7 @@ func SummarizeGPU(ss []GPUSample) *GPUSensors {
 	}
 	g := &GPUSensors{Samples: len(ss), AvgPowerW: -1}
 	var temp, clock, power, util float64
-	var nPower, nUtil, nClock int
+	var nPower, nUtil, nClock, nTemp int
 	for _, s := range ss {
 		if s.Thermal {
 			g.ThermalPct++
@@ -236,9 +253,12 @@ func SummarizeGPU(ss []GPUSample) *GPUSensors {
 		if s.PowerCap {
 			g.PowerCapPct++
 		}
-		temp += float64(s.TempC)
-		if s.TempC > g.MaxTempC {
-			g.MaxTempC = s.TempC
+		if s.TempC > 0 {
+			temp += float64(s.TempC)
+			nTemp++
+			if s.TempC > g.MaxTempC {
+				g.MaxTempC = s.TempC
+			}
 		}
 		if s.ClockMHz > 0 {
 			clock += float64(s.ClockMHz)
@@ -261,7 +281,9 @@ func SummarizeGPU(ss []GPUSample) *GPUSensors {
 	}
 	n := float64(len(ss))
 	g.ThermalPct, g.HWSlowdownPct, g.PowerCapPct = g.ThermalPct/n*100, g.HWSlowdownPct/n*100, g.PowerCapPct/n*100
-	g.AvgTempC = temp / n
+	if nTemp > 0 {
+		g.AvgTempC = temp / float64(nTemp)
+	}
 	if nClock > 0 {
 		g.AvgClockMHz = int(math.Round(clock / float64(nClock)))
 	}

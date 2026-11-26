@@ -55,6 +55,25 @@ func TestParseGPULine(t *testing.T) {
 	}
 }
 
+func TestUnreadGPUTemperatureDoesNotPullAverageToZero(t *testing.T) {
+	var ss []perf.GPUSample
+	for _, line := range []string{
+		"Not Active, Not Active, Not Active, Not Active, Not Active, 70, 1500, 2100, 50, 90",
+		"Not Active, Not Active, Not Active, Not Active, Not Active, [N/A], 1500, 2100, 50, 90",
+		"Not Active, Not Active, Not Active, Not Active, Not Active, [N/A], 1500, 2100, 50, 90",
+		"Not Active, Not Active, Not Active, Not Active, Not Active, 80, 1500, 2100, 50, 90",
+	} {
+		s, ok := parseGPULine(line)
+		if !ok {
+			t.Fatalf("linha recusada: %q", line)
+		}
+		ss = append(ss, s)
+	}
+	if g := perf.SummarizeGPU(ss); g.AvgTempC != 75 {
+		t.Errorf("média de temperatura = %v, esperado 75", g.AvgTempC)
+	}
+}
+
 func TestBusyPrograms(t *testing.T) {
 	window := 10 * time.Second // 1e8 units of 100 ns: 1e8 = one core for the whole window
 	before := map[string]int64{"chrome.exe": 1_000, "OneDrive.exe": 0, "cs2.exe": 0, "System": 0, "tiny.exe": 0, "restarted.exe": 9_000_000_000}
@@ -97,6 +116,16 @@ func TestConditionsNow(t *testing.T) {
 	cond = a.conditionsNow()
 	if !cond.OnBattery || cond.BatteryPct != 58 {
 		t.Errorf("na bateria: %+v", cond)
+	}
+	// HAGS is read from the graphics kernel now, not from the analysis snapshot.
+	if cond.HAGS != "off" {
+		t.Errorf("HAGS desligado: %q", cond.HAGS)
+	}
+	if err := m.R.SetValue(`HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers`, "HwSchMode", sys.DWord(2)); err != nil {
+		t.Fatal(err)
+	}
+	if cond = a.conditionsNow(); cond.HAGS != "on" {
+		t.Errorf("HAGS ligado: %q", cond.HAGS)
 	}
 	// A desktop has no battery: never "on battery".
 	m.N.HasBattery = false
