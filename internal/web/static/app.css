@@ -240,6 +240,8 @@ h1, h2, h3, h4 { font-family: var(--font-display); }
 .banner.info svg { color: var(--info); }
 .banner.game { background: var(--accent-soft); }
 .banner.game svg { color: var(--accent-text); }
+.banner.quiet { min-height: 0; padding: 6px 14px; background: var(--surface-1); border-color: var(--border-subtle); color: var(--text-2); font-size: 12px; }
+.banner.quiet svg { width: 16px; height: 16px; flex: 0 0 16px; color: var(--info); }
 
 /* Abas do grupo */
 .subnav-wrap { max-width: 1240px; margin: 0 auto 20px; border-bottom: 1px solid var(--border-subtle); }
@@ -433,6 +435,14 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .grade.warn { color: var(--warn); }
 .grade.bad { color: var(--bad); }
 .grade.none { color: var(--text-3); }
+/* Parte da coleta não lida: tom neutro, nunca verde */
+.ring .ring-arc.s-unread { stroke: var(--text-3); }
+.grade.unread { color: var(--text-2); }
+.unread-note { margin: 0 0 12px; font-size: 13px; color: var(--text-2); }
+.unread-note summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-2); font-weight: 600; }
+.unread-note summary svg { width: 15px; height: 15px; flex: 0 0 15px; color: var(--text-3); }
+.unread-note ul { margin: 8px 0 6px; }
+.unread-note ul li { padding: 2px 0; }
 .pillars { align-items: start; }
 .pillar .score { gap: 14px; }
 .pillar .ring { width: 96px; height: 96px; flex: 0 0 96px; }
@@ -665,6 +675,7 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .kv { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 8px 14px; font-size: 13px; }
 .kv dt { color: var(--text-3); }
 .kv dd { margin: 0; color: var(--text-1); word-break: break-word; }
+.kv dd.muted { color: var(--text-3); font-style: italic; }
 .kv.tight { grid-template-columns: 124px minmax(0, 1fr); gap: 4px 10px; font-size: 12px; }
 .set-list { display: grid; gap: 8px; }
 .set-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }

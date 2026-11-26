@@ -189,6 +189,31 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
   - CSV do PresentMon: linha sem nome de programa não entra na medição do jogo.
   - Relatório anônimo: se não puder ser anonimizado, nada é exportado (antes
     saía o relatório completo).
+  Interface
+  - Dado que não foi lido aparece como "não lido", em tom neutro, em Início
+    ("Seu PC em detalhes") e em "Dados coletados" no Diagnóstico: TPM, Secure
+    Boot, VBS e Integridade de Memória, HAGS, Modo de Jogo, Game Bar, notebook
+    e a lista de anti-cheats. Antes aparecia "sem TPM", "não", "nenhum" ou "não
+    suportado". O HAGS segue o que o kernel gráfico informa quando ele
+    responde.
+  - Análise com partes não lidas: o anel e a nota ficam em cor neutra (não
+    verde) e, ao lado da nota, "N partes não lidas" abre a lista. O
+    Diagnóstico mostra o mesmo aviso no topo.
+  - Modo simples: botões que levam a uma página ("Abrir Drivers", "Ver" do
+    aviso de otimização desfeita, "Ver histórico" depois de aplicar) saem do
+    modo simples e abrem a página, em vez de não fazer nada. Há um botão
+    "Desfazer mudanças", que abre o Histórico, e "Sair do modo simples" na
+    barra superior.
+  - Perfis Trabalho, Criação e Programação: o Início troca o atalho "Perfil
+    Counter-Strike 2" por "Saúde do Windows" e não destaca o CS2 em "Seus
+    jogos"; a Avaliação completa não oferece o FPS do CS2 nem deixa a taxa do
+    mouse marcada.
+  - Avaliação completa com o notebook na bateria: aviso de que o que for
+    medido pode sair limitado e não se compara com medição na tomada.
+  - Medição de FPS com poucos quadros classificados: no lugar da barra
+    GPU/CPU, a página diz que não dá para apontar o que limitou.
+  - Modo navegador: aviso fixo no topo recomendando instalar o WebView2
+    Runtime da Microsoft, com o link oficial.
 
 NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
   Interface
