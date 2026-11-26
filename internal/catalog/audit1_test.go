@@ -63,7 +63,7 @@ func TestUSBPowerRiskAndEvidence(t *testing.T) {
 func TestUSBPowerUnreadPeripherals(t *testing.T) {
 	m, _, e := setup(t)
 	p := *m.Platform
-	p.Native = failingInput{Native: m.Platform.Native}
+	p.Native = failingInput{Native: m.Native}
 	f := collect.Collect(context.Background(), &p, nil)
 	if f.Peripherals.Err == "" {
 		t.Fatal("a leitura dos periféricos deveria ter falhado")
@@ -103,7 +103,7 @@ func TestMSIModeOnlyOnDiscreteGPU(t *testing.T) {
 func TestPagefileUnreadableIsNotManaged(t *testing.T) {
 	m, _, e := setup(t)
 	p := *m.Platform
-	p.Reg = failingRegValue{Registry: m.Platform.Reg, name: "PagingFiles"}
+	p.Reg = failingRegValue{Registry: m.R, name: "PagingFiles"}
 	f := collect.Collect(context.Background(), &p, nil)
 	if f.Residue.PageFile != "unknown" {
 		t.Fatalf("PagingFiles ilegível: PageFile = %q", f.Residue.PageFile)
