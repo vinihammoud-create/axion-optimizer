@@ -272,7 +272,7 @@ func fixTweaks() []*tweaks.Tweak {
 				switch f.Residue.PageFile {
 				case "none", "custom":
 					return true, ""
-				case "":
+				case "", "unknown":
 					return false, "configuração não lida"
 				}
 				return false, "o arquivo de paginação já é gerenciado pelo Windows"
@@ -531,7 +531,7 @@ func fixTweaks() []*tweaks.Tweak {
 			Recommend: func(f *facts.Facts) tweaks.Recommendation {
 				switch {
 				case !f.Read(facts.StepGaming):
-					return tweaks.Rec(tweaks.RecYes, "os anti-cheats instalados não puderam ser verificados; FACEIT e Vanguard podem exigir VBS, que não roda com o hipervisor desligado")
+					return tweaks.Rec(tweaks.RecNeutral, "os anti-cheats instalados não puderam ser verificados: sem essa leitura o Axion não recomenda nem desaconselha; FACEIT e Vanguard podem exigir VBS, que não roda com o hipervisor desligado")
 				case f.RequiresVBS():
 					return tweaks.Rec(tweaks.RecYes, "o anti-cheat instalado (FACEIT/Vanguard) pode exigir VBS, que não roda com o hipervisor desligado")
 				case f.Security.VBSConfigured && !f.Security.VBSRunning:

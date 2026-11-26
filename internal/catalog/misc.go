@@ -48,7 +48,7 @@ func gpuTweaks() []*tweaks.Tweak {
 			Risk: tweaks.RiskModerate, Reboot: tweaks.RebootRestart, Tags: []string{"latencia"},
 			Applicable: func(f *facts.Facts) (bool, string) {
 				g := f.PrimaryGPU()
-				if g == nil || g.Virtual() || g.PNPDeviceID == "" {
+				if g == nil || g.Integrated || g.Virtual() || g.PNPDeviceID == "" {
 					return false, "nenhuma GPU dedicada com identificador PCI encontrada"
 				}
 				if !strings.HasPrefix(strings.ToUpper(g.PNPDeviceID), "PCI\\") {

@@ -50,11 +50,13 @@ func inputTweaks() []*tweaks.Tweak {
 			Summary: "Impede que o Windows coloque mouse, teclado ou receptor sem fio para \"dormir\" quando ficam parados, o que faz o primeiro movimento ou tecla esperar o dispositivo acordar.",
 			Detail: "Só age nos seus dispositivos de entrada e só onde a suspensão está ativa: desmarca \"Permitir que o computador desligue este dispositivo para economizar energia\" pela mesma interface WMI do Gerenciador de Dispositivos (MSPower_DeviceEnable, vale na hora) " +
 				"e zera SelectiveSuspendEnabled em Device Parameters quando o fabricante o ligou (vale ao reconectar ou reiniciar). A Microsoft deixa a suspensão seletiva desligada por padrão em teclados e mouses USB justamente para evitar o atraso ao retomar. " +
-				"Outros otimizadores fazem isso em todos os dispositivos do PC; aqui hubs, controladores e o resto do sistema não são tocados.",
-			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcHIDSuspend, srcUSBSuspend},
-			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootRestart, Tags: []string{"entrada", "latencia"}, OneClick: true,
+				"Outros otimizadores fazem isso em todos os dispositivos do PC; aqui hubs, controladores e o resto do sistema não são tocados. " +
+				"SelectiveSuspendEnabled fica na chave de hardware do próprio dispositivo (Enum), que pertence ao driver e não a uma configuração do Windows: por isso o ajuste tem risco moderado e fica fora do 1 clique. " +
+				"As fontes descrevem o mecanismo e o padrão do Windows; nenhuma mede ganho em jogo.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcHIDSuspend, srcUSBSuspend},
+			Risk: tweaks.RiskModerate, Reboot: tweaks.RebootRestart, Tags: []string{"entrada", "latencia"},
 			Applicable: func(f *facts.Facts) (bool, string) {
-				if !f.Peripherals.Readable {
+				if !f.Peripherals.Readable || f.Peripherals.Err != "" {
 					return false, "periféricos não lidos"
 				}
 				for _, d := range f.Peripherals.Devices {
