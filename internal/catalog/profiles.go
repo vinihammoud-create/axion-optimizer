@@ -113,7 +113,7 @@ func ProfileProvider(id string, f *facts.Facts) *tweaks.Tweak {
 			Applicable: gameOnly,
 			ID:         id, Category: "jogos", Profile: exe, Title: "Prioridade alta de CPU para " + exe,
 			Summary: "O Windows passa a iniciar " + exe + " sempre com prioridade Alta, dando preferência às threads do jogo quando algo em segundo plano disputa a CPU.",
-			Detail: "CpuPriorityClass=3 (Alta) em " + keyIFEO + "\\" + exe + "\\PerfOptions — o mecanismo de prioridade persistente do próprio Windows, aplicado ao abrir o processo. " +
+			Detail: "CpuPriorityClass=3 (Alta) em " + keyIFEO + "\\" + exe + "\\PerfOptions. O valor não é documentado pela Microsoft: a página citada documenta a chave Image File Execution Options, não PerfOptions nem CpuPriorityClass. " +
 				"O ganho aparece quando há concorrência de CPU (gravação, navegador, antivírus); com a CPU livre o efeito é nulo. Não use \"Tempo real\".",
 			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcIFEO},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootRestartApp, Tags: []string{"fps"}, OneClick: true,
@@ -125,9 +125,9 @@ func ProfileProvider(id string, f *facts.Facts) *tweaks.Tweak {
 	case "gpu":
 		return &tweaks.Tweak{
 			ID: id, Category: "jogos", Profile: exe, Title: "GPU de alto desempenho para " + exe,
-			Summary:  "Força o jogo a rodar na GPU dedicada em PCs com vídeo integrado + dedicado (comum em notebooks).",
-			Detail:   "GpuPreference=2 no valor do caminho do executável em HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences, o mesmo que Configurações > Tela > Elementos gráficos > Alto desempenho.",
-			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcGpuPref},
+			Summary:  "Faz o Windows preferir a GPU dedicada para o jogo em PCs com vídeo integrado + dedicado (comum em notebooks).",
+			Detail:   "GpuPreference=2 no valor do caminho do executável em HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences, o valor que Configurações > Tela > Elementos gráficos > Alto desempenho grava (observado pelo Axion; a Microsoft documenta a opção, não o valor). É uma preferência: um jogo pode escolher a placa por conta própria.",
+			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcGpuPref},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootRestartApp, Tags: []string{"fps"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if ok, why := gameOnly(f); !ok {
@@ -138,7 +138,7 @@ func ProfileProvider(id string, f *facts.Facts) *tweaks.Tweak {
 				}
 				return true, ""
 			},
-			Recommend: yes("garante que o jogo não rode no vídeo integrado"),
+			Recommend: yes("faz o Windows preferir a GPU dedicada para o jogo, em vez do vídeo integrado"),
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{dxPrefOp(keyUserGpuPrefs, path, "GpuPreference", "2")}
 			},
