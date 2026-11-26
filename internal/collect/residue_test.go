@@ -83,14 +83,14 @@ func hasDisabled(list []facts.DisabledService, name string) bool {
 	return ok
 }
 
-// failingReg answers with an error for the values named in fail, as the real
+// failingRegByName answers with an error for the values named in fail, as the real
 // registry does when a key denies access.
-type failingReg struct {
+type failingRegByName struct {
 	sys.Registry
 	fail map[string]bool
 }
 
-func (r failingReg) GetValue(path, name string) (sys.RegValue, error) {
+func (r failingRegByName) GetValue(path, name string) (sys.RegValue, error) {
 	if r.fail[name] {
 		return sys.RegValue{}, errors.New("acesso negado (simulado)")
 	}
@@ -108,7 +108,7 @@ func collectWithFailingReads(t *testing.T, names ...string) *facts.Facts {
 		fail[n] = true
 	}
 	p := *m.Platform
-	p.Reg = failingReg{Registry: m.R, fail: fail}
+	p.Reg = failingRegByName{Registry: m.R, fail: fail}
 	return collect.Collect(context.Background(), &p, nil)
 }
 
