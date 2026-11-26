@@ -539,13 +539,6 @@ func (a *App) sessionLive() *SessionLive {
 	return &l
 }
 
-func (a *App) liveName() string {
-	if l := a.sessionLive(); l != nil {
-		return l.Name
-	}
-	return "um jogo"
-}
-
 // removeSessionLeftovers deletes window CSVs left by an Axion that ended mid-session.
 func (a *App) removeSessionLeftovers() {
 	m, _ := filepath.Glob(filepath.Join(a.sessionDir(), "*-j*.csv"))

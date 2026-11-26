@@ -84,7 +84,7 @@ func (Registry) GetValue(path, name string) (sys.RegValue, error) {
 		return sys.RegValue{}, err
 	}
 	defer k.Close()
-	n, typ, err := k.GetValue(name, nil)
+	n, _, err := k.GetValue(name, nil)
 	if err != nil && !errors.Is(err, registry.ErrShortBuffer) {
 		if isNotExist(err) {
 			return sys.Absent(), nil
@@ -92,7 +92,7 @@ func (Registry) GetValue(path, name string) (sys.RegValue, error) {
 		return sys.RegValue{}, err
 	}
 	buf := make([]byte, n+2)
-	n, typ, err = k.GetValue(name, buf)
+	n, typ, err := k.GetValue(name, buf)
 	if err != nil {
 		if isNotExist(err) {
 			return sys.Absent(), nil

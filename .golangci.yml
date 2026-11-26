@@ -16,6 +16,51 @@ linters:
         linters:
           - gosec
 
+      # Calling the Windows API from Go is unsafe.Pointer (G103) and uintptr
+      # conversions of handles, sizes and flags (G115) by construction: the
+      # syscall signatures take uintptr. Only in the packages that talk to
+      # Windows directly; everywhere else both rules stay visible.
+      - path: (^|[\\/])(internal[\\/]sys[\\/](winsys|etw)|cmd[\\/]axion)[\\/]
+        linters:
+          - gosec
+        text: "G103|G115"
+
+      # Close/Clear on cleanup paths (defer f.Close(), defer v.Clear() of a
+      # VARIANT, CloseHandle, CloseServiceHandle): there is nothing useful to
+      # do with the error after the work is done.
+      - linters:
+          - errcheck
+        text: "Error return value of `[^`]*\\b(Close|CloseHandle|CloseServiceHandle|Clear)` is not checked"
+
+      # Console and report output (fmt.Fprint*): a failed write to stdout or to
+      # a writer the caller owns is not an error the program can act on.
+      - linters:
+          - errcheck
+        text: "Error return value of `fmt\\.Fprint(f|ln)?` is not checked"
+
+      # Win32 cleanup procedures called through LazyProc.Call (free, close,
+      # destroy, delete, end): their return only says the handle was already
+      # gone. Other .Call results (drawing, input, timers) stay visible.
+      - path: (^|[\\/])internal[\\/]sys[\\/]winsys[\\/]
+        linters:
+          - errcheck
+        text: "Error return value of `proc(LocalFree|CloseTrace|EvtClose|D3DKMTCloseAdapter|IcmpCloseHandle|FreeInterfaceDnsSettings|DestroyWindow|DeleteObject|KillTimer|EndPaint|PostQuitMessage)\\.Call` is not checked"
+
+      # crashFile keeps crash.log open (and referenced) for the life of the
+      # process, so the file is never finalized and closed by the GC; unused
+      # only sees that it is never read.
+      - path: (^|[\\/])cmd[\\/]axion[\\/]main_windows\.go$
+        linters:
+          - unused
+        text: "var crashFile is unused"
+
+      # Fields of a Win32 structure passed to D3DKMTQueryAdapterInfo: they
+      # are never read in Go but keep the layout Windows expects.
+      - path: (^|[\\/])internal[\\/]sys[\\/]winsys[\\/]hags\.go$
+        linters:
+          - unused
+        text: "field (luidLow|luidHigh|numSources|precisePresent) is unused"
+
 issues:
   # The first runs are a baseline: show everything, not a sample.
   max-issues-per-linter: 0

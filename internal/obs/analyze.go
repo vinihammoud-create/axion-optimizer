@@ -81,20 +81,6 @@ func pc(v float64) string { return strings.Replace(fmt.Sprintf("%.1f", v), ".", 
 
 func isHardware(family string) bool { return family == "NVENC" || family == "AMF" || family == "QSV" }
 
-func encoderName(c Context) string {
-	switch c.Encoder {
-	case "x264":
-		return "o codificador x264 (processador)"
-	case "NVENC":
-		return "o NVENC (placa NVIDIA)"
-	case "AMF":
-		return "o AMF (placa AMD)"
-	case "QSV":
-		return "o Quick Sync (Intel)"
-	}
-	return "o codificador"
-}
-
 // Pick returns the session to read: the newest one with a stream, else the
 // newest one. Sessions come newest first.
 func Pick(ss []Session) *Session {

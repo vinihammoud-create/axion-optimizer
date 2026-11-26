@@ -236,13 +236,6 @@ func Summarize(c sys.DPCCapture) Summary {
 	return s
 }
 
-func pct(n, total uint64) float64 {
-	if total == 0 {
-		return 0
-	}
-	return float64(n) / float64(total) * 100
-}
-
 // comma writes a number the Brazilian way (1,4 and not 1.4).
 func comma(s string) string { return strings.Replace(s, ".", ",", 1) }
 
