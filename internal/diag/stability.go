@@ -391,11 +391,12 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 	if burst {
 		ev += fmt.Sprintf(" Rajada: %d ou mais erros em %d minutos com o PC em uso.", wheaBurst, int(wheaBurstWindow.Minutes()))
 	}
+	symptomsUnread := f != nil && !f.Read(PartSymptoms)
 	if fatal == 0 {
 		switch {
 		case symptoms:
 			ev += " No mesmo período há desligamento inesperado, tela azul ou reinício do driver de vídeo (veja os outros itens)."
-		case f != nil && !f.Read(PartSymptoms):
+		case symptomsUnread:
 			ev += " Não foi possível ler desligamentos inesperados, telas azuis e reinícios do driver de vídeo no período."
 		default:
 			ev += " Nenhum desligamento inesperado, tela azul ou reinício do driver de vídeo no período."
@@ -441,7 +442,11 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 		}
 	case used > 0:
 		x.Severity = SevInfo
-		x.Title = plural(n, "erro de hardware corrigido pelo hardware (WHEA), sem sintoma", "erros de hardware corrigidos pelo hardware (WHEA), sem sintoma")
+		if symptomsUnread {
+			x.Title = plural(n, "erro de hardware corrigido pelo hardware (WHEA), sintomas não lidos", "erros de hardware corrigidos pelo hardware (WHEA), sintomas não lidos")
+		} else {
+			x.Title = plural(n, "erro de hardware corrigido pelo hardware (WHEA), sem sintoma", "erros de hardware corrigidos pelo hardware (WHEA), sem sintoma")
+		}
 	default:
 		x.Severity = SevInfo
 		x.Title = plural(n, "erro de hardware corrigido (WHEA), só ao ligar ou acordar o PC", "erros de hardware corrigidos (WHEA), só ao ligar ou acordar o PC")
@@ -455,11 +460,19 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 		ex = append(ex, "São erros PCIe que o próprio hardware corrigiu, todos logo depois de ligar ou acordar o PC, quando os links PCIe são inicializados. "+
 			"Sozinhos não indicam defeito nem afetam o jogo; passam a preocupar se aparecerem durante o uso, junto com travadas ou telas azuis. Mantenha a BIOS e o driver de chipset atualizados.")
 	case x.Severity == SevInfo:
-		ex = append(ex, "Erros corrigíveis são recuperados pelo próprio PCI Express, sem perda de dados e sem efeito no funcionamento; sem erro grave, sem sintoma e sem rajada, não há nada a corrigir.")
+		if symptomsUnread {
+			ex = append(ex, "Erros corrigíveis são recuperados pelo próprio PCI Express, sem perda de dados e sem efeito no funcionamento; sem erro grave e sem rajada, eles não pedem correção por si.")
+		} else {
+			ex = append(ex, "Erros corrigíveis são recuperados pelo próprio PCI Express, sem perda de dados e sem efeito no funcionamento; sem erro grave, sem sintoma e sem rajada, não há nada a corrigir.")
+		}
 		if laptop {
 			ex = append(ex, "Numa placa de vídeo de notebook, que desliga em repouso, o link é renegociado ao acordar, como no boot.")
 		}
-		ex = append(ex, "Vale acompanhar: se surgirem travadas, tela preta ou reinício do driver de vídeo, este item passa a pesar.")
+		if symptomsUnread {
+			ex = append(ex, "Não foi possível ler desligamentos inesperados, telas azuis e reinícios do driver de vídeo no período: se tiver havido algum, este item pesa mais do que o indicado aqui.")
+		} else {
+			ex = append(ex, "Vale acompanhar: se surgirem travadas, tela preta ou reinício do driver de vídeo, este item passa a pesar.")
+		}
 		if inUse["pcie"] > 0 {
 			if aspmOn {
 				ex = append(ex, aspmNote())
