@@ -1076,9 +1076,15 @@ func (c *collector) gaming() {
 	c.part(PartX3D, func() {
 		info, err := c.p.Svc.Query("amd3dvcacheSvc")
 		if err != nil {
-			// A query that fails is not "service absent".
+			// A query that fails is not "service absent". It only counts as
+			// a part of the analysis that was not read on the processors
+			// that use this service (two-CCD X3D, known by now: the
+			// processor step runs before this one); on any other PC nothing
+			// depends on it, and the report is not incomplete for it.
 			c.errf("serviço amd3dvcacheSvc: %v", err)
-			c.f.Unread = append(c.f.Unread, PartX3D)
+			if c.f.CPU.IsDualCCDX3D {
+				c.f.Unread = append(c.f.Unread, PartX3D)
+			}
 			return
 		}
 		g.X3DServiceState = "ausente"

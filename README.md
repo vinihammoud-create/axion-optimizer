@@ -22,6 +22,8 @@
   <sub><a href="#como-instalar">Como instalar</a> · <a href="#primeiros-passos">Primeiros passos</a> · <a href="#seguran%C3%A7a-e-privacidade">Segurança e privacidade</a> · <a href="#perguntas-frequentes">Perguntas frequentes</a></sub>
 </p>
 
+> **Versão 0.10.0 em validação final.** Esta página já descreve a 0.10.0, com o instalador. Ela está sendo testada num PC de jogo de verdade antes de ser publicada; até lá, a [página de versões](https://github.com/vinihammoud-create/axion-optimizer/releases) ainda mostra a 0.9.1 (só em ZIP).
+
 <p align="center"><img src="docs/img/inicio.png" width="900" alt="Início do Axion: a nota do PC para jogos, as 19 melhorias recomendadas e o botão para aplicar"></p>
 
 <p align="center"><sub>Todas as imagens desta página são da interface real rodando sobre o PC simulado do projeto (modo demonstração, por isso o selo "Demonstração"). Os números não são de uma máquina real.</sub></p>
@@ -31,11 +33,11 @@
 | | |
 |---|---|
 | **Fonte para cada ajuste** | Cada otimização mostra o que muda no Windows, o nível de evidência, o risco e os links de onde a informação veio. Sem fonte aberta e lida, o ajuste não entra. |
-| **Desfazer exato** | Antes de aplicar uma otimização, o Axion guarda o valor anterior (inclusive "não existia") num histórico assinado. Desfazer volta exatamente a ele e confere relendo. Nos lotes, também cria um ponto de restauração do Windows. |
+| **Desfazer exato** | Antes de aplicar uma otimização, o Axion guarda o valor anterior (inclusive "não existia") num histórico assinado. Desfazer volta exatamente a ele e confere relendo. Nos lotes, a criação de um ponto de restauração do Windows já vem marcada. |
 | **Sem driver, sem injeção, sem telemetria** | Não instala driver de kernel, não injeta nada no jogo nem desenha sobre ele, não roda PowerShell nem arquivos de lote e não envia dados. Usa só registro, WMI, a API do Windows e ferramentas do próprio Windows. |
 | **Mede antes e depois** | FPS, 1% e 0,1% low e engasgos pelo PresentMon, da Intel. A "Prova no seu PC" só mantém um ajuste se ele melhorar pelo critério do Axion; se não melhorar, desfaz sozinho. |
 | **O que ele recusa é público** | A página "O que não fazemos" lista ajustes populares que ficam de fora de propósito, cada um com o mecanismo, o motivo e a fonte. |
-| **Para quem joga e para quem não joga** | Perfis de jogo competitivo, jogo + live, trabalho, criação e programação. O perfil decide o que conta na nota e o que entra no 1 clique. Em notebook, nada que gaste bateria é recomendado. |
+| **Para quem joga e para quem não joga** | Perfis de jogo competitivo, jogo + live, trabalho, criação e programação. O perfil decide o que conta na nota e o que entra no 1 clique. Notebook é tratado como notebook: na bateria, o Axion avisa antes de medir e não aplica o modo de energia. |
 
 ## O que ele faz
 
@@ -143,13 +145,13 @@ Nos dois casos, os dados ficam em `C:\ProgramData\Axion`.
 
 ### Requisitos
 
-- Windows 10 (versão 2004 ou mais nova) ou Windows 11, de 64 bits.
+- Windows 10 ou Windows 11, de 64 bits. No Windows 10 anterior à versão 2004, a troca de DNS não está disponível.
 - Uma conta de administrador: o Axion pede permissão sempre que abre, porque as otimizações mudam configurações do Windows. A análise só lê.
 - Microsoft Edge WebView2 Runtime, que já vem no Windows 11 e na maioria dos Windows 10. Sem ele, o Axion abre no navegador; o instalador avisa e leva à [página oficial da Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/). A janela própria é o modo recomendado: no navegador a interface fica ao alcance dos outros programas da sua conta.
 
 ### "O Windows protegeu o computador"
 
-O Axion ainda **não tem assinatura digital** (o pedido de assinatura gratuita está em andamento, veja [Code signing policy](#code-signing-policy)). Por isso o SmartScreen pode mostrar esse aviso azul, e o antivírus pode desconfiar de um arquivo novo que pouca gente baixou. É o aviso normal para programas sem assinatura, não um sinal de vírus, mas vale conferir antes:
+O Axion ainda **não tem assinatura digital** (o projeto vai pedir a assinatura gratuita para programas de código aberto, veja [Code signing policy](#code-signing-policy)). Por isso o SmartScreen pode mostrar esse aviso azul, e o antivírus pode desconfiar de um arquivo novo que pouca gente baixou. É o aviso normal para programas sem assinatura, não um sinal de vírus, mas vale conferir antes:
 
 1. **Confira o SHA-256** do arquivo baixado com o valor do `SHA256SUMS.txt` da mesma página da versão. Os dois comandos abaixo são do próprio Windows; use o que preferir:
 
@@ -164,7 +166,7 @@ O Axion ainda **não tem assinatura digital** (o pedido de assinatura gratuita e
    Os 64 caracteres precisam ser iguais (maiúsculas e minúsculas não importam). Se forem diferentes, não abra o arquivo e baixe de novo pela página oficial.
 2. Com o hash conferido, clique em **Mais informações** e depois em **Executar assim mesmo**. Isso vale só para este arquivo; as proteções do Windows continuam ligadas.
 
-Não desligue o antivírus nem o SmartScreen. Se o antivírus acusar um alarme falso, você pode enviar o arquivo para análise da Microsoft em <https://www.microsoft.com/wdsi/filesubmission>. Em PCs com o Controle Inteligente de Aplicativos do Windows 11 ligado, programas sem assinatura não abrem; isso só muda quando o Axion tiver assinatura.
+Não desligue o antivírus nem o SmartScreen. Se o antivírus acusar um alarme falso, você pode enviar o arquivo para análise da Microsoft em <https://www.microsoft.com/wdsi/filesubmission>. Em PCs com o Controle Inteligente de Aplicativos do Windows 11 ligado, programas sem assinatura não abrem; isso só muda quando o Axion tiver assinatura. Esse controle protege o PC inteiro: não o desligue por causa do Axion.
 
 ## Primeiros passos
 
@@ -236,7 +238,7 @@ O Axion não injeta nada, não abre o processo do jogo para escrita, não desenh
 Depende do seu PC, e o Axion não promete número. Ele corrige o que comprovadamente atrapalha (monitor abaixo da frequência máxima, memória sem XMP/EXPO, ajustes deixados por outros otimizadores) e dá as ferramentas para você medir antes e depois no seu jogo. A "Prova no seu PC" só mantém um ajuste de energia que melhorou de verdade na sua medição.
 
 **Funciona em notebook?**
-Sim. O Axion detecta a bateria e não recomenda nada que gaste energia. O modo de energia só é aplicado e desfeito na tomada, e os alertas que só fazem sentido em desktop não aparecem.
+Sim. O Axion reconhece o notebook e a bateria: avisa quando uma medição é feita na bateria, só aplica e desfaz o modo de energia na tomada e não trata a tela a 60 Hz na bateria como problema importante. O ajuste que desliga a economia de energia da rede por cabo avisa que, num notebook, ela poupa bateria.
 
 **Não jogo. Serve para mim?**
 Sim. Nos perfis Trabalho, Criação e Programação, os pontos que só importam em jogo não contam na nota nem entram no 1 clique, e o Início destaca a Saúde do Windows no lugar do CS2.
@@ -249,7 +251,7 @@ Não. A análise, o diagnóstico, as otimizações e o desfazer funcionam sem in
 
 ## Code signing policy
 
-The Windows executables of Axion Optimizer (`Axion.exe`, the installer and its uninstaller) are **not digitally signed yet**. The application for free code signing for open source projects is in progress; until it is approved, Windows may show the SmartScreen warning described in [Como instalar](#o-windows-protegeu-o-computador).
+The Windows executables of Axion Optimizer (`Axion.exe`, the installer and its uninstaller) are **not digitally signed yet**. The project is applying for free code signing for open source projects; until that is approved, Windows may show the SmartScreen warning described in [Como instalar](#o-windows-protegeu-o-computador).
 
 <!-- Ativar quando a SignPath aprovar o pedido (texto obrigatório, não alterar):
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).

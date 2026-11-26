@@ -67,13 +67,11 @@ ANTES DE ABRIR: SHA-256, SMARTSCREEN E ANTIVÍRUS
   - Se aparecer "O controle inteligente de aplicativos bloqueou um
     aplicativo", é o Controle Inteligente de Aplicativos do Windows 11, que
     bloqueia programas sem assinatura e não tem "executar assim mesmo" nem
-    exceção por programa. Nesta fase de teste a única saída é desligá-lo em
-    Segurança do Windows > Controle de aplicativos e do navegador >
-    Configurações do Controle Inteligente de Aplicativos, usar o Axion e
-    religá-lo depois (desde a atualização de abril de 2026 isso não exige
-    reinstalar o Windows; se o Windows avisar que não dá para religar,
-    cancele). A versão pública virá assinada e esse bloqueio deixa de
-    existir.
+    exceção por programa. Enquanto o Axion não tiver assinatura digital, ele
+    não abre num PC com esse controle ligado. O controle protege o PC
+    inteiro: o Axion não recomenda desligá-lo por causa de um programa. O
+    projeto vai pedir a assinatura gratuita para programas de código aberto;
+    quando (e se) ela sair, esse bloqueio deixa de existir.
 
 COMO USAR
   1. Abra o Axion (atalho do menu Iniciar ou Axion.exe do ZIP) e aceite o
