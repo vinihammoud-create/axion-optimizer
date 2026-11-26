@@ -62,7 +62,7 @@ func TestThermalEvents(t *testing.T) {
 // limit below the maximum; a zone limited for electrical current is not heat.
 func TestThermalNow(t *testing.T) {
 	f := &facts.Facts{}
-	f.Thermal = facts.ThermalInfo{ZonesRead: true, Zones: []facts.ThermalZone{{Name: `\_TZ.TZ00`, TempC: 68, PassiveLimitPct: 100}}, LimitRead: true, MaxMhz: 2400, MhzLimit: 2400}
+	f.Thermal = facts.ThermalInfo{ZonesRead: true, Zones: []facts.ThermalZone{{Name: `\_TZ.TZ00`, TempC: 68, PassiveLimitPct: 100, PassiveLimitRead: true}}, LimitRead: true, MaxMhz: 2400, MhzLimit: 2400}
 	if x := thermFind(thermalFindings(nil, f), "therm.now"); x != nil {
 		t.Fatalf("sem limite: %+v", x)
 	}

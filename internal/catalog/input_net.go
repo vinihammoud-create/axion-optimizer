@@ -26,6 +26,9 @@ func inputTweaks() []*tweaks.Tweak {
 				if f.Gaming.MouseAccelOn {
 					return tweaks.Rec(tweaks.RecYes, "a aceleração do ponteiro está ligada neste PC")
 				}
+				if !f.Gaming.MouseAccelRead {
+					return tweaks.Rec(tweaks.RecNeutral, "a aceleração do ponteiro não pôde ser lida nesta análise; desligá-la deixa o ponteiro proporcional ao movimento do mouse fora de jogos com raw input")
+				}
 				return tweaks.Rec(tweaks.RecNeutral, "a aceleração do ponteiro não aparece ligada neste PC; desligá-la deixa o ponteiro proporcional ao movimento do mouse fora de jogos com raw input")
 			},
 			Ops: func(*facts.Facts) []tweaks.Op { return []tweaks.Op{mouseOp()} },

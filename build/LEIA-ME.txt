@@ -162,6 +162,33 @@ NOVO NA PRÓXIMA VERSÃO (ainda sem número)
   - V-Sync forçado no perfil do driver NVIDIA (valor válido, sem G-SYNC):
     deixou de vir marcado no 1 clique, porque pode ter sido escolha sua no
     Painel NVIDIA. Valor que o driver não conhece continua recomendado.
+  - VBS e Integridade de Memória: com o estado do VBS não lido, o ajuste diz
+    que não foi lido em vez de "já desligados"; com os anti-cheats não lidos,
+    continua bloqueado sem afirmar que há um instalado.
+  - Plano Desempenho Máximo e gravação em segundo plano: textos reescritos
+    sem prometer resultado.
+  Diagnóstico e medição: leitura que falhou não vira estado verde nem alarme
+  - Ryzen X3D de dois CCDs: serviço do chipset, Game Bar ou plano de energia
+    que não responderam deixam de gerar "Configuração incompleta"; o item diz
+    o que não foi verificado.
+  - Programas que atrasam a inicialização, horário ativo do Windows Update,
+    limite térmico das zonas e TPM/VBS no item da Gamers Club: leitura que
+    falhou aparece como "não lido" ou fica de fora, nunca como "nenhum",
+    "não definido" ou "desligado".
+  - Limite térmico do processador: um núcleo que não informa limite não
+    esconde mais o limite dos outros.
+  - Erros de hardware (WHEA) com os horários de inicialização não lidos: o
+    Axion não afirma mais que os erros PCIe aconteceram durante o uso.
+  - Análise com partes não lidas: a nota deixa de aparecer como "Excelente" e
+    o resumo diz que a análise está incompleta e quantas partes faltaram.
+  - Medição de FPS com poucos quadros classificados: perfil de memória, opções
+    de vídeo do CS2 e preset não concluem mais que a GPU ou a CPU limitou.
+  - Comparação de medições: condição lida de um lado só (plano, modo de
+    energia, taxa do monitor, HAGS) conta como diferença, e a mudança de plano
+    e de modo ao mesmo tempo aparece inteira.
+  - CSV do PresentMon: linha sem nome de programa não entra na medição do jogo.
+  - Relatório anônimo: se não puder ser anonimizado, nada é exportado (antes
+    saía o relatório completo).
 
 NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
   Interface

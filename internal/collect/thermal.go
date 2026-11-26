@@ -28,22 +28,28 @@ func (c *collector) thermal() {
 			if k >= 273 && k <= 398 {
 				temp = float64(k) - 273.15
 			}
-			limit := int(r.Int("PercentPassiveLimit"))
-			if _, ok := r["PercentPassiveLimit"]; !ok {
-				limit = 100
+			// A missing or null "% Passive Limit" is not read: neither 100
+			// (no limit) nor 0.
+			v, ok := r["PercentPassiveLimit"]
+			read := ok && v != nil
+			limit := 0
+			if read {
+				limit = int(r.Int("PercentPassiveLimit"))
 			}
-			t.Zones = append(t.Zones, facts.ThermalZone{Name: name, TempC: temp, PassiveLimitPct: limit, Reasons: uint32(r.Uint("ThrottleReasons"))})
+			t.Zones = append(t.Zones, facts.ThermalZone{Name: name, TempC: temp, PassiveLimitPct: limit, PassiveLimitRead: read, Reasons: uint32(r.Uint("ThrottleReasons"))})
 		}
 	} else {
 		c.errf("zonas térmicas: %v", err)
 	}
 	if procs, err := c.p.Native.ProcessorPower(); err == nil && len(procs) > 0 {
 		t.LimitRead = true
-		for i, p := range procs {
+		for _, p := range procs {
 			if p.MaxMhz > t.MaxMhz {
 				t.MaxMhz = p.MaxMhz
 			}
-			if i == 0 || (p.MhzLimit > 0 && p.MhzLimit < t.MhzLimit) {
+			// A processor that reports no limit (0) does not hide the
+			// limit of the others.
+			if p.MhzLimit > 0 && (t.MhzLimit == 0 || p.MhzLimit < t.MhzLimit) {
 				t.MhzLimit = p.MhzLimit
 			}
 		}

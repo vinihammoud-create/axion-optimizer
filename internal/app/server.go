@@ -641,8 +641,12 @@ func (s *Server) routes() http.Handler {
 		_, _ = w.Write(b)
 	})
 	api("GET /api/export", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		v, err := s.App.Export(r.URL.Query().Get("full") == "1")
+		if err != nil {
+			return nil, err
+		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="axion-relatorio-%s.json"`, time.Now().Format("20060102-1504")))
-		return s.App.Export(r.URL.Query().Get("full") == "1"), nil
+		return v, nil
 	})
 
 	static := http.FileServer(http.FS(s.UI))
@@ -934,26 +938,26 @@ func (s *Server) hHistory(w http.ResponseWriter, r *http.Request) (any, error) {
 // Unless full is asked for, what identifies the PC, the person and the
 // network is replaced (see anon.go); the "anonymous" key says which one
 // the file is.
-func (a *App) Export(full bool) any {
+// When the anonymous file cannot be made, nothing goes out: the full report
+// is never handed over in its place.
+func (a *App) Export(full bool) (any, error) {
 	raw := a.exportRaw()
 	raw["anonymous"] = !full
 	if full {
-		return raw
+		return raw, nil
 	}
 	b, err := json.Marshal(raw)
 	if err != nil {
-		raw["anonymous"] = false
-		return raw
+		return nil, fmt.Errorf("não foi possível montar o relatório anônimo: %w", err)
 	}
 	var tree any
 	if err := json.Unmarshal(b, &tree); err != nil {
-		raw["anonymous"] = false
-		return raw
+		return nil, fmt.Errorf("não foi possível montar o relatório anônimo: %w", err)
 	}
 	// Before the first analysis the names are unknown; the patterns still
 	// scrub the tests, captures and history kept from earlier sessions.
 	host, users := a.anonNames()
-	return newAnonymizer(host, users...).Apply(tree)
+	return newAnonymizer(host, users...).Apply(tree), nil
 }
 
 func (a *App) exportRaw() map[string]any {

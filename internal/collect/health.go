@@ -267,8 +267,10 @@ func (c *collector) bootHistory(b *facts.BootHealth) {
 	oldest := b.Samples[len(b.Samples)-1].At.Add(-time.Hour)
 	apps, err := c.p.Events.Query(chanDiagPerf, "*[System[(EventID=101)]]", 300)
 	if err != nil {
+		c.errf("Diagnostics-Performance (programas lentos no boot): %v", err)
 		return
 	}
+	b.SlowRead = true
 	type acc struct {
 		boots map[string]bool
 		worst int

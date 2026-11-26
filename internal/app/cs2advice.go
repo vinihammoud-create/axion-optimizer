@@ -70,13 +70,15 @@ func videoAdvice(f *facts.Facts, info games.CS2Info, m *diag.Measured) *CheckIte
 		stale = " A medição é antiga: repita antes de mexer."
 	}
 	it := &CheckItem{ID: "cs2.video.measured", Title: "Opções de vídeo pela medição", Evidence: "alta", Where: "CS2 → Configurações → Vídeo → Avançado", Basis: basis, Sources: []tweaks.Source{srcPMIntel, srcGPUBusy}}
-	gpuBound := s.Limiter == "gpu" || s.GPUBoundPct >= 50
+	// Only the verdict counts: GPUBoundPct and CPUBoundPct are shares of the
+	// classified frames, and Limiter stays empty when too few were classified.
+	gpuBound := s.Limiter == "gpu"
 	switch {
 	case s.Limiter == "limite" || s.CapLikely:
 		it.Status = "ok"
 		it.Advice = "O jogo estava no próprio limite de FPS (fps_max): as opções de vídeo não limitam nada. Para medir o teto do PC, suba ou tire o limite e grave de novo." + stale
 		return it
-	case s.Limiter == "cpu" || (s.CPUBoundPct >= 50 && !gpuBound):
+	case s.Limiter == "cpu":
 		it.Status = "ok"
 		it.Advice = "Quem limitou o FPS foi o lado da CPU, não a placa de vídeo: baixar opções de vídeo não vai subir o FPS. O que ajuda está no sistema (programas em segundo plano, perfil de memória, o jogo no núcleo certo) — veja o diagnóstico." + stale
 		return it

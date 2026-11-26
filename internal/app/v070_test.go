@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"math"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -357,6 +359,30 @@ func TestAnonymousExport(t *testing.T) {
 	}
 	if err := json.Unmarshal(full, &anon); err != nil || anon.Anonymous || anon.Facts.Hostname != f.Hostname {
 		t.Errorf("exportação completa: %v %+v", err, anon)
+	}
+}
+
+// G-019: when the anonymous file cannot be made, the route answers an error
+// and the full report does not go out in its place.
+func TestAnonymousExportFailureSendsNothing(t *testing.T) {
+	_, c := setupServer(t)
+	var j Job
+	c.json("POST", "/api/scan", map[string]any{}, &j)
+	if j = c.wait(j.ID); j.Status != JobDone {
+		t.Fatalf("análise: %+v", j)
+	}
+	a := c.s.App
+	a.mu.Lock()
+	cp := *a.facts
+	cp.ScanSeconds = math.NaN() // JSON has no NaN: the anonymous copy cannot be made
+	a.facts = &cp
+	a.mu.Unlock()
+	code, body := c.do("GET", "/api/export", nil, nil)
+	if code != http.StatusInternalServerError {
+		t.Errorf("anonimização falhou: esperado erro 500, veio %d (%.200s)", code, body)
+	}
+	if cp.Hostname == "" || strings.Contains(string(body), cp.Hostname) || strings.Contains(string(body), `"anonymous"`) {
+		t.Errorf("dado do relatório saiu apesar da falha: %.300s", body)
 	}
 }
 

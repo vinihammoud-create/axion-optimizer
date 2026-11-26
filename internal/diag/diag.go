@@ -108,6 +108,39 @@ type Report struct {
 	// Unscored: nothing to score yet (the measurement reading before any
 	// measurement); Overall is -1 and Grade says so.
 	Unscored bool `json:"unscored,omitempty"`
+	// Unread lists the parts of the collection that were not read
+	// (facts.Unread). The rules stay silent about them, so with any listed
+	// the analysis is incomplete: the grade is not "Excelente" and the
+	// summary says so instead of "nothing found".
+	Unread []string `json:"unread,omitempty"`
+}
+
+// gradeIncomplete is the grade of a report that would be "Excelente" with
+// parts of the collection not read.
+const gradeIncomplete = "Informação insuficiente"
+
+// markUnread records what was not read and keeps the grade and the summary
+// from reading as a complete analysis.
+func (r *Report) markUnread(unread []string) {
+	seen := map[string]bool{}
+	r.Unread = nil
+	for _, u := range unread {
+		if !seen[u] {
+			seen[u] = true
+			r.Unread = append(r.Unread, u)
+		}
+	}
+	if len(r.Unread) == 0 {
+		return
+	}
+	if r.Grade == "Excelente" {
+		r.Grade = gradeIncomplete
+	}
+	s := "Análise incompleta: " + plural(len(r.Unread), "parte da coleta não foi lida.", "partes da coleta não foram lidas.")
+	if r.Summary != summaryNothing {
+		s += " " + r.Summary
+	}
+	r.Summary = s
 }
 
 // Unscore marks a report that has nothing to grade: a 100 with no
@@ -172,7 +205,11 @@ func BuildWith(f *facts.Facts, states map[string]tweaks.State, m *Measured, extr
 	if m != nil {
 		fs = applyMeasured(fs, f, m)
 	}
-	return Score(fs)
+	r := Score(fs)
+	if f != nil {
+		r.markUnread(f.Unread)
+	}
+	return r
 }
 
 // Dismissible tells whether the user may dismiss a finding: warnings and
@@ -215,12 +252,15 @@ func Finalize(r *Report, profileID string, dismissed map[string]bool) *Report {
 		return r
 	}
 	out := Score(active)
+	out.markUnread(r.Unread)
 	out.Generated = r.Generated
 	out.Profile = p.ID
 	out.Findings = append(out.Findings, off...)
 	out.Findings = append(out.Findings, hidden...)
 	return out
 }
+
+const summaryNothing = "Nenhum problema importante encontrado. Veja as sugestões opcionais."
 
 // Score sorts findings and computes the scores.
 func Score(fs []Finding) *Report {
@@ -274,7 +314,7 @@ func Score(fs []Finding) *Report {
 	}
 	switch {
 	case crit == 0 && warn == 0:
-		r.Summary = "Nenhum problema importante encontrado. Veja as sugestões opcionais."
+		r.Summary = summaryNothing
 	case crit == 0:
 		r.Summary = plural(warn, "ponto de atenção encontrado.", "pontos de atenção encontrados.")
 	case warn == 0:
@@ -395,8 +435,8 @@ type rule func(f *facts.Facts, st map[string]tweaks.State, add func(Finding))
 // default (8 to 17) with the automatic adjustment off, a restart can land
 // in the evening, in the middle of a match or a call.
 func activeHoursFinding(f *facts.Facts, add func(Finding)) {
-	if f.OS.Build == 0 {
-		return
+	if f.OS.Build == 0 || !f.OS.ActiveHoursRead {
+		return // not read: neither "not set" nor "set"
 	}
 	start, end := f.OS.ActiveHoursStart, f.OS.ActiveHoursEnd
 	set := start >= 0 && end >= 0
@@ -732,31 +772,57 @@ var rules = []rule{
 		if !f.Read(facts.StepGaming) || !f.Read(facts.StepPower) {
 			return // the inputs of this check were not read
 		}
-		prob := []string{}
-		if f.Gaming.X3DServiceState != "em execução" && f.Read(facts.PartX3D) {
+		// A reading that failed is neither a problem nor "present".
+		prob, ok, unread := []string{}, []string{}, []string{}
+		switch {
+		case !f.Read(facts.PartX3D):
+			unread = append(unread, "o serviço do driver de chipset")
+		case f.Gaming.X3DServiceState != "em execução":
 			prob = append(prob, "serviço AMD 3D V-Cache Performance Optimizer "+f.Gaming.X3DServiceState)
+		default:
+			ok = append(ok, "Driver de chipset")
 		}
-		if !f.Gaming.GameBarInstalled {
+		switch {
+		case !f.Gaming.GameBarRead:
+			unread = append(unread, "a Xbox Game Bar")
+		case !f.Gaming.GameBarInstalled:
 			prob = append(prob, "Xbox Game Bar não instalada")
+		default:
+			ok = append(ok, "Game Bar")
 		}
 		if !f.Gaming.GameModeOn {
 			prob = append(prob, "Modo de Jogo desligado")
+		} else {
+			ok = append(ok, "Modo de Jogo")
 		}
-		if !strings.EqualFold(f.Power.ActiveScheme, sys.SchemeBalanced) {
+		switch {
+		case f.Power.ActiveScheme == "":
+			unread = append(unread, "o plano de energia ativo")
+		case !strings.EqualFold(f.Power.ActiveScheme, sys.SchemeBalanced):
 			prob = append(prob, "plano de energia diferente do Equilibrado")
+		default:
+			ok = append(ok, "plano Equilibrado")
+		}
+		notRead := ""
+		if len(unread) > 0 {
+			notRead = " Não foi possível verificar nesta análise: " + strings.Join(unread, ", ") + "."
 		}
 		if len(prob) == 0 {
-			ev := "Driver de chipset, Game Bar, Modo de Jogo e plano Equilibrado presentes."
-			if !f.Read(facts.PartX3D) {
-				ev = "Game Bar, Modo de Jogo e plano Equilibrado presentes (o serviço do driver de chipset não pôde ser verificado nesta análise)."
+			title := "Agendamento do " + f.CPU.Name + " configurado corretamente"
+			if len(unread) > 0 {
+				title = "Agendamento do " + f.CPU.Name + ": o que foi lido está correto"
+			}
+			present := ok[len(ok)-1]
+			if len(ok) > 1 {
+				present = strings.Join(ok[:len(ok)-1], ", ") + " e " + present
 			}
 			add(Finding{ID: "cpu.x3d.dual", Area: AreaDesempenho, Severity: SevGood,
-				Title: "Agendamento do " + f.CPU.Name + " configurado corretamente", Evidence: ev})
+				Title: title, Evidence: present + " presentes." + notRead})
 			return
 		}
 		add(Finding{ID: "cpu.x3d.dual", Area: AreaDesempenho, Severity: SevCritical,
 			Title:       "Configuração incompleta para o " + f.CPU.Name,
-			Evidence:    strings.Join(prob, "; ") + ".",
+			Evidence:    strings.Join(prob, "; ") + "." + notRead,
 			Explanation: "Nos X3D de dois CCDs o driver de chipset da AMD usa a detecção de jogos da Game Bar para estacionar o CCD sem 3D V-Cache. Sem isso os jogos podem rodar no CCD errado e perder bastante desempenho.",
 			Actions:     []Action{fixTweaks("Corrigir no Windows", "game.mode", "power.plan.balanced"), {Kind: "url", Label: "Baixar driver de chipset AMD", URL: "https://www.amd.com/en/support/download/drivers.html"}}})
 	},
@@ -1089,8 +1155,16 @@ var rules = []rule{
 					Explanation: ex,
 					Actions:     []Action{{Kind: "page", Label: "Ver guia de BIOS", Page: "bios"}}, Sources: []tweaks.Source{srcGC}})
 			} else {
+				// What was not read is said so, not "absent" or "off".
+				tpm, vbs := orText(s.TPMVersion, "não encontrado"), map[bool]string{true: "em execução", false: "desligado"}[s.VBSRunning]
+				if !s.TPMRead {
+					tpm = "não lido"
+				}
+				if !s.DeviceGuardRead {
+					vbs = "não lido"
+				}
 				add(Finding{ID: "sec.anticheat.gc", Area: AreaSeguranca, Severity: SevGood, Title: "Requisito da Gamers Club atendido",
-					Evidence:    fmt.Sprintf("Gamers Club: Secure Boot ligado; TPM %s; VBS %s.", orText(s.TPMVersion, "não encontrado"), map[bool]string{true: "em execução", false: "desligado"}[s.VBSRunning]),
+					Evidence:    fmt.Sprintf("Gamers Club: Secure Boot ligado; TPM %s; VBS %s.", tpm, vbs),
 					Explanation: "Secure Boot é a exigência atual da Gamers Club para todos; TPM 2.0 e VBS estão em fase de teste e podem passar a ser pedidos.", Sources: []tweaks.Source{srcGC}})
 			}
 		}

@@ -312,7 +312,10 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 		return nil
 	}
 	boots := bootTimes(evs, f)
-	fatal, atBoot, pcieCorrected := 0, 0, 0
+	// Without the boot and resume times a corrected PCIe error away from the
+	// last boot cannot be placed: at startup (expected) or during use.
+	bootsUnread := f != nil && !f.Read(PartBoots)
+	fatal, atBoot, pcieCorrected, unplaced := 0, 0, 0, 0
 	kinds := map[string]int{}
 	inUse := map[string]int{}
 	fatalKind := map[string]int{}
@@ -331,9 +334,12 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 		if w.kind == "pcie" && !w.fatal {
 			pcieCorrected++
 		}
-		if w.kind == "pcie" && !w.fatal && nearBoot(w.t, boots) {
+		switch {
+		case w.kind == "pcie" && !w.fatal && nearBoot(w.t, boots):
 			atBoot++
-		} else {
+		case w.kind == "pcie" && !w.fatal && bootsUnread:
+			unplaced++
+		default:
 			inUse[w.kind]++
 			if !w.fatal {
 				useTimes = append(useTimes, w.t)
@@ -384,7 +390,10 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 	if fatal > 0 {
 		ev += fmt.Sprintf(" %d não corrigido(s) pelo hardware.", fatal)
 	}
-	if len(boots) > 0 && pcieCorrected > 0 {
+	switch {
+	case bootsUnread && pcieCorrected > 0:
+		ev += fmt.Sprintf(" Os horários de inicialização e de retomada não puderam ser lidos: não dá para dizer se os %d erros PCIe corrigidos aconteceram ao ligar ou acordar o PC ou durante o uso.", pcieCorrected)
+	case len(boots) > 0 && pcieCorrected > 0:
 		ev += fmt.Sprintf(" %d de %d erros PCIe corrigidos até 5 minutos depois de ligar ou acordar o PC.", atBoot, pcieCorrected)
 	}
 	burst := burstOf(useTimes)
@@ -405,7 +414,7 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 	ev += " Último em " + last.Format("02/01/2006 15:04") + "."
 
 	laptop := f != nil && f.IsLaptop()
-	used := n - atBoot
+	used := n - atBoot - unplaced
 	// The PCIe power-saving test is only offered when the PC does not run
 	// it already (the first notebook had ASPM off on AC and the errors went
 	// on). "ASPM is not the cause" is said only when errors were logged
@@ -447,6 +456,9 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 		} else {
 			x.Title = plural(n, "erro de hardware corrigido pelo hardware (WHEA), sem sintoma", "erros de hardware corrigidos pelo hardware (WHEA), sem sintoma")
 		}
+	case unplaced > 0:
+		x.Severity = SevInfo
+		x.Title = plural(n, "erro de hardware corrigido (WHEA), horários de inicialização não lidos", "erros de hardware corrigidos (WHEA), horários de inicialização não lidos")
 	default:
 		x.Severity = SevInfo
 		x.Title = plural(n, "erro de hardware corrigido (WHEA), só ao ligar ou acordar o PC", "erros de hardware corrigidos (WHEA), só ao ligar ou acordar o PC")
@@ -456,6 +468,9 @@ func wheaFinding(evs []sys.Event, f *facts.Facts, states map[string]tweaks.State
 		ex = append(ex, "Um erro grave é um erro que o hardware não conseguiu corrigir: o Windows para com tela azul ou reinício.")
 	}
 	switch {
+	case used == 0 && fatal == 0 && unplaced > 0:
+		ex = append(ex, "São erros PCIe que o próprio hardware corrigiu. Sem os horários de inicialização e de retomada, não dá para dizer se aconteceram ao ligar ou acordar o PC, quando os links PCIe são inicializados, ou durante o uso. "+
+			"Sozinhos não indicam defeito; passam a preocupar se aparecerem junto com travadas ou telas azuis.")
 	case used == 0 && fatal == 0:
 		ex = append(ex, "São erros PCIe que o próprio hardware corrigiu, todos logo depois de ligar ou acordar o PC, quando os links PCIe são inicializados. "+
 			"Sozinhos não indicam defeito nem afetam o jogo; passam a preocupar se aparecerem durante o uso, junto com travadas ou telas azuis. Mantenha a BIOS e o driver de chipset atualizados.")

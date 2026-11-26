@@ -50,6 +50,9 @@ type OSInfo struct {
 	ActiveHoursPolicy      bool `json:"activeHoursPolicy,omitempty"`
 	ActiveHoursPolicyStart int  `json:"activeHoursPolicyStart,omitempty"`
 	ActiveHoursPolicyEnd   int  `json:"activeHoursPolicyEnd,omitempty"`
+	// ActiveHoursRead: every value above answered (present or absent); a
+	// read that failed is not "not set".
+	ActiveHoursRead bool `json:"activeHoursRead"`
 	// User is the account signed in at the console, whose per-user settings
 	// and folders Axion reads and changes; ElevatedAs is the account Axion
 	// runs as when UAC was answered with another administrator account.
@@ -482,7 +485,8 @@ type GamingInfo struct {
 	HAGSDefault      bool     `json:"hagsDefault,omitempty"`
 	WindowedOpt      bool     `json:"windowedOpt"`
 	GameBarInstalled bool     `json:"gameBarInstalled"`
-	AntiCheats       []string `json:"antiCheats"` // FACEIT, Vanguard, EasyAntiCheat, BattlEye, Javelin
+	GameBarRead      bool     `json:"gameBarRead"` // the package list answered; false keeps GameBarInstalled false
+	AntiCheats       []string `json:"antiCheats"`  // FACEIT, Vanguard, EasyAntiCheat, BattlEye, Javelin
 	X3DServiceState  string   `json:"x3dServiceState"`
 	MouseAccelOn     bool     `json:"mouseAccelOn"`
 	MouseAccelRead   bool     `json:"mouseAccelRead"` // MouseSpeed answered; false keeps MouseAccelOn false

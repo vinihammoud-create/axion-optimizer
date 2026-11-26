@@ -33,7 +33,9 @@ func fmtPct(v float64) string {
 // assumed the worst without them.
 func applyMeasured(fs []Finding, f *facts.Facts, m *Measured) []Finding {
 	now := time.Now()
-	if p := m.Perf; p != nil && (m.PerfAt.IsZero() || now.Sub(m.PerfAt) <= measuredMaxAge) && p.GPUBoundPct >= gpuBoundShare {
+	// The shares are over the classified frames only: without the verdict
+	// (Limiter, which asks for enough classified frames) they say nothing.
+	if p := m.Perf; p != nil && (m.PerfAt.IsZero() || now.Sub(m.PerfAt) <= measuredMaxAge) && p.Limiter == "gpu" && p.GPUBoundPct >= gpuBoundShare {
 		game := m.PerfGame
 		if game == "" {
 			game = "jogo"

@@ -181,15 +181,36 @@ func TestCompareConditionsHAGS(t *testing.T) {
 	if got := CompareConditions(base("on"), base("on")); len(got) != 0 {
 		t.Errorf("HAGS igual: %v", got)
 	}
-	if got := CompareConditions(base(""), base("off")); len(got) != 0 {
-		t.Errorf("HAGS não lido de um lado não é diferença: %v", got)
+	// Not read on one side: not a difference, but not "the same" either.
+	if got := CompareConditions(base(""), base("off")); len(got) != 1 || strings.Contains(got[0], "estava") || !strings.Contains(got[0], "HAGS") || !strings.Contains(got[0], "Não foi possível ler") {
+		t.Errorf("HAGS não lido de um lado: %v", got)
+	}
+}
+
+// G-014: the plan and the mode changing together are both said; a condition
+// read on one side only, or no conditions at all, comes with a warning.
+func TestCompareConditionsDoesNotHideWhatWasNotCompared(t *testing.T) {
+	a := &Conditions{PowerScheme: "Equilibrado", PowerMode: "Equilibrado", DisplayHz: 144}
+	b := &Conditions{PowerScheme: "Alto desempenho", PowerMode: "Melhor desempenho", DisplayHz: 144}
+	joined := strings.Join(CompareConditions(a, b), " | ")
+	if !strings.Contains(joined, "plano de energia mudou") || !strings.Contains(joined, "modo de energia do Windows mudou") {
+		t.Errorf("plano e modo mudaram juntos: %s", joined)
+	}
+	half := &Conditions{PowerScheme: "Equilibrado", PowerMode: "Equilibrado"}
+	if got := strings.Join(CompareConditions(a, half), " | "); !strings.Contains(got, "Não foi possível ler") || !strings.Contains(got, "taxa de atualização do monitor") {
+		t.Errorf("taxa lida de um lado só: %s", got)
+	}
+	if got := CompareConditions(&Conditions{}, &Conditions{}); len(got) != 0 {
+		t.Errorf("nada lido dos dois lados não é diferença nem leitura de um lado só: %v", got)
+	}
+	for _, pair := range [][2]*Conditions{{nil, a}, {a, nil}, {nil, nil}} {
+		if got := CompareConditions(pair[0], pair[1]); len(got) != 1 || !strings.Contains(got[0], "não foram registradas") {
+			t.Errorf("sem condições de um lado: %v", got)
+		}
 	}
 }
 
 func TestCompareConditions(t *testing.T) {
-	if CompareConditions(nil, &Conditions{}) != nil || CompareConditions(&Conditions{}, nil) != nil {
-		t.Error("sem condições de um lado não há o que comparar")
-	}
 	same := &Conditions{PowerScheme: "Equilibrado", PowerMode: "Equilibrado", DisplayHz: 240}
 	if got := CompareConditions(same, same); len(got) != 0 {
 		t.Errorf("iguais: %v", got)

@@ -179,7 +179,7 @@ func Remarks(r *Run) []Remark {
 // a change in the FPS better than the setting that was changed.
 func CompareConditions(a, b *Conditions) []string {
 	if a == nil || b == nil {
-		return nil
+		return []string{"As condições do PC não foram registradas em pelo menos uma das medições: não dá para dizer que as duas foram feitas nas mesmas condições."}
 	}
 	var out []string
 	if a.OnBattery != b.OnBattery {
@@ -187,16 +187,38 @@ func CompareConditions(a, b *Conditions) []string {
 	}
 	if (a.PowerSaver || a.Efficiency) != (b.PowerSaver || b.Efficiency) {
 		out = append(out, "O plano ou o modo de energia era de economia em apenas uma das medições.")
-	} else if a.PowerScheme != "" && b.PowerScheme != "" && a.PowerScheme != b.PowerScheme {
-		out = append(out, fmt.Sprintf("O plano de energia mudou (%s para %s).", a.PowerScheme, b.PowerScheme))
-	} else if a.PowerMode != "" && b.PowerMode != "" && a.PowerMode != b.PowerMode {
-		out = append(out, fmt.Sprintf("O modo de energia do Windows mudou (%s para %s).", a.PowerMode, b.PowerMode))
+	} else {
+		// The plan and the mode are separate settings: both changes are said.
+		if a.PowerScheme != "" && b.PowerScheme != "" && a.PowerScheme != b.PowerScheme {
+			out = append(out, fmt.Sprintf("O plano de energia mudou (%s para %s).", a.PowerScheme, b.PowerScheme))
+		}
+		if a.PowerMode != "" && b.PowerMode != "" && a.PowerMode != b.PowerMode {
+			out = append(out, fmt.Sprintf("O modo de energia do Windows mudou (%s para %s).", a.PowerMode, b.PowerMode))
+		}
 	}
 	if a.DisplayHz > 0 && b.DisplayHz > 0 && a.DisplayHz != b.DisplayHz {
 		out = append(out, fmt.Sprintf("A taxa de atualização do monitor mudou (%d Hz para %d Hz).", a.DisplayHz, b.DisplayHz))
 	}
 	if a.HAGS != "" && b.HAGS != "" && a.HAGS != b.HAGS {
 		out = append(out, fmt.Sprintf("O agendamento de GPU acelerado por hardware (HAGS) estava %s em uma medição e %s na outra. É uma diferença entre as medições; este resultado não diz quanto ela pesa no FPS.", hagsText(a.HAGS), hagsText(b.HAGS)))
+	}
+	// Read on one side only: not a difference, not "the same" either.
+	var oneSided []string
+	for _, c := range []struct {
+		name   string
+		ra, rb bool
+	}{
+		{"plano de energia", a.PowerScheme != "", b.PowerScheme != ""},
+		{"modo de energia do Windows", a.PowerMode != "", b.PowerMode != ""},
+		{"taxa de atualização do monitor", a.DisplayHz > 0, b.DisplayHz > 0},
+		{"HAGS", a.HAGS != "", b.HAGS != ""},
+	} {
+		if c.ra != c.rb {
+			oneSided = append(oneSided, c.name)
+		}
+	}
+	if len(oneSided) > 0 {
+		out = append(out, "Não foi possível ler em uma das medições: "+strings.Join(oneSided, ", ")+". Sem isso não dá para dizer que as duas foram feitas nas mesmas condições.")
 	}
 	names := func(c *Conditions) map[string]bool {
 		m := map[string]bool{}

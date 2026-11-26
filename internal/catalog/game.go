@@ -58,7 +58,7 @@ func gameTweaks() []*tweaks.Tweak {
 				if f.Gaming.HistoricalRecord {
 					return tweaks.Rec(tweaks.RecYes, "a gravação em segundo plano está ligada neste PC")
 				}
-				return tweaks.Rec(tweaks.RecYes, "garante que a gravação contínua fique desligada")
+				return tweaks.Rec(tweaks.RecYes, "grava HistoricalCaptureEnabled = 0, o valor que deixa a gravação contínua desligada")
 			},
 			Ops: func(*facts.Facts) []tweaks.Op {
 				return []tweaks.Op{tweaks.Reg(keyGameDVR, "HistoricalCaptureEnabled", sys.DWord(0), sys.Absent())}

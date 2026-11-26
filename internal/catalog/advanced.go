@@ -21,12 +21,18 @@ func advancedTweaks() []*tweaks.Tweak {
 			Risk: tweaks.RiskAdvanced, RiskNote: "reduz a proteção contra drivers maliciosos e exploits de kernel",
 			Reboot: tweaks.RebootRestart, Tags: []string{"fps", "seguranca"}, OneClick: false,
 			Applicable: func(f *facts.Facts) (bool, string) {
+				if !f.Read(facts.StepSecurity) || !f.Security.DeviceGuardRead {
+					return false, "o estado do VBS e da Integridade de Memória não pôde ser lido nesta análise"
+				}
 				if !f.Security.VBSRunning && !f.Security.HVCIRunning && !f.Security.VBSConfigured {
 					return false, "VBS e Integridade de Memória já estão desligados"
 				}
 				return true, ""
 			},
 			Recommend: func(f *facts.Facts) tweaks.Recommendation {
+				if !f.Read(facts.StepGaming) {
+					return tweaks.Rec(tweaks.RecBlocked, "os anti-cheats instalados não puderam ser lidos nesta análise; FACEIT e Vanguard podem exigir VBS/Integridade de Memória, e desligar pode impedir de jogar")
+				}
 				if f.RequiresVBS() {
 					return tweaks.Rec(tweaks.RecBlocked, "você tem "+joinAC(f)+" instalado, que pode exigir VBS/Integridade de Memória: desligar pode impedir de jogar")
 				}

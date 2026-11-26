@@ -28,6 +28,9 @@ type ThermalZone struct {
 	// PassiveLimitPct is how much the zone lets the devices it controls run:
 	// 100 means not throttled (Microsoft).
 	PassiveLimitPct int `json:"passiveLimitPct"`
+	// PassiveLimitRead: the zone answered "% Passive Limit" (a missing or
+	// null value is not read, and PassiveLimitPct is then meaningless).
+	PassiveLimitRead bool `json:"passiveLimitRead"`
 	// Reasons: 0x1 throttled for heat, 0x2 to limit electrical current.
 	Reasons uint32 `json:"reasons"`
 }
@@ -43,7 +46,7 @@ const (
 func (t ThermalInfo) ThrottledNow() []ThermalZone {
 	var out []ThermalZone
 	for _, z := range t.Zones {
-		if z.PassiveLimitPct < 100 && z.Reasons&ThrottleThermal != 0 {
+		if z.PassiveLimitRead && z.PassiveLimitPct < 100 && z.Reasons&ThrottleThermal != 0 {
 			out = append(out, z)
 		}
 	}
