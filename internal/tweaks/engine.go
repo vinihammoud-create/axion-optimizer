@@ -109,11 +109,33 @@ func (e *Engine) ctx(ctx context.Context, f *facts.Facts, log func(string, ...an
 	return &Ctx{Context: ctx, P: e.P, F: f, Log: log}
 }
 
+// steady returns ctx without its cancellation. One tweak is applied, rolled
+// back or undone to the end: a cancellation that arrived in the middle would
+// kill the Windows tool an operation is running (powercfg, netsh, DISM) and
+// then the tools of the rollback too, leaving the tweak half written. The
+// cancellation is honored between tweaks instead (Apply, RevertEntries).
+// Each operation keeps its own time limit.
+func steady(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return context.WithoutCancel(ctx)
+}
+
+// userSID is the account HKEY_CURRENT_USER stands for now.
+func (e *Engine) userSID() string { return e.P.Native.Paths().UserSID }
+
+// ActiveFor returns the newest entry of a tweak still applied for the
+// account signed in now. What Axion changed in another account's profile is
+// not this account's state: it is neither shown as applied here nor undone
+// from here.
+func (e *Engine) ActiveFor(tweakID string) *Entry { return e.J.ActiveForUser(tweakID, e.userSID) }
+
 // StateOf computes the live state of a tweak (read-only).
 func (e *Engine) StateOf(ctx context.Context, f *facts.Facts, t *Tweak) State {
 	st := State{ID: t.ID, Rec: t.Recommendation(f)}
 	ok, why := t.IsApplicable(f)
-	ent := e.J.ActiveFor(t.ID)
+	ent := e.ActiveFor(t.ID)
 	st.Applicable = ok
 	if ent != nil {
 		st.ByAxion = true
@@ -348,11 +370,20 @@ func (e *Engine) applyOne(ctx context.Context, f *facts.Facts, t *Tweak, o Apply
 		res.Outcome, res.Message = OutBlocked, rec.Reason
 		return res
 	}
+	ctx = steady(ctx)
 	c := e.ctx(ctx, f, o.Log)
+	sid := e.userSID()
 	// Mutually exclusive group: revert the currently active member first.
 	if t.Group != "" {
 		for _, ent := range e.J.Active() {
 			if ent.TweakID == t.ID {
+				continue
+			}
+			// A member applied only to another account's profile is not
+			// active for this one: nothing of it is in the way.
+			var elsewhere bool
+			e.J.View(func() { elsewhere = otherUser(ent, sid) && perUserOnly(ent) })
+			if elsewhere {
 				continue
 			}
 			if other := e.Resolve(ent.TweakID, f); other != nil && other.Group == t.Group {
@@ -368,13 +399,13 @@ func (e *Engine) applyOne(ctx context.Context, f *facts.Facts, t *Tweak, o Apply
 	// Keys another tweak still applied created do not count as found on the
 	// machine: this apply captures them as absent, so its undo removes them
 	// if it is the last one to leave the key empty.
-	c.CreatedKeys = e.J.CreatedRegKeys(e.P.Native.Paths().UserSID)
+	c.CreatedKeys = e.J.CreatedRegKeys(sid)
 	ops := t.Ops(f)
 	entry := &Entry{
 		ID: NewID(), Batch: o.Batch, BatchLabel: o.Label, TweakID: t.ID, TweakTitle: t.Title, Category: t.Category,
 		Time: time.Now(), Reboot: t.Reboot.String(), Status: StatusApplying,
 	}
-	entry.UserSID = e.P.Native.Paths().UserSID
+	entry.UserSID = sid
 	if f != nil {
 		entry.WinBuild = f.OS.Build
 	}
@@ -384,9 +415,13 @@ func (e *Engine) applyOne(ctx context.Context, f *facts.Facts, t *Tweak, o Apply
 	// Only entries this installation signed are carried: a record that cannot
 	// be vouched for never gets into a signed entry (it stays where it is,
 	// with its limited undo).
+	// An entry applied for another account stays as it is: its "before"
+	// values are that account's, not the ones this apply is about to change.
 	var olds []*Entry
 	for _, old := range e.activeEntries(t.ID) {
-		if old.Verified() {
+		var elsewhere bool
+		e.J.View(func() { elsewhere = otherUser(old, sid) })
+		if old.Verified() && !elsewhere {
 			olds = append(olds, old)
 		}
 	}
@@ -647,8 +682,12 @@ func (e *Engine) RevertTweaks(ctx context.Context, f *facts.Facts, ids []string,
 	var entries []*Entry
 	var results []Result
 	for _, id := range ids {
-		if ent := e.J.ActiveFor(id); ent != nil {
+		if ent := e.ActiveFor(id); ent != nil {
 			entries = append(entries, ent)
+		} else if other := e.J.ActiveFor(id); other != nil {
+			// Applied for another account only: the undo below refuses it
+			// and says why, instead of "nothing to undo".
+			entries = append(entries, other)
 		} else {
 			title := id
 			if t := e.Resolve(id, f); t != nil {
@@ -672,10 +711,15 @@ func (e *Engine) RevertEntries(ctx context.Context, f *facts.Facts, entries []*E
 	sort.SliceStable(entries, func(a, b int) bool { return entries[a].Time.After(entries[b].Time) })
 	var results []Result
 	for i, ent := range entries {
+		if ctx != nil && ctx.Err() != nil {
+			results = append(results, Result{TweakID: ent.TweakID, Title: ent.TweakTitle, EntryID: ent.ID, Outcome: OutFailed,
+				Message: "cancelado antes de desfazer este item; ele continua aplicado e no histórico"})
+			continue
+		}
 		if o.Progress != nil {
 			o.Progress(i, len(entries), ent.TweakTitle)
 		}
-		results = append(results, e.revertOne(ctx, f, ent, o))
+		results = append(results, e.revertOne(steady(ctx), f, ent, o))
 	}
 	if o.Progress != nil {
 		o.Progress(len(entries), len(entries), "")
@@ -752,7 +796,7 @@ func (e *Engine) revertOne(ctx context.Context, f *facts.Facts, ent *Entry, o Re
 	// changed may be another one, and the history is shared by all accounts.
 	if cur := c.P.Native.Paths().UserSID; ent.UserSID != "" && cur != "" && cur != ent.UserSID {
 		for _, p := range pairs {
-			if usesHKCU(recs[p.idx].Target) {
+			if PerUserTarget(recs[p.idx].Target) {
 				res.Outcome = OutFailed
 				res.Message = "este ajuste foi aplicado para outro usuário do Windows; entre nessa conta para desfazer"
 				return res
@@ -943,6 +987,11 @@ func (e *Engine) ReconcileHistory() int {
 			}
 			for _, old := range list {
 				if old == newest || !old.verified || !old.Time.Before(newest.Time) || (old.Status != StatusFailed && old.Status != StatusPartialRev) || !old.Pending() {
+					continue
+				}
+				// Per-user records only move between entries of the same
+				// account: in another one they would name another profile.
+				if old.UserSID != newest.UserSID && (hasPerUser(old) || hasPerUser(newest)) {
 					continue
 				}
 				for i := range old.Ops {

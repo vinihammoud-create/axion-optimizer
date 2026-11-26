@@ -207,14 +207,62 @@ func ProfileProvider(id string, f *facts.Facts) *tweaks.Tweak {
 	return nil
 }
 
+// isHKCU reports a (normalized) registry path under HKEY_CURRENT_USER.
+func isHKCU(path string) bool {
+	return strings.HasPrefix(strings.ToLower(path), `hkcu\`)
+}
+
+// keyedValue is the snapshot of the operations that own one option inside a
+// registry value: the value, and the key when the operation is the one
+// creating it. Snapshots written before CreatedKey existed are the bare
+// value, which decodes into this just the same.
+type keyedValue struct {
+	sys.RegValue
+	// CreatedKey is the value's key when it was not on the machine (or was
+	// there only because of another tweak): the undo removes it if empty.
+	CreatedKey string `json:"createdKey,omitempty"`
+}
+
+func snapKeyed(c *tweaks.Ctx, key, name string) (keyedValue, error) {
+	v, err := c.P.Reg.GetValue(key, name)
+	if err != nil {
+		return keyedValue{}, err
+	}
+	s := keyedValue{RegValue: v}
+	if !v.Exists {
+		missing, err := c.KeyMissing(key)
+		if err != nil {
+			return keyedValue{}, err
+		}
+		if missing {
+			s.CreatedKey = key
+		}
+	}
+	return s, nil
+}
+
+// dropValue removes a value the operation created and, with it, the key the
+// operation created for it (when nothing else is left there).
+func dropValue(c *tweaks.Ctx, key, name string, before keyedValue) error {
+	if err := c.P.Reg.DeleteValue(key, name); err != nil {
+		return err
+	}
+	if before.CreatedKey != "" {
+		if _, err := c.P.Reg.DeleteKeyIfEmpty(before.CreatedKey); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // dxPrefOp merges NAME=VALUE; into a DirectX preference string value.
 func dxPrefOp(key, valueName, name, value string) tweaks.Op {
 	key = sys.NormalizeRegPath(key)
 	read := func(c *tweaks.Ctx) (sys.RegValue, error) { return c.P.Reg.GetValue(key, valueName) }
 	return &tweaks.FuncOp{
-		KindName: "registry-merge", ID: strings.ToLower(key + "|" + valueName + "|" + name), Spec: dxSpec{Key: key, ValueName: valueName, Name: name, Value: value},
+		KindName: "registry-merge", ID: strings.ToLower(key + "|" + valueName + "|" + name), Spec: dxSpec{Key: key, ValueName: valueName, Name: name, Value: value}, PerUser: isHKCU(key),
 		Desc:   fmt.Sprintf(`%s → "%s" contém %s=%s; (outras opções preservadas)`, key, valueName, name, value),
-		SnapFn: func(c *tweaks.Ctx) (any, error) { return read(c) },
+		SnapFn: func(c *tweaks.Ctx) (any, error) { return snapKeyed(c, key, valueName) },
 		InFn: func(c *tweaks.Ctx) (bool, error) {
 			v, err := read(c)
 			if err != nil || !v.Exists {
@@ -238,7 +286,7 @@ func dxPrefOp(key, valueName, name, value string) tweaks.Op {
 		// Only the option this op owns is put back; other options in the
 		// same string (changed later by Settings, e.g. Auto HDR) are kept.
 		RestoreFn: func(c *tweaks.Ctx, raw json.RawMessage) error {
-			var before sys.RegValue
+			var before keyedValue
 			if err := json.Unmarshal(raw, &before); err != nil {
 				return err
 			}
@@ -259,7 +307,7 @@ func dxPrefOp(key, valueName, name, value string) tweaks.Op {
 				keys = dropKey(keys, name)
 			}
 			if len(keys) == 0 && !before.Exists {
-				return c.P.Reg.DeleteValue(key, valueName)
+				return dropValue(c, key, valueName, before)
 			}
 			return c.P.Reg.SetValue(key, valueName, sys.SZ(formatDXSettings(keys, vals)))
 		},
@@ -318,9 +366,9 @@ func layerFlagOp(exePath, flag string) tweaks.Op {
 		return false
 	}
 	return &tweaks.FuncOp{
-		KindName: "registry-layer", ID: strings.ToLower(exePath + "|" + flag), Spec: layerSpec{Exe: exePath, Flag: flag},
+		KindName: "registry-layer", ID: strings.ToLower(exePath + "|" + flag), Spec: layerSpec{Exe: exePath, Flag: flag}, PerUser: true,
 		Desc:   fmt.Sprintf(`%s → "%s" contém %s`, key, exePath, flag),
-		SnapFn: func(c *tweaks.Ctx) (any, error) { return read(c) },
+		SnapFn: func(c *tweaks.Ctx) (any, error) { return snapKeyed(c, key, exePath) },
 		InFn: func(c *tweaks.Ctx) (bool, error) {
 			v, err := read(c)
 			if err != nil || !v.Exists {
@@ -346,7 +394,7 @@ func layerFlagOp(exePath, flag string) tweaks.Op {
 		// Only this flag is put back or removed; other compatibility flags
 		// set later (by the user in the .exe properties) are kept.
 		RestoreFn: func(c *tweaks.Ctx, raw json.RawMessage) error {
-			var before sys.RegValue
+			var before keyedValue
 			if err := json.Unmarshal(raw, &before); err != nil {
 				return err
 			}
@@ -375,9 +423,9 @@ func layerFlagOp(exePath, flag string) tweaks.Op {
 			}
 			if rest == 0 {
 				if !before.Exists {
-					return c.P.Reg.DeleteValue(key, exePath)
+					return dropValue(c, key, exePath, before)
 				}
-				return c.P.Reg.SetValue(key, exePath, before) // it held only a marker: back as it was
+				return c.P.Reg.SetValue(key, exePath, before.RegValue) // it held only a marker: back as it was
 			}
 			return c.P.Reg.SetValue(key, exePath, sys.SZ(strings.Join(tokens, " ")))
 		},

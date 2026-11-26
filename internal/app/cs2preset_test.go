@@ -2,7 +2,10 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -269,6 +272,63 @@ func TestCS2PresetRefusesAAWithoutAntialiasing(t *testing.T) {
 	}
 	if now, _ := os.ReadFile(p); !bytes.Equal(now, b) {
 		t.Error("arquivo mudou")
+	}
+}
+
+// A preset refused because another job is running leaves no safety copy
+// behind (and rotates none out): the copy is made inside the job.
+func TestCS2PresetBusyLeavesNoBackup(t *testing.T) {
+	m, c := setupServer(t)
+	scanWith(t, m, c, mocksys.CS2VideoSample)
+	release := make(chan struct{})
+	busy, err := c.s.App.Jobs.Start("scan", "Ocupado", true, func(ctx context.Context, _ *JobCtl) (any, error) {
+		<-release
+		return nil, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.s.App.StartCS2Preset([]string{"cs2video:aa"}); !errors.Is(err, ErrBusy) {
+		t.Fatalf("com outro trabalho em andamento o preset deveria ser recusado: %v", err)
+	}
+	close(release)
+	c.wait(busy.ID)
+	if ents, _ := os.ReadDir(filepath.Join(m.DataDir, "cs2")); len(ents) != 0 {
+		t.Errorf("o preset recusado deixou %d cópia(s) de segurança", len(ents))
+	}
+	// Accepted, the copy is there by the time the job ends.
+	j, err := c.s.App.StartCS2Preset([]string{"cs2video:aa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j = c.wait(j.ID); j.Status != JobDone {
+		t.Fatalf("aplicar: %+v", j)
+	}
+	if ents, _ := os.ReadDir(filepath.Join(m.DataDir, "cs2")); len(ents) != 1 {
+		t.Errorf("cópias de segurança depois de aplicar: %d, esperado 1", len(ents))
+	}
+}
+
+// When the step that runs inside the job, before applying, refuses (the game
+// was opened meanwhile, the copy could not be written), nothing is changed.
+func TestApplyPreStepRefusalChangesNothing(t *testing.T) {
+	m, c := setupServer(t)
+	p := scanWith(t, m, c, mocksys.CS2VideoSample)
+	before, _ := os.ReadFile(p)
+	j, err := c.s.App.startApply(ApplyRequest{IDs: []string{"cs2video:aa"}, Label: "Preset", pre: func(*JobCtl) error {
+		return fmt.Errorf("%w: o jogo foi aberto", errBadRequest)
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j = c.wait(j.ID); j.Status == JobDone || !strings.Contains(j.Error, "o jogo foi aberto") {
+		t.Fatalf("o passo prévio recusou e o trabalho não podia terminar bem: %+v", j)
+	}
+	if now, _ := os.ReadFile(p); !bytes.Equal(now, before) {
+		t.Error("o arquivo mudou mesmo com o passo prévio recusando")
+	}
+	if len(c.s.App.Engine.J.Active()) != 0 {
+		t.Error("nada deveria ter sido registrado no histórico")
 	}
 }
 

@@ -921,28 +921,61 @@ func (n *Native) DNSConfig(guid string) (sys.DNSConfig, error) {
 		c.V4 = splitServers(windows.UTF16PtrToString(s1.NameServer))
 		procFreeInterfaceDnsSettings.Call(uintptr(unsafe.Pointer(&s1)))
 	}
+	if err := dnsRegistryView(n.Reg, guid, &c); err != nil {
+		return sys.DNSConfig{}, err
+	}
+	return c, nil
+}
+
+// dnsRegistryView completes the DNS configuration of an adapter with what
+// only the registry tells. Every read that fails is an error: this
+// configuration is what the DNS tweak records as "before" and puts back on
+// undo, so a static IPv6 list that could not be read would be recorded as
+// "none" and erased by the undo, and an unread DNS over HTTPS setting would
+// let the tweak overwrite an adapter that has one.
+func dnsRegistryView(reg sys.Registry, guid string, c *sys.DNSConfig) error {
 	// The static IPv4 list lives in the NameServer value of the adapter under
 	// Tcpip\Parameters\Interfaces (empty on DHCP). If the registry says there
 	// is none, the API must not hand back the servers the router gave: they
 	// would be pinned as static when the DNS is restored.
 	if len(c.V4) > 0 {
-		if v, err := n.Reg.GetValue(keyTcpipIfaces+guid, "NameServer"); err == nil && len(splitServers(v.Str)) == 0 {
+		v, err := reg.GetValue(keyTcpipIfaces+guid, "NameServer")
+		if err != nil {
+			return fmt.Errorf("ler o DNS IPv4 estático do adaptador: %w", err)
+		}
+		if len(splitServers(v.Str)) == 0 {
 			c.V4 = nil
 		}
 	}
 	// IPv6: Get is documented only for the IPv4 view (Flags must be empty), so
 	// the static IPv6 list is read where the IPv6 stack keeps it.
-	if v, err := n.Reg.GetValue(keyTcpip6Ifaces+guid, "NameServer"); err == nil && v.Exists {
+	v, err := reg.GetValue(keyTcpip6Ifaces+guid, "NameServer")
+	if err != nil {
+		return fmt.Errorf("ler o DNS IPv6 estático do adaptador: %w", err)
+	}
+	if v.Exists {
 		c.V6 = splitServers(v.Str)
 	}
 	if !c.DoH {
 		for _, sub := range []string{`\Doh`, `\Doh6`} {
-			if ks, err := n.Reg.SubKeys(keyDohIfaces(guid) + sub); err == nil && len(ks) > 0 {
+			key := keyDohIfaces(guid) + sub
+			ok, err := reg.KeyExists(key)
+			if err != nil {
+				return fmt.Errorf("ler a configuração de DNS sobre HTTPS do adaptador: %w", err)
+			}
+			if !ok {
+				continue
+			}
+			ks, err := reg.SubKeys(key)
+			if err != nil {
+				return fmt.Errorf("ler a configuração de DNS sobre HTTPS do adaptador: %w", err)
+			}
+			if len(ks) > 0 {
 				c.DoH = true
 			}
 		}
 	}
-	return c, nil
+	return nil
 }
 
 func sameServers(a, b []string) bool {

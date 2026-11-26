@@ -68,6 +68,44 @@ func onMachine(r *OpRecord) bool {
 	return !r.Skipped && len(r.Before) > 0 && !r.RevertVerified
 }
 
+// hasPerUser reports whether the entry still holds, on the machine, a change
+// to the profile of the account it was applied for. The caller holds the
+// journal lock (or owns the entry).
+func hasPerUser(e *Entry) bool {
+	for i := range e.Ops {
+		if onMachine(&e.Ops[i]) && PerUserTarget(e.Ops[i].Target) {
+			return true
+		}
+	}
+	return false
+}
+
+// otherUser reports an entry whose per-user changes sit in the profile of an
+// account other than sid (the one signed in now). The history is shared by
+// every account of the PC, but HKEY_CURRENT_USER is a different hive for each:
+// read or written now, such an entry would be compared with, and restored
+// into, the wrong profile. Entries from before the account was recorded
+// (no UserSID) belong to whoever is signed in, as they always did.
+func otherUser(e *Entry, sid string) bool {
+	return e.UserSID != "" && sid != "" && e.UserSID != sid && hasPerUser(e)
+}
+
+// perUserOnly reports whether everything the entry still holds on the
+// machine is in an account's profile (nothing machine-wide).
+func perUserOnly(e *Entry) bool {
+	n := 0
+	for i := range e.Ops {
+		if !onMachine(&e.Ops[i]) {
+			continue
+		}
+		if !PerUserTarget(e.Ops[i].Target) {
+			return false
+		}
+		n++
+	}
+	return n > 0
+}
+
 // OpRecord is the audit trail of one operation.
 type OpRecord struct {
 	Kind           string          `json:"kind"`
@@ -363,6 +401,33 @@ func (j *Journal) ActiveFor(tweakID string) *Entry {
 	return best
 }
 
+// ActiveForUser is ActiveFor for the account signed in now: entries that
+// changed another account's profile do not count (see otherUser). sid is only
+// asked for when an entry could be one of those.
+func (j *Journal) ActiveForUser(tweakID string, sid func() string) *Entry {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	cur, asked := "", false
+	var best *Entry
+	for _, e := range j.entries {
+		if e.TweakID != tweakID || !revertible(e) {
+			continue
+		}
+		if e.UserSID != "" && hasPerUser(e) {
+			if !asked {
+				cur, asked = sid(), true
+			}
+			if otherUser(e, cur) {
+				continue
+			}
+		}
+		if best == nil || e.Time.After(best.Time) {
+			best = e
+		}
+	}
+	return best
+}
+
 // Active returns all applied, not-reverted entries that changed something, newest first.
 func (j *Journal) Active() []*Entry {
 	all := j.Entries()
@@ -394,10 +459,21 @@ func (j *Journal) CreatedRegKeys(userSID string) map[string]bool {
 		}
 		for i := range e.Ops {
 			r := &e.Ops[i]
-			if r.Kind != "registry" || !onMachine(r) {
+			if !onMachine(r) {
 				continue
 			}
-			if usesHKCU(r.Target) && e.UserSID != userSID {
+			if PerUserTarget(r.Target) && e.UserSID != userSID {
+				continue
+			}
+			if r.Kind != "registry" {
+				// Other operations that write one registry value name the
+				// key they created in their own snapshot (Ctx.KeyMissing).
+				var s struct {
+					CreatedKey string `json:"createdKey"`
+				}
+				if json.Unmarshal(r.Before, &s) == nil && s.CreatedKey != "" {
+					out[strings.ToLower(s.CreatedKey)] = true
+				}
 				continue
 			}
 			var s regSnap

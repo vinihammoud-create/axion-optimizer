@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -138,7 +139,7 @@ func mouseOp() tweaks.Op {
 		return c.P.Native.SetMouseParams(atoiDef(s.T1.Str, 6), atoiDef(s.T2.Str, 10), atoiDef(s.Speed.Str, 1))
 	}
 	return &tweaks.FuncOp{
-		KindName: "mouse", ID: "acceleration", Spec: struct{}{},
+		KindName: "mouse", ID: "acceleration", Spec: struct{}{}, PerUser: true,
 		Desc:   `HKCU\Control Panel\Mouse → MouseSpeed="0", MouseThreshold1="0", MouseThreshold2="0" e SPI_SETMOUSE (aplica na hora, sem sair da conta)`,
 		SnapFn: func(c *tweaks.Ctx) (any, error) { return read(c) },
 		InFn: func(c *tweaks.Ctx) (bool, error) {
@@ -189,8 +190,9 @@ func flagClearOp(path, name string, mask int, def int, label string) tweaks.Op {
 	}
 	return &tweaks.FuncOp{
 		KindName: "registry-flag", ID: strings.ToLower(path + "|" + name), Spec: flagSpec{Path: path, Name: name, Mask: mask, Def: def, Label: label},
-		Desc:   fmt.Sprintf(`%s → "%s": desliga o bit 0x%X (%s), preservando os demais`, path, name, mask, label),
-		SnapFn: func(c *tweaks.Ctx) (any, error) { return read(c) },
+		PerUser: isHKCU(path),
+		Desc:    fmt.Sprintf(`%s → "%s": desliga o bit 0x%X (%s), preservando os demais`, path, name, mask, label),
+		SnapFn:  func(c *tweaks.Ctx) (any, error) { return read(c) },
 		InFn: func(c *tweaks.Ctx) (bool, error) {
 			v, err := read(c)
 			if err != nil {
@@ -290,17 +292,31 @@ func (s hiberSnap) reduced() bool {
 	return s.FileType.Exists && s.FileType.Int == hiberTypeReduced
 }
 
-func hibernateEnabled(c *tweaks.Ctx) bool {
+// hibernateEnabled reads whether hibernation is on. A failed read is an
+// error, never "off": "off" is this tweak's target, and taking a failure for
+// it would record the tweak as applied (or the hibernation as already off in
+// the snapshot the undo uses) without having seen anything.
+func hibernateEnabled(c *tweaks.Ctx) (bool, error) {
 	v, err := c.P.Reg.GetValue(keyPower, "HibernateEnabled")
-	if err == nil && v.Exists {
-		return v.Int != 0
+	if err != nil {
+		return false, fmt.Errorf("ler HibernateEnabled: %w", err)
 	}
+	if v.Exists {
+		return v.Int != 0, nil
+	}
+	// No value: the hibernation file tells (it only exists while it is on).
 	drive := c.P.Native.Paths().SystemDrive
 	if drive == "" {
 		drive = "C:"
 	}
 	_, err = os.Stat(filepath.Join(drive+`\`, "hiberfil.sys"))
-	return err == nil
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, fs.ErrNotExist):
+		return false, nil
+	}
+	return false, fmt.Errorf("conferir o hiberfil.sys: %w", err)
 }
 
 func powercfgHibernate(c *tweaks.Ctx, args ...string) error {
@@ -350,9 +366,16 @@ func hibernateOp() tweaks.Op {
 			if err != nil {
 				return nil, err
 			}
-			return hiberSnap{Enabled: hibernateEnabled(c), Hiberboot: hb, FileType: ft, SizePercent: sz}, nil
+			on, err := hibernateEnabled(c)
+			if err != nil {
+				return nil, err
+			}
+			return hiberSnap{Enabled: on, Hiberboot: hb, FileType: ft, SizePercent: sz}, nil
 		},
-		InFn:    func(c *tweaks.Ctx) (bool, error) { return !hibernateEnabled(c), nil },
+		InFn: func(c *tweaks.Ctx) (bool, error) {
+			on, err := hibernateEnabled(c)
+			return err == nil && !on, err
+		},
 		ApplyFn: func(c *tweaks.Ctx) error { return powercfgHibernate(c, "off") },
 		RestoreFn: func(c *tweaks.Ctx, raw json.RawMessage) error {
 			var s hiberSnap
@@ -370,10 +393,16 @@ func hibernateOp() tweaks.Op {
 			if s.Hiberboot.Exists {
 				return c.P.Reg.SetValue(keySessionPower, "HiberbootEnabled", s.Hiberboot)
 			}
-			return nil
+			// It was not there before: `powercfg /hibernate on` may have
+			// created it, and the undo leaves the registry as it found it.
+			return c.P.Reg.DeleteValue(keySessionPower, "HiberbootEnabled")
 		},
 		CurFn: func(c *tweaks.Ctx) string {
-			if hibernateEnabled(c) {
+			on, err := hibernateEnabled(c)
+			switch {
+			case err != nil:
+				return "erro: " + err.Error()
+			case on:
 				return "hibernação ligada"
 			}
 			return "hibernação desligada"
