@@ -143,6 +143,8 @@
   // address left in the browser history holds nothing reusable. The token is
   // kept for this tab only, so reloading works.
   let TOKEN = (window.__AXION__ && window.__AXION__.token) || '';
+  // No injected token: the page runs in the browser fallback (no WebView2).
+  const IN_BROWSER = !TOKEN;
   if (!TOKEN) { try { TOKEN = sessionStorage.getItem('axion-token') || ''; } catch (e) { /* storage unavailable */ } }
   async function redeemBootCode() {
     const m = location.hash.match(/^#b=([0-9a-f]{32})$/);
@@ -237,7 +239,13 @@
   }
   function badge(text, kind, ic) { return h('span', { class: 'badge ' + (kind || '') }, ic ? icon(ic) : null, text); }
   function extLink(title, url) { return h('a', { href: url, class: 'small', rel: 'noreferrer' }, title); }
-  function go(page) { location.hash = '#/' + page; }
+  // The simple mode is one screen whatever the address says: a button that
+  // opens a page (an action of a finding, a banner, "Ver histórico" after a
+  // job) leaves it and opens the page, instead of doing nothing.
+  function go(page) {
+    if (isSimple() && S.state && S.state.scanned) { leaveSimple(page); return; }
+    location.hash = '#/' + page;
+  }
 
   function toast(msg, kind, ms) {
     kind = kind || 'info';
@@ -345,15 +353,32 @@
   }
 
   function scoreClass(n) { return n < 0 ? 'none' : n >= 90 ? 'ok' : n >= 75 ? 'info' : n >= 50 ? 'warn' : 'bad'; }
-  function ring(n) {
+  // unread: parts of the collection were not read (report.unread), so the
+  // score leaves them out; the ring is then neutral, never green.
+  function ring(n, unread) {
     const r = 62, c = 2 * Math.PI * r;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 150 150');
     const off = c * (1 - Math.max(0, Math.min(100, n)) / 100);
     svg.innerHTML = '<circle class="ring-track" cx="75" cy="75" r="62" fill="none" stroke-width="12"/>' +
-      '<circle class="ring-arc s-' + scoreClass(n) + '" cx="75" cy="75" r="62" fill="none" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"/>';
+      '<circle class="ring-arc s-' + (unread && n >= 0 ? 'unread' : scoreClass(n)) + '" cx="75" cy="75" r="62" fill="none" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"/>';
     // n < 0: nothing to grade yet (the measurement reading before any measurement).
     return h('div', { class: 'ring' }, svg, h('div', { class: 'val' }, h('div', { class: 'num', text: n < 0 ? '—' : String(n) }), h('div', { class: 'of', text: n < 0 ? 'sem medição' : 'de 100' })));
+  }
+
+  // A report with parts of the collection not read (the server already says
+  // "Informação insuficiente" and "Análise incompleta"): neutral colour, and
+  // the list of what was not read one click away.
+  const unreadOf = rep => (rep && rep.unread) || [];
+  const gradeClass = rep => (unreadOf(rep).length && rep.overall >= 0 ? 'unread' : scoreClass(rep.overall));
+  const scoreRing = rep => ring(rep.overall, unreadOf(rep).length > 0);
+  function unreadNote(rep) {
+    const u = unreadOf(rep);
+    if (!u.length) return null;
+    return h('details', { class: 'unread-note' },
+      h('summary', null, icon('info'), plural(u.length, 'parte não lida', 'partes não lidas')),
+      h('ul', { class: 'list-clean small' }, u.map(x => h('li', { text: x }))),
+      h('div', { class: 'small muted', text: 'O que depende dessas partes ficou fora do diagnóstico e da nota.' }));
   }
 
   const SEV = {
@@ -718,7 +743,7 @@
 
   const profiles = () => get('profiles', '/api/profiles');
   function profileOf(id, list) {
-    return (list || []).find(p => p.id === id) || (list || [])[0] || { id, title: 'Jogo competitivo', scoreTitle: 'Saúde do PC para jogos' };
+    return (list || []).find(p => p.id === id) || (list || [])[0] || { id, title: 'Jogo competitivo', scoreTitle: 'Saúde do PC para jogos', gaming: true };
   }
   const isSimple = () => !!(S.state && S.state.settings && S.state.settings.simple);
 
@@ -767,6 +792,20 @@
     rerender(true);
   }
 
+  // leaveSimple goes back to the complete mode and opens a page there.
+  let leavingSimple = false;
+  async function leaveSimple(page) {
+    if (leavingSimple) return;
+    leavingSimple = true;
+    try {
+      try { await api('POST', '/api/settings', { simple: false }); } catch (e) { toast(e.message, 'bad'); return; }
+      await refreshState();
+      if (page) location.hash = '#/' + page;
+      rerender(true);
+      toast('Modo completo. Para voltar ao modo simples, use o botão Modo simples no Início.', 'info', 6000);
+    } finally { leavingSimple = false; }
+  }
+
   // solveSafe applies the recommended plan from the simple mode after one
   // confirmation listing the items (the full plan dialog is the complete mode's).
   async function solveSafe() {
@@ -782,7 +821,7 @@
         h('ul', { class: 'plan-mini' }, items.map(it => h('li', null, icon('check'), h('div', null, h('b', { text: it.title }), ' — ', h('span', { class: 'muted', text: it.summary }))))),
         plan.reboot ? h('div', { class: 'callout warn', style: { marginTop: '12px' } }, icon('refresh'), h('div', { text: 'Alguns itens só valem após reiniciar o PC.' })) : null,
         h('label', { class: 'check small', style: { marginTop: '12px' } }, rp, 'Criar ponto de restauração do Windows antes'),
-        h('p', { class: 'small muted', text: 'Cada mudança guarda o valor anterior e pode ser desfeita no Histórico (modo completo).' })),
+        h('p', { class: 'small muted', text: 'Cada mudança guarda o valor anterior e pode ser desfeita no Histórico. No modo simples, o botão Desfazer mudanças abre o Histórico.' })),
     });
     if (!ok) return;
     await runJob(api('POST', '/api/apply', { ids: items.map(it => it.id), restorePoint: rp.checked, label: 'Resolver o que é seguro' }), { title: 'Resolver o que é seguro' });
@@ -805,13 +844,16 @@
         [btn('Trocar perfil', () => pickProfile(false), 'ghost', 'sliders'), btn('Modo completo', () => setSimple(false), 'ghost', 'layout', { title: 'Todas as páginas: diagnóstico, otimizações, CS2, medições, histórico' })]),
       h('div', { class: 'grid g-hero' },
         h('div', { class: 'card' }, h('h2', null, icon('gauge'), prof.scoreTitle),
-          h('div', { class: 'score' }, ring(rep.overall), h('div', null,
-            h('div', { class: 'grade ' + scoreClass(rep.overall), text: rep.grade }),
-            h('div', { class: 'muted', style: { margin: '4px 0 12px' }, text: rep.summary }))),
+          h('div', { class: 'score' }, scoreRing(rep), h('div', null,
+            h('div', { class: 'grade ' + gradeClass(rep), text: rep.grade }),
+            h('div', { class: 'muted', style: { margin: '4px 0 12px' }, text: rep.summary }),
+            unreadNote(rep))),
           h('div', { class: 'faint tiny', style: { marginTop: '14px' }, text: rep.scoreNote })),
         h('div', { class: 'card' }, h('h2', null, icon('zap'), 'Resolver o que é seguro'),
           h('div', { class: 'sub', text: n ? plural(n, 'ajuste recomendado para o seu PC: sem risco, com evidência e reversível.', 'ajustes recomendados para o seu PC: sem risco, com evidência e reversíveis.') : 'Tudo o que é seguro e recomendado para o seu PC já está aplicado.' }),
           h('div', { class: 'row wrap' }, btn('Resolver o que é seguro', solveSafe, 'primary hero', 'zap', { disabled: !n }), btn('Reanalisar', rescan, '', 'refresh'), btn('Exportar relatório', exportReport, '', 'download')),
+          h('div', { class: 'row wrap', style: { marginTop: '10px' } },
+            btn('Desfazer mudanças', () => go('historico'), 'ghost', 'undo', { title: 'Sai do modo simples e abre o Histórico, onde cada mudança feita pelo Axion pode ser desfeita' })),
           st.rebootPending ? h('div', { class: 'callout warn', style: { marginTop: '14px' } }, icon('refresh'), h('div', { text: 'Há alterações que só passam a valer depois de reiniciar o PC.' })) : null)),
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('alert'), 'O que mais pesa na nota'),
         top.length ? h('div', { class: 'findings' }, top.map(x => findingCard(x, false))) : h('div', { class: 'callout' }, icon('check'), h('div', { text: 'Nenhum problema encontrado para o seu perfil.' })),
@@ -894,6 +936,7 @@
         : h('div', { class: 'crumb' }, g.pages.length > 1 ? [h('span', { text: g.title }), icon('chevron')] : null, h('b', { text: TITLES[page] || g.title })),
       st.mock ? badge('Demonstração', 'info') : null,
       h('div', { class: 'spacer' }),
+      st.scanned && isSimple() ? btn('Sair do modo simples', () => setSimple(false), 'ghost sm', 'layout', { title: 'Volta ao modo completo, com todas as páginas', 'data-focus': 'top-simple' }) : null,
       st.scanned && !isSimple() ? h('button', { class: 'btn ghost cmdk-btn', type: 'button', onclick: openPalette, title: 'Buscar uma página ou ação (Ctrl+K)', 'aria-label': 'Buscar ou ir para (Ctrl+K)', 'data-focus': 'top-cmdk' }, icon('search'), h('span', { class: 'cmdk-txt', text: 'Buscar ou ir para…' }), h('span', { class: 'kbd', text: 'Ctrl K' })) : null,
       pill,
       st.scanned ? btn('Reanalisar', rescan, 'sm', 'refresh', { disabled: !!busy, 'data-focus': 'top-rescan' }) : null]);
@@ -902,6 +945,9 @@
   function renderBanners() {
     const st = S.state || {};
     const out = [];
+    if (IN_BROWSER) out.push(h('div', { class: 'banner quiet' }, icon('info'), h('div', null,
+      'Aberto no navegador: instale o WebView2 Runtime da Microsoft para usar a janela própria do Axion, que é o modo recomendado. ',
+      extLink('Baixar o WebView2 Runtime', 'https://developer.microsoft.com/microsoft-edge/webview2/'))));
     if (st.scanned && !st.elevated && !st.mock) out.push(h('div', { class: 'banner' }, icon('alert'), h('div', { text: 'O Axion não está como administrador: a análise funciona, mas as otimizações não podem ser aplicadas. Abra o programa novamente e aceite o pedido de permissão.' })));
     if (st.rebootPending) out.push(h('div', { class: 'banner' }, icon('refresh'), h('div', { text: 'Há alterações que só passam a valer depois de reiniciar o PC.' })));
     if (st.drifted) out.push(h('div', { class: 'banner' }, icon('alert'), h('div', { text: plural(st.drifted, 'otimização foi desfeita', 'otimizações foram desfeitas') + ' pelo Windows ou por outro programa.' }), h('div', { class: 'spacer' }), btn('Ver', () => go('diagnostico'), 'sm', null, { 'data-focus': 'banner-drift' })));
@@ -1065,6 +1111,37 @@
         extra || null));
   }
 
+  // Three states for what the collection reads: a reading that failed is
+  // "não lido", never "não", "sem" or "não suportado". labels is [yes, no]
+  // for a flag (default sim/não) or a map from value to text (a value
+  // outside the map was not read either).
+  const NOT_READ = 'não lido';
+  function tri(read, value, labels) {
+    if (!read) return NOT_READ;
+    const l = labels || ['sim', 'não'];
+    if (Array.isArray(l)) return value ? l[0] : l[1];
+    return l[value] != null ? l[value] : NOT_READ;
+  }
+  // Collection steps the pages read (facts.Step* in Go); a step in f.unread
+  // left its fields at zero.
+  const STEP_SECURITY = 'Segurança e anti-cheat', STEP_GAMING = 'Configurações de jogo', STEP_POWER = 'Energia';
+  const stepRead = (f, name) => !((f && f.unread) || []).includes(name);
+  // What each security reading answered (a skipped step answers nothing).
+  function secReads(f) {
+    const sec = f.security || {}, step = stepRead(f, STEP_SECURITY);
+    return { step, tpm: step && !!sec.tpmRead, dg: step && !!sec.deviceGuardRead, sb: step && !!sec.secureBoot && sec.secureBoot !== 'unknown' };
+  }
+  const tpmText = (f, r) => { const s = f.security || {}; return tri(r.tpm, s.tpmReady ? 'ready' : s.tpmPresent ? 'present' : 'none', { ready: 'pronto (' + (s.tpmVersion || '?') + ')', present: 'presente, não pronto', none: 'não encontrado' }); };
+  // HAGS: what the graphics kernel reports (hagsState) comes first; without
+  // it, only a registry value that exists says something.
+  function hagsText(f) {
+    const g = f.gaming || {};
+    if (g.hagsState) return tri(true, g.hagsState, { on: 'ligado', off: 'desligado', unsupported: 'não suportado' });
+    return tri(stepRead(f, STEP_GAMING) && (g.hags === 1 || g.hags === 2), g.hags === 2, ['ligado no registro', 'desligado no registro']);
+  }
+  // Anti-cheats: an empty list means "none" only when the game step was read.
+  const antiCheatsText = (f, none) => tri(stepRead(f, STEP_GAMING), true, [((f.gaming || {}).antiCheats || []).join(', ') || none, '']);
+
   function hwTile(ic, k, v, s) {
     return h('div', { class: 'card tight' }, h('div', { class: 'hw' }, h('div', { class: 'ic' }, icon(ic)),
       h('div', { style: { minWidth: 0 } }, h('div', { class: 'k', text: k }), h('div', { class: 'v clamp2', text: v || '—', title: v || '' }), s ? h('div', { class: 's', text: s }) : null)));
@@ -1086,6 +1163,9 @@
     const disp = (f.displays || [])[0] || {};
     const act = (f.adapters || []).find(a => a.up && a.hasGateway) || {};
     const sec = f.security || {};
+    const rd = secReads(f);
+    // Profiles that do not play get no CS2 shortcut (profile.Info.Gaming).
+    const gamer = prof.gaming !== false;
     // Where each item stands on this PC (the same buckets as the Otimizações page).
     const B = { on: [], rec: [], opt: [], no: [], blocked: [], na: [] };
     tw.tweaks.forEach(t => B[tweakBucket(t)].push(t));
@@ -1152,7 +1232,7 @@
       h('div', { class: 'game-tiles' }, gl.map(gm => h('div', { class: 'game-tile' },
         h('div', { class: 'gi', text: initialsOf(gm.name) }),
         h('div', { class: 'gt' }, h('div', { class: 'gn', text: gm.name, title: gm.name }), h('div', { class: 'row wrap', style: { gap: '6px', marginTop: '2px' } }, badge(gm.launcher, 'outline'), gm.competitive ? badge('competitivo', 'game') : null)),
-        isCS2(gm) ? btn('Perfil CS2', () => go('cs2'), 'game sm') : btn('Ver', () => go('jogos'), 'ghost sm'))))) : null;
+        isCS2(gm) && gamer ? btn('Perfil CS2', () => go('cs2'), 'game sm') : btn('Ver', () => go('jogos'), 'ghost sm'))))) : null;
 
     return h('div', { class: 'page home' },
       pageHead('Início', 'Última análise ' + ago(st.lastScan) + ' · perfil ' + prof.title + (offN ? ' · ' + plural(offN, 'ponto fora da nota', 'pontos fora da nota') : ''),
@@ -1163,9 +1243,10 @@
       h('div', { class: 'grid g-hero' },
         h('div', { class: 'card hero-score' },
           h('div', { class: 'eyebrow', text: prof.scoreTitle }),
-          h('div', { class: 'score' }, ring(rep.overall), h('div', null,
-            h('div', { class: 'grade ' + scoreClass(rep.overall), text: rep.grade }),
+          h('div', { class: 'score' }, scoreRing(rep), h('div', null,
+            h('div', { class: 'grade ' + gradeClass(rep), text: rep.grade }),
             h('div', { class: 'muted', style: { margin: '4px 0 12px' }, text: rep.summary }),
+            unreadNote(rep),
             btn('Ver o que pesa na nota', () => go('diagnostico'), 'sm', 'chevron'))),
           h('details', { class: 'note' }, h('summary', { text: 'Como a nota é calculada' }), h('div', { class: 'faint tiny', text: rep.scoreNote }))),
         next),
@@ -1190,8 +1271,9 @@
       h('div', { class: 'eyebrow mt-6', text: 'Outras formas de otimizar' }),
       h('div', { class: 'tiers', style: { marginTop: '0' } },
         tier('Completa', 'Recomendadas + opcionais para você escolher', 'rocket', () => openPlan('completo')),
-        tier('Perfil Counter-Strike 2', 'Recomendadas + perfil do cs2.exe no Windows', 'crosshair', () => openPlan('cs2'), 'game'),
-        tier('Avaliação completa', 'Análise + rede + FPS + mouse, com três notas', 'gauge', () => go('avaliacao'))),
+        gamer ? tier('Perfil Counter-Strike 2', 'Recomendadas + perfil do cs2.exe no Windows', 'crosshair', () => openPlan('cs2'), 'game')
+          : tier('Saúde do Windows', 'Antivírus, atualizações, discos, bateria e reparo de arquivos do Windows', 'shield', () => go('saude')),
+        tier('Avaliação completa', gamer ? 'Análise + rede + FPS + mouse, com três notas' : 'Análise + rede, com três notas', 'gauge', () => go('avaliacao'))),
       h('details', { class: 'card more', id: 'hw-details' }, h('summary', null, icon('chip'), 'Seu PC em detalhes'),
         h('div', { class: 'grid g4 mt-3' },
           hwTile('chip', 'Processador', f.cpu.name, f.cpu.cores + ' núcleos / ' + f.cpu.threads + ' threads' + (f.cpu.isX3D ? ' · 3D V-Cache' : '')),
@@ -1201,8 +1283,9 @@
           hwTile('monitor', 'Monitor', disp.monitor, disp.width ? disp.width + '×' + disp.height + ' · ' + disp.currentHz + ' Hz (máx. ' + disp.maxHzAtRes + ' Hz)' : ''),
           hwTile(act.kind === 'Wi-Fi' ? 'wifi' : 'net', 'Rede', act.description, act.kind ? act.kind + (act.linkSpeedMbps ? ' · ' + act.linkSpeedMbps.toLocaleString('pt-BR') + ' Mb/s' : '') : 'sem conexão ativa'),
           hwTile('windows', 'Windows', f.os.caption, (f.os.displayVersion ? f.os.displayVersion + ' · ' : '') + 'build ' + f.os.build + (f.os.ubr ? '.' + f.os.ubr : '')),
-          hwTile('lock', 'Segurança', [sec.tpmReady ? 'TPM ' + (sec.tpmVersion || '') : 'sem TPM', sec.secureBoot === 'on' ? 'Secure Boot' : 'sem Secure Boot', sec.vbsRunning ? 'VBS' : null].filter(Boolean).join(' · '),
-            (f.gaming.antiCheats || []).length ? 'Anti-cheat: ' + f.gaming.antiCheats.join(', ') : 'Nenhum anti-cheat de kernel encontrado'))));
+          hwTile('lock', 'Segurança', [!rd.tpm ? 'TPM não lido' : sec.tpmReady ? 'TPM ' + (sec.tpmVersion || '') : sec.tpmPresent ? 'TPM não pronto' : 'sem TPM',
+            !rd.sb ? 'Secure Boot não lido' : sec.secureBoot === 'on' ? 'Secure Boot' : 'sem Secure Boot', !rd.dg ? 'VBS não lido' : sec.vbsRunning ? 'VBS' : null].filter(Boolean).join(' · '),
+            stepRead(f, STEP_GAMING) ? ((f.gaming.antiCheats || []).length ? 'Anti-cheat: ' + f.gaming.antiCheats.join(', ') : 'Nenhum anti-cheat de kernel encontrado') : 'Anti-cheats: não lido'))));
   }
 
   // ---------------------------------------------------------------------------
@@ -1212,21 +1295,29 @@
   async function startEvaluation() {
     let ev;
     try { ev = await get('evaluation', '/api/evaluation', true); } catch (e) { toast(e.message, 'bad'); return; }
+    // The facts only add the battery warning: without them the dialog still opens.
+    const f = await get('facts', '/api/facts').catch(() => null);
     const opt = (label, checked, disabled, note) => {
       const cb = h('input', { type: 'checkbox', checked: !!checked && !disabled, disabled: !!disabled });
       return { cb, el: h('label', { class: 'check' + (disabled ? ' muted' : '') }, cb, h('div', null, h('div', { text: label }), note ? h('div', { class: 'small muted', text: note }) : null)) };
     };
+    // A profile that does not play (profile.Info.Gaming) is not offered the
+    // CS2 frame rate, and the mouse polling test starts unchecked.
+    const gamer = !ev.profile || ev.profile.gaming !== false;
     const net = opt('Teste de rede com carga', true, !!ev.netWhy, ev.netWhy || 'Ping, jitter, perda e bufferbloat: cerca de 40 s; usa a conexão por alguns segundos em cada sentido.');
-    const perf = opt('FPS no Counter-Strike 2 (60 s)', ev.canPerf, !ev.canPerf, ev.canPerf ? 'Volte para o jogo quando a contagem de 15 s começar e jogue normalmente por 60 s.' : (ev.perfWhy || 'Abra o CS2 numa partida antes de avaliar.'));
-    const mouse = opt('Taxa do mouse (6 s)', true, false, 'Uma janela pede para mover o mouse em círculos até a contagem terminar.');
+    const perf = gamer ? opt('FPS no Counter-Strike 2 (60 s)', ev.canPerf, !ev.canPerf, ev.canPerf ? 'Volte para o jogo quando a contagem de 15 s começar e jogue normalmente por 60 s.' : (ev.perfWhy || 'Abra o CS2 numa partida antes de avaliar.')) : null;
+    const mouse = opt('Taxa do mouse (6 s)', gamer, false, 'Uma janela pede para mover o mouse em círculos até a contagem terminar.');
+    const onBattery = !!(f && f.power && f.power.onBattery && stepRead(f, STEP_POWER));
     const ok = await confirmDlg({
       title: 'Avaliação completa', ok: 'Avaliar', icon: 'pulse', wide: true,
       body: h('div', null,
+        onBattery ? h('div', { class: 'callout warn', style: { marginBottom: '12px' } }, icon('alert'), h('div', null, h('b', { text: 'O notebook está na bateria. ' }),
+          'Na bateria, o Windows e o fabricante costumam limitar o processador e a placa de vídeo: o que for medido agora pode sair limitado e não é comparável com uma medição na tomada. Ligue o carregador antes de avaliar.')) : null,
         h('p', { class: 'small', style: { marginTop: 0 }, text: 'A análise do PC roda sempre; marque o que mais medir. Nada é alterado: a avaliação só lê e mede.' }),
-        h('div', { class: 'stack' }, net.el, perf.el, mouse.el)),
+        h('div', { class: 'stack' }, net.el, perf ? perf.el : null, mouse.el)),
     });
     if (!ok) return;
-    await runJob(api('POST', '/api/evaluate', { net: net.cb.checked, perf: perf.cb.checked, perfSeconds: 60, periph: mouse.cb.checked }), { title: 'Avaliação completa' });
+    await runJob(api('POST', '/api/evaluate', { net: net.cb.checked, perf: !!perf && perf.cb.checked, perfSeconds: 60, periph: mouse.cb.checked }), { title: 'Avaliação completa' });
   }
 
   function pillarCard(title, ic, rep, extra, link, max) {
@@ -1236,9 +1327,10 @@
     const more = max && bad.length > max ? bad.length - max : 0;
     if (more) bad = bad.slice(0, max);
     return h('div', { class: 'card pillar' }, h('h2', null, icon(ic), title),
-      h('div', { class: 'score' }, ring(rep.overall), h('div', null,
-        h('div', { class: 'grade ' + scoreClass(rep.overall), text: rep.grade }),
+      h('div', { class: 'score' }, scoreRing(rep), h('div', null,
+        h('div', { class: 'grade ' + gradeClass(rep), text: rep.grade }),
         h('div', { class: 'muted small', style: { margin: '4px 0 10px' }, text: rep.summary }),
+        unreadNote(rep),
         link ? btn(link[0], () => go(link[1]), 'sm', 'chevron') : null)),
       extra || null,
       bad.length ? h('div', { class: 'findings', style: { marginTop: '14px' } }, bad.map(x => findingCard(x, true))) : null,
@@ -1280,6 +1372,8 @@
     return h('div', { class: 'page' },
       pageHead('Diagnóstico', 'Cada ponto mostra a evidência lida do seu PC, o porquê e a correção. Última análise: ' + fmtDT(S.state.lastScan) + ' (' + (f.scanSeconds || 0).toFixed(1).replace('.', ',') + ' s).',
         []),
+      unreadOf(rep).length ? h('div', { class: 'callout', style: { marginBottom: '16px' } }, icon('info'), h('div', null,
+        h('b', { text: 'Análise incompleta. ' }), unreadNote(rep))) : null,
       h('div', { class: 'diag-sum', role: 'group', 'aria-label': 'Filtrar por gravidade' }, dc('critical', 'Importantes', count('critical'), 'bad', 'alert'), dc('warning', 'Atenção', count('warning'), 'warn', 'alertc'), dc('info', 'Sugestões', count('info'), 'info', 'info'), dc('good', 'Tudo certo', count('good'), 'ok', 'check')),
       byArea.length ? byArea.map(g => h('div', { style: { marginBottom: '22px' } },
         h('div', { class: 'row', style: { margin: '0 2px 10px' } }, h('h3', { style: { margin: 0, fontSize: '15px' }, text: g.s.title }), badge('nota ' + g.s.score, g.s.score >= 90 ? 'ok' : g.s.score >= 60 ? 'warn' : 'bad'),
@@ -1324,15 +1418,18 @@
   }
 
   function collectedData(f) {
-    const kv = pairs => h('dl', { class: 'kv' }, pairs.filter(p => p[1] !== undefined && p[1] !== null && p[1] !== '').map(([k, v]) => [h('dt', { text: k }), h('dd', { text: String(v) })]));
-    const yes = b => (b ? 'sim' : 'não');
+    // A value not read is shown in a muted tone (neither green nor red).
+    const kv = pairs => h('dl', { class: 'kv' }, pairs.filter(p => p[1] !== undefined && p[1] !== null && p[1] !== '').map(([k, v]) => [h('dt', { text: k }), h('dd', { text: String(v), class: /^não lid[oa]s?$/.test(String(v)) ? 'muted' : null })]));
+    const yes = b => tri(true, b);
+    const sec = f.security || {}, rd = secReads(f);
+    const game = stepRead(f, STEP_GAMING);
     const table = (cols, rows) => h('div', { class: 'tbl-scroll' }, h('table', { class: 'table' }, h('thead', null, h('tr', null, cols.map(c => h('th', { text: c })))), h('tbody', null, rows.map(r => h('tr', null, r.map(c => h('td', { text: c == null ? '—' : String(c) })))))));
     return h('details', { class: 'card', style: { marginTop: '8px' } },
       h('summary', { style: { cursor: 'pointer', fontWeight: 600 } }, 'Dados coletados deste PC'),
       h('div', { class: 'stack', style: { marginTop: '16px' } },
         h('div', { class: 'grid g2' },
-          h('div', null, h('h3', { text: 'Sistema' }), kv([['Windows', f.os.caption + ' ' + (f.os.displayVersion || '')], ['Build', f.os.build + '.' + f.os.ubr], ['Firmware', f.os.firmware || 'desconhecido'], ['Último boot', fmtDT(f.os.lastBoot)], ['Placa-mãe', (f.board.manufacturer || '') + ' ' + (f.board.product || '')], ['BIOS', (f.board.biosVersion || '') + ' (' + fmtDay(f.board.biosDate) + ')'], ['Plano de energia', f.power.activeName], ['Notebook', yes(f.power.isLaptop)]])),
-          h('div', null, h('h3', { text: 'Processador e jogo' }), kv([['CPU', f.cpu.name], ['Núcleos/threads', f.cpu.cores + '/' + f.cpu.threads], ['Microcode', f.cpu.microcode ? '0x' + f.cpu.microcode.toString(16).toUpperCase() + (f.cpu.family ? ' (CPUID ' + [f.cpu.family, f.cpu.model, f.cpu.stepping].map(n => (n || 0).toString(16).toUpperCase().padStart(2, '0')).join('-') + ')' : '') : 'desconhecido'], ['Modo de Jogo', yes(f.gaming.gameModeOn)], ['HAGS', f.gaming.hags === 2 ? 'ligado' : f.gaming.hags === 1 ? 'desligado' : 'não suportado'], ['Game Bar', yes(f.gaming.gameBarInstalled)], ['Gravação contínua', yes(f.gaming.historicalRecord)], ['Resolução do timer', f.timer && f.timer.current ? (f.timer.current / 10000).toFixed(2).replace('.', ',') + ' ms' : '—']]))),
+          h('div', null, h('h3', { text: 'Sistema' }), kv([['Windows', f.os.caption + ' ' + (f.os.displayVersion || '')], ['Build', f.os.build + '.' + f.os.ubr], ['Firmware', f.os.firmware || 'desconhecido'], ['Último boot', fmtDT(f.os.lastBoot)], ['Placa-mãe', (f.board.manufacturer || '') + ' ' + (f.board.product || '')], ['BIOS', (f.board.biosVersion || '') + ' (' + fmtDay(f.board.biosDate) + ')'], ['Plano de energia', f.power.activeName], ['Notebook', tri(stepRead(f, STEP_POWER), f.power.isLaptop)]])),
+          h('div', null, h('h3', { text: 'Processador e jogo' }), kv([['CPU', f.cpu.name], ['Núcleos/threads', f.cpu.cores + '/' + f.cpu.threads], ['Microcode', f.cpu.microcode ? '0x' + f.cpu.microcode.toString(16).toUpperCase() + (f.cpu.family ? ' (CPUID ' + [f.cpu.family, f.cpu.model, f.cpu.stepping].map(n => (n || 0).toString(16).toUpperCase().padStart(2, '0')).join('-') + ')' : '') : 'desconhecido'], ['Modo de Jogo', tri(game, f.gaming.gameModeOn)], ['HAGS', hagsText(f)], ['Game Bar', tri(game && f.gaming.gameBarRead, f.gaming.gameBarInstalled)], ['Gravação contínua', tri(game, f.gaming.historicalRecord)], ['Resolução do timer', f.timer && f.timer.current ? (f.timer.current / 10000).toFixed(2).replace('.', ',') + ' ms' : '—']]))),
         h('div', null, h('h3', { text: 'Memória' }), table(['Slot', 'Fabricante', 'Código', 'Capacidade', 'Velocidade'], (f.ram.modules || []).map(m => [(m.bank + ' ' + m.locator).trim(), m.manufacturer, m.partNumber, GB(m.capacityBytes), (m.configuredMTs || m.speedMTs) + ' MT/s']))),
         h('div', null, h('h3', { text: 'Armazenamento' }),
           table(['Disco', 'Tipo', 'Tamanho', 'Saúde', 'Desgaste', 'Gravado', 'Temp.', 'Horas ligado', 'Alertas do SSD'], (f.disks || []).map(d => [d.model + (d.isSystem ? ' (sistema)' : ''), [d.busType, d.mediaType === 'Unspecified' ? '' : d.mediaType].filter(Boolean).join(' '), GB(d.sizeBytes), pt(d.health) || '—',
@@ -1342,13 +1439,14 @@
           h('div', null, h('h3', { text: 'Monitores' }), table(['Monitor', 'Modo', 'Máximo'], (f.displays || []).map(d => [d.monitor, d.width + '×' + d.height + ' @ ' + d.currentHz + ' Hz', d.maxHzAtRes + ' Hz']))),
           h('div', null, h('h3', { text: 'Rede' }), table(['Adaptador', 'Tipo', 'Link', 'Ativo'], (f.adapters || []).map(a => [a.description, pt(a.kind), a.linkSpeedMbps ? a.linkSpeedMbps.toLocaleString('pt-BR') + ' Mb/s' : '—', yes(a.up)])))),
         h('div', { class: 'grid g2' },
-          h('div', null, h('h3', { text: 'Segurança' }), kv([['VBS em execução', yes(f.security.vbsRunning)], ['Integridade de Memória', yes(f.security.hvciRunning)],
-            ['Recursos usando o VBS', vbsServices(f.security.servicesRunning)],
-            ['IOMMU (proteção de DMA)', f.security.iommu === 'on' ? 'ligado' : f.security.iommu === 'off' ? 'desligado ou ausente' : 'desconhecido'],
+          h('div', null, h('h3', { text: 'Segurança' }), kv([['VBS em execução', tri(rd.dg, sec.vbsRunning)], ['Integridade de Memória', tri(rd.dg, sec.hvciRunning)],
+            ['Recursos usando o VBS', tri(rd.dg, true, [vbsServices(sec.servicesRunning), ''])],
+            ['IOMMU (proteção de DMA)', tri(rd.dg, sec.iommu, { on: 'ligado', off: 'desligado ou ausente', unknown: 'desconhecido' })],
             f.security.vbsPolicy || f.security.hvciPolicy || f.security.vbsLocked ? ['Política / bloqueio UEFI', [f.security.vbsPolicy ? 'política VBS ' + (f.security.vbsPolicy === 'on' ? 'ligada' : 'desligada') : null, f.security.hvciPolicy ? 'política Integridade de Memória ' + ({ on: 'ligada', off: 'desligada', lock: 'ligada com bloqueio UEFI' })[f.security.hvciPolicy] : null, f.security.vbsLocked ? 'bloqueio UEFI' : null].filter(Boolean).join('; ')] : null,
             (f.security.vbsScenarios || []).length ? ['Cenários do Device Guard ligados', f.security.vbsScenarios.map(vbsScenario).join(', ')] : null,
             (f.security.hypervisorFeatures || []).length ? ['Também iniciam o hipervisor', f.security.hypervisorFeatures.join(', ')] : null,
-            ['TPM', f.security.tpmReady ? 'pronto (' + f.security.tpmVersion + ')' : f.security.tpmPresent ? 'presente, não pronto' : 'não encontrado'], ['Secure Boot', pt(f.security.secureBoot)], ['Virtualização no firmware', yes(f.security.virtualizationFirmware)], ['Defender em tempo real', pt(f.security.defenderRealtime)], ['Anti-cheats', (f.gaming.antiCheats || []).join(', ') || 'nenhum']].filter(Boolean))),
+            ['TPM', tpmText(f, rd)], ['Secure Boot', tri(rd.sb, sec.secureBoot, { on: 'ligado', off: 'desligado', unsupported: 'não suportado' })], ['Virtualização no firmware', tri(rd.step, sec.virtualizationFirmware)],
+            ['Defender em tempo real', rd.step ? pt(sec.defenderRealtime) : NOT_READ], ['Anti-cheats', antiCheatsText(f, 'nenhum')]].filter(Boolean))),
           h('div', null, h('h3', { text: 'Inicialização (BCD)' }), kv([['useplatformclock', bcdVal(f.boot.usePlatformClock)], ['disabledynamictick', bcdVal(f.boot.disableDynamicTick)], ['useplatformtick', bcdVal(f.boot.usePlatformTick)], ['hypervisorlaunchtype', f.boot.hypervisorLaunch || '(padrão)'], ['testsigning', bcdVal(f.boot.testSigning)], ['nx', f.boot.nx || '—'], ['Ajuste automático do TCP', pt(f.net.tcpAutoTuning) || '—'], ['RSS (várias CPUs na rede)', pt(f.net.rss) || '—']]))),
         thermalBlock(f, kv),
         (f.errors || []).length ? h('div', null, h('h3', { text: 'Avisos da coleta' }), h('ul', { class: 'list-clean small muted' }, f.errors.map(e => h('li', { text: e })))) : null));
@@ -2013,6 +2111,10 @@
 
   function limiterBar(s) {
     if (s.gpuBoundPct < 0) return h('div', { class: 'small muted', text: 'O PresentMon não trouxe os tempos de CPU e GPU desta captura.' });
+    // Below half of the frames classified the server gives no limiter
+    // (perf.Summary.Limiter empty): the shares of so few frames would read
+    // as a verdict.
+    if (!s.limiter) return h('div', { class: 'small muted', text: 'Poucos quadros classificados nesta captura' + (s.classifiedFrac >= 0 ? ' (' + fmtN(s.classifiedFrac * 100, 0) + '%)' : '') + ': não dá para apontar CPU ou GPU.' });
     const seg = (pct, cls, label) => pct > 0 ? h('i', { class: cls, style: { width: pct + '%' }, title: label + ': ' + fmtN(pct) + '%' }) : null;
     return h('div', null,
       h('div', { class: 'limbar' }, seg(s.gpuBoundPct, 'g', 'GPU'), seg(s.cpuBoundPct, 'c', 'CPU'), seg(s.waitPct, 'w', 'Limite/sincronização')),
