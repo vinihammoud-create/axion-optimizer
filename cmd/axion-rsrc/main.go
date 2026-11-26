@@ -3,7 +3,7 @@
 // the application manifest and the version information, written as a COFF
 // object (cmd\axion\rsrc_windows_amd64.syso) that the Go linker embeds.
 //
-//	go run ./cmd/axion-rsrc -version 0.9.1
+//	go run ./cmd/axion-rsrc -version 0.10.0
 //	go run ./cmd/axion-rsrc -ico-only            # only regenerates build\axion.ico
 //
 // Only the standard library is used. The layout of the object is the one the

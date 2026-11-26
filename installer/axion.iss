@@ -1,10 +1,10 @@
 ﻿; Instalador do Axion Optimizer (Inno Setup 6, testado com a 6.7.1).
 ;
 ; Compilar pelo script, que confere o pacote e passa os parâmetros:
-;   .\build\build.ps1 -Version 0.9.1
-;   .\build\installer.ps1 -Version 0.9.1
+;   .\build\build.ps1 -Version 0.10.0
+;   .\build\installer.ps1 -Version 0.10.0
 ; ou direto (PresentMonFile é o nome do PresentMon dentro do pacote):
-;   ISCC.exe /DAppVersion=0.9.1 /DPresentMonFile=PresentMon-2.6.0-x64.exe installer\axion.iss
+;   ISCC.exe /DAppVersion=0.10.0 /DPresentMonFile=PresentMon-2.6.0-x64.exe installer\axion.iss
 ;
 ; Assinatura (desligada até haver certificado): com /DSignToolName=<nome> e
 ; /S<nome>=<comando com $f>, o ISCC assina o instalador e o desinstalador.
