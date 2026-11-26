@@ -217,7 +217,7 @@ func TestVBSOffEffect(t *testing.T) {
 // adding another copy, and the undo does not delete it (it is not Axion's).
 func TestUltimateReusesExistingCopy(t *testing.T) {
 	m, _, e := setup(t)
-	ext, err := m.P.DuplicateScheme(sys.SchemeUltimateTemplate)
+	ext, err := m.P.DuplicateScheme(sys.SchemeUltimateTemplate, "")
 	if err != nil {
 		t.Fatal(err)
 	}

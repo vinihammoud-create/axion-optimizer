@@ -355,6 +355,9 @@ type Power struct {
 	values  map[string]map[string]uint32 // guid -> "sub/setting/ac|dc" -> value
 	seq     int
 	overlay string
+	// AfterDuplicate, when set, runs right after DuplicateScheme creates the
+	// copy (outside the lock): tests use it to simulate the process dying there.
+	AfterDuplicate func(guid string)
 }
 
 // NewPower seeds the three standard Windows schemes.
@@ -459,10 +462,21 @@ func (p *Power) WriteValue(scheme, sub, setting string, ac bool, value uint32) e
 }
 
 // DuplicateScheme implements sys.Power.
-func (p *Power) DuplicateScheme(source string) (string, error) {
+func (p *Power) DuplicateScheme(source, dest string) (string, error) {
+	g, err := p.duplicate(source, strings.ToLower(dest))
+	if err == nil && p.AfterDuplicate != nil {
+		p.AfterDuplicate(g)
+	}
+	return g, err
+}
+
+func (p *Power) duplicate(source, dest string) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	source = strings.ToLower(source)
+	if _, ok := p.schemes[dest]; dest != "" && ok {
+		return "", errors.New("PowerDuplicateScheme: ERROR_ALREADY_EXISTS")
+	}
 	name := "Cópia"
 	if source == sys.SchemeUltimateTemplate {
 		name = "Desempenho Máximo"
@@ -471,8 +485,11 @@ func (p *Power) DuplicateScheme(source string) (string, error) {
 	} else {
 		return "", sys.ErrNotFound
 	}
-	p.seq++
-	g := fmt.Sprintf("00000000-0000-4000-8000-%012d", p.seq)
+	g := dest
+	if g == "" {
+		p.seq++
+		g = fmt.Sprintf("00000000-0000-4000-8000-%012d", p.seq)
+	}
 	p.schemes[g] = name
 	nv := map[string]uint32{}
 	if src, ok := p.values[source]; ok {

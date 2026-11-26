@@ -2,6 +2,7 @@ package tweaks
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -634,15 +635,21 @@ func (o *SchemeOp) Apply(c *Ctx) error {
 		return err
 	}
 	if want == "" {
-		g, err := c.P.Power.DuplicateScheme(sys.SchemeUltimateTemplate)
+		// The copy's GUID is chosen and recorded before the copy exists: if
+		// the process dies right after Windows creates it, the undo still
+		// recognises it by the marker (and a marker with no copy is only
+		// cleaned up). Without the marker, give up before creating anything.
+		g, err := newSchemeGUID()
 		if err != nil {
 			return fmt.Errorf("não foi possível criar o plano Desempenho Máximo: %w", err)
 		}
-		// Without the marker the undo could not recognise (and delete) the
-		// copy: give up instead of leaving an orphan plan behind.
 		if err := c.P.Reg.SetValue(ultimateRegPath, "UltimateGuid", sys.SZ(g)); err != nil {
-			_ = c.P.Power.DeleteScheme(g)
-			return fmt.Errorf("não foi possível registrar o plano Desempenho Máximo criado: %w", err)
+			_, _ = c.P.Reg.DeleteKeyIfEmpty(ultimateRegPath)
+			return fmt.Errorf("não foi possível registrar o plano Desempenho Máximo: %w", err)
+		}
+		if _, err := c.P.Power.DuplicateScheme(sys.SchemeUltimateTemplate, g); err != nil {
+			o.removeDuplicate(c, "")
+			return fmt.Errorf("não foi possível criar o plano Desempenho Máximo: %w", err)
 		}
 		want = g
 		if err := c.P.Power.SetActiveScheme(want); err != nil {
@@ -678,6 +685,17 @@ func (o *SchemeOp) Restore(c *Ctx, raw json.RawMessage) error {
 		o.removeDuplicate(c, prev)
 	}
 	return nil
+}
+
+// newSchemeGUID returns a random (version 4) GUID for the plan copy.
+func newSchemeGUID() (string, error) {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
 // removeDuplicate deletes the copy of the Ultimate Performance template that
