@@ -238,9 +238,27 @@ const (
 	keySessionPower = `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power`
 )
 
+// hiberTypeReduced is the HiberFileType of a reduced hiberfile (the one that
+// only supports Fast Startup). The Microsoft page documents the powercfg
+// commands and HiberFileSizePercent, not this value: it is only read, and the
+// undo always goes back through powercfg.
+const hiberTypeReduced = 1
+
 type hiberSnap struct {
-	Enabled   bool         `json:"enabled"`
-	Hiberboot sys.RegValue `json:"hiberboot"`
+	Enabled     bool         `json:"enabled"`
+	Hiberboot   sys.RegValue `json:"hiberboot"`
+	FileType    sys.RegValue `json:"fileType"`
+	SizePercent sys.RegValue `json:"sizePercent"`
+}
+
+// reduced reports whether the hiberfile was the reduced one. The documented
+// rule ("a hiberfile with a custom size, or HiberFileSizePercent >= 40, is
+// considered full") decides when HiberFileType was not read.
+func (s hiberSnap) reduced() bool {
+	if s.FileType.Exists {
+		return s.FileType.Int == hiberTypeReduced
+	}
+	return s.SizePercent.Exists && s.SizePercent.Int > 0 && s.SizePercent.Int < 40
 }
 
 func hibernateEnabled(c *tweaks.Ctx) bool {
@@ -256,17 +274,32 @@ func hibernateEnabled(c *tweaks.Ctx) bool {
 	return err == nil
 }
 
-func powercfgHibernate(c *tweaks.Ctx, on bool) error {
-	arg := "off"
-	if on {
-		arg = "on"
-	}
-	res, err := c.P.Run.Run(c.Context, "powercfg.exe", []string{"/hibernate", arg}, sys.RunOpts{Timeout: 60 * time.Second})
+func powercfgHibernate(c *tweaks.Ctx, args ...string) error {
+	res, err := c.P.Run.Run(c.Context, "powercfg.exe", append([]string{"/hibernate"}, args...), sys.RunOpts{Timeout: 60 * time.Second})
 	if err != nil {
 		return err
 	}
 	if res.ExitCode != 0 {
-		return fmt.Errorf("powercfg /hibernate %s falhou: %s", arg, strings.TrimSpace(res.Stdout+res.Stderr))
+		return fmt.Errorf("powercfg /hibernate %s falhou: %s", strings.Join(args, " "), strings.TrimSpace(res.Stdout+res.Stderr))
+	}
+	return nil
+}
+
+// restoreHiberFile brings back the hiberfile type and size recorded in the
+// snapshot: `powercfg /hibernate on` always recreates the default full file.
+func restoreHiberFile(c *tweaks.Ctx, s hiberSnap) error {
+	switch {
+	case s.reduced():
+		// Documented order: the OS has to manage the size before the file
+		// can become reduced.
+		if err := powercfgHibernate(c, "/size", "0"); err != nil {
+			return err
+		}
+		return powercfgHibernate(c, "/type", "reduced")
+	case s.SizePercent.Exists && s.SizePercent.Int > 0:
+		return powercfgHibernate(c, "/size", strconv.FormatUint(s.SizePercent.Int, 10))
+	case s.FileType.Exists:
+		return powercfgHibernate(c, "/type", "full")
 	}
 	return nil
 }
@@ -280,17 +313,28 @@ func hibernateOp() tweaks.Op {
 			if err != nil {
 				return nil, err
 			}
-			return hiberSnap{Enabled: hibernateEnabled(c), Hiberboot: hb}, nil
+			ft, err := c.P.Reg.GetValue(keyPower, "HiberFileType")
+			if err != nil {
+				return nil, err
+			}
+			sz, err := c.P.Reg.GetValue(keyPower, "HiberFileSizePercent")
+			if err != nil {
+				return nil, err
+			}
+			return hiberSnap{Enabled: hibernateEnabled(c), Hiberboot: hb, FileType: ft, SizePercent: sz}, nil
 		},
 		InFn:    func(c *tweaks.Ctx) (bool, error) { return !hibernateEnabled(c), nil },
-		ApplyFn: func(c *tweaks.Ctx) error { return powercfgHibernate(c, false) },
+		ApplyFn: func(c *tweaks.Ctx) error { return powercfgHibernate(c, "off") },
 		RestoreFn: func(c *tweaks.Ctx, raw json.RawMessage) error {
 			var s hiberSnap
 			if err := json.Unmarshal(raw, &s); err != nil {
 				return err
 			}
 			if s.Enabled {
-				if err := powercfgHibernate(c, true); err != nil {
+				if err := powercfgHibernate(c, "on"); err != nil {
+					return err
+				}
+				if err := restoreHiberFile(c, s); err != nil {
 					return err
 				}
 			}

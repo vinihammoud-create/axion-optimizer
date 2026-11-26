@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -357,12 +358,7 @@ func (m *Mock) simulateTool(exe string, args []string, _ string) (sys.Result, bo
 			return m.batteryReport(out), true
 		}
 		if len(low) >= 2 && (low[0] == "/hibernate" || low[0] == "/h") {
-			v := uint32(0)
-			if low[1] == "on" {
-				v = 1
-			}
-			_ = m.R.SetValue(`HKLM\SYSTEM\CurrentControlSet\Control\Power`, "HibernateEnabled", sys.DWord(v))
-			return sys.Result{}, true
+			return m.hibernate(low[1:]), true
 		}
 	case "netsh.exe", "netsh":
 		if len(low) >= 5 && low[0] == "int" && low[1] == "tcp" && low[2] == "set" && low[3] == "global" {
@@ -471,6 +467,71 @@ func (m *Mock) simulateTool(exe string, args []string, _ string) (sys.Result, bo
 		}
 	}
 	return sys.Result{}, false
+}
+
+const (
+	keyControlPower = `HKLM\SYSTEM\CurrentControlSet\Control\Power`
+	// HiberFileType values written by `powercfg /hibernate /type`.
+	hiberTypeReduced = 1
+	hiberTypeFull    = 2
+)
+
+// hibernate emulates `powercfg /hibernate [on|off|/size N|/type reduced|full]`.
+// Turning hibernation on recreates the hiberfile with the size the OS manages
+// and the full type: a type or a custom size chosen before is lost, so an undo
+// that only remembers on/off does not bring the machine back.
+func (m *Mock) hibernate(args []string) sys.Result {
+	set := func(name string, v uint32) { _ = m.R.SetValue(keyControlPower, name, sys.DWord(v)) }
+	del := func(name string) { _ = m.R.DeleteValue(keyControlPower, name) }
+	percent := func() uint64 {
+		v, err := m.R.GetValue(keyControlPower, "HiberFileSizePercent")
+		if err != nil || !v.Exists {
+			return 0
+		}
+		return v.Int
+	}
+	switch args[0] {
+	case "on":
+		set("HibernateEnabled", 1)
+		del("HiberFileType")
+		del("HiberFileSizePercent")
+	case "off":
+		set("HibernateEnabled", 0)
+	case "/size":
+		if len(args) < 2 {
+			return sys.Result{ExitCode: 1, Stdout: "Argumento inválido.\r\n"}
+		}
+		n, err := strconv.Atoi(args[1])
+		if err != nil || n < 0 || n > 100 {
+			return sys.Result{ExitCode: 1, Stdout: "O parâmetro está incorreto.\r\n"}
+		}
+		set("HibernateEnabled", 1) // documented: /size also enables hibernation
+		if n == 0 {
+			del("HiberFileSizePercent")
+			return sys.Result{}
+		}
+		set("HiberFileSizePercent", uint32(n))
+		set("HiberFileType", hiberTypeFull)
+	case "/type":
+		if len(args) < 2 {
+			return sys.Result{ExitCode: 1, Stdout: "Argumento inválido.\r\n"}
+		}
+		switch args[1] {
+		case "reduced":
+			// The OS has to manage the size before the file can be reduced.
+			if percent() > 0 {
+				return sys.Result{ExitCode: 1, Stdout: "O parâmetro está incorreto.\r\n"}
+			}
+			set("HiberFileType", hiberTypeReduced)
+		case "full":
+			set("HiberFileType", hiberTypeFull)
+		default:
+			return sys.Result{ExitCode: 1, Stdout: "O parâmetro está incorreto.\r\n"}
+		}
+	default:
+		return sys.Result{ExitCode: 1, Stdout: "O parâmetro está incorreto.\r\n"}
+	}
+	return sys.Result{}
 }
 
 // MockDiskObjectID is the MSFT_PhysicalDisk.ObjectId of a simulated disk: it

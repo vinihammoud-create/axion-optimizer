@@ -184,9 +184,10 @@ func powerTweaks() []*tweaks.Tweak {
 		},
 		{
 			ID: "power.hibernate", Category: "energia", Title: "Hibernação e Inicialização Rápida desligadas",
-			Summary:  "Remove o arquivo de hibernação (libera GBs no SSD) e desliga a Inicialização Rápida, garantindo que \"Desligar\" reinicie drivers de verdade.",
-			Detail:   "powercfg /hibernate off. A Inicialização Rápida salva o kernel e os drivers em disco ao desligar; desligá-la evita problemas de drivers que nunca reiniciam e de atualizações pendentes. O boot fica alguns segundos mais lento.",
-			Evidence: tweaks.EvMedium, Sources: []tweaks.Source{srcHibernate, srcPowerStates},
+			Summary: "Remove o arquivo de hibernação (libera o espaço do hiberfil.sys) e desliga a Inicialização Rápida, que preserva o kernel e os drivers ao desligar em vez de reiniciá-los.",
+			Detail: "powercfg /hibernate off. A Microsoft documenta que, com a Inicialização Rápida, o kernel, os drivers e os serviços são preservados e restaurados ao desligar, e não reiniciados; sem o arquivo de hibernação, \"Desligar\" volta a iniciar tudo do zero. O arquivo padrão ocupa 40% da memória física no tipo completo e 20% no reduzido, segundo a mesma página. " +
+				"Atenção: em desktop, a suspensão híbrida grava esse arquivo para não perder o seu trabalho se faltar energia durante a suspensão; sem ele, essa proteção deixa de existir, e a hibernação some do menu de energia. Não medimos quanto o boot muda sem a Inicialização Rápida. Desfazer religa a hibernação e devolve o tipo e o tamanho do arquivo que estavam no PC.",
+			Evidence: tweaks.EvLow, Sources: []tweaks.Source{srcHibernate, srcPowerStates},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"estabilidade", "espaco"}, OneClick: false,
 			Recommend: func(f *facts.Facts) tweaks.Recommendation {
 				if f.Power.IsLaptop {
@@ -195,7 +196,7 @@ func powerTweaks() []*tweaks.Tweak {
 				if !f.Power.HibernateOn {
 					return tweaks.Rec(tweaks.RecNeutral, "a hibernação já está desligada")
 				}
-				return tweaks.Rec(tweaks.RecNeutral, "útil em desktop; libera espaço equivalente a ~40% da RAM")
+				return tweaks.Rec(tweaks.RecNeutral, "em desktop, só se você não usa hibernação nem suspensão híbrida; libera o espaço do hiberfil.sys")
 			},
 			Ops: func(*facts.Facts) []tweaks.Op { return []tweaks.Op{hibernateOp()} },
 		},
