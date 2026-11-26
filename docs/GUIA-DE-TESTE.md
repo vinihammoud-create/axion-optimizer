@@ -5,7 +5,7 @@ Roteiro para validar a 0.10.0 num PC de verdade antes de publicar: o notebook G1
 São dois níveis:
 
 - **Nível 1, só leitura (cerca de 25 min):** nada no Windows muda. Pode ser feito na sua conta de sempre.
-- **Nível 2, aplica e desfaz (cerca de 15 min, opcional):** feito numa conta de teste do Windows, para a sua configuração ficar de fora.
+- **Nível 2, aplica e desfaz (cerca de 20 min, opcional):** feito numa conta de teste do Windows, para a sua configuração ficar de fora.
 
 Anote tudo na [tabela de checagem](#o-que-anotar-e-mandar) do fim. Quando algo parecer estranho, tire uma captura de tela (Windows + Shift + S) antes de seguir.
 
@@ -85,7 +85,7 @@ Pode ser na sua conta principal. Nada aqui muda o Windows: a análise só lê, a
 
 Fim do Nível 1. Mande o que tiver até aqui, mesmo que não faça o Nível 2.
 
-## Nível 2: aplicar e desfazer, numa conta de teste (cerca de 15 min, opcional)
+## Nível 2: aplicar e desfazer, numa conta de teste (cerca de 20 min, opcional)
 
 Aqui o Axion muda coisas de verdade e desfaz em seguida. Para a sua configuração ficar de fora, use uma conta separada do Windows e uma conta separada da Steam.
 
@@ -131,14 +131,21 @@ O preset do CS2 grava no `cs2_video.txt`, que fica separado **por conta da Steam
 14. **Início › Aplicar as recomendadas:** leia a lista, anote quais itens ela traz e aplique. Se o Axion pedir para reiniciar, reinicie e entre de novo na **conta de teste**.
     - Se a tela estiver abaixo da taxa máxima, vai aparecer **"Manter esta frequência?"**: responda conforme o que você vê e anote o que aconteceu. Não baixe a taxa da tela só para provocar essa pergunta.
 
+### O aviso do desinstalador, com um ajuste ainda aplicado
+
+15. Este passo precisa de pelo menos um ajuste aplicado. Se você pulou os passos 12 a 14, ligue de novo o "Mouse 1:1" (passo 9). Depois **feche o Axion** e vá em Configurações › Aplicativos › **Axion Optimizer** › Desinstalar.
+    - O esperado é um aviso dizendo **quantas alterações continuam ativas** e recomendando desfazer antes. Anote o texto e o número.
+    - Clique em **Não**. A desinstalação tem que parar ali: confira que o atalho do menu Iniciar continua lá e que o Axion abre.
+    - Se o programa for removido mesmo com o "Não", anote: é um erro do instalador. Instale de novo com o mesmo `Axion-0.10.0-setup.exe` (o histórico fica guardado) e siga.
+
 ### Desfazer tudo e apagar a conta
 
-15. Ainda **na conta de teste**: **Otimizar › Histórico › Desfazer tudo**. Isso tem que ser feito nela: o que foi mudado no perfil da conta de teste só é desfeito por ela. Se o Axion pedir para reiniciar, reinicie e entre de novo na conta de teste.
-16. Confira que o botão aparece como **Desfazer tudo (0)**, sem nada ativo. Anote qualquer item com "falhou" ou "falta desfazer".
-17. Desinstale o Axion (Configurações › Aplicativos). Agora o aviso de "alterações ativas" não deve aparecer. Na pergunta da pasta de dados, responda **Não** se quiser manter as medições, ou **Sim** para apagar tudo.
-18. Saia da conta de teste e entre na sua. Se a Steam pedir para escolher a conta, escolha a sua.
-19. Apague a conta de teste: Configurações › Contas › Outros usuários › conta de teste › **Remover** › **Excluir conta e dados**.
-20. Se algo do seu Windows parecer diferente, use o ponto de restauração da Preparação: menu Iniciar › "Criar um ponto de restauração" › **Restauração do Sistema**.
+16. Ainda **na conta de teste**: **Otimizar › Histórico › Desfazer tudo**. Isso tem que ser feito nela: o que foi mudado no perfil da conta de teste só é desfeito por ela. Se o Axion pedir para reiniciar, reinicie e entre de novo na conta de teste.
+17. Confira que o botão aparece como **Desfazer tudo (0)**, sem nada ativo. Anote qualquer item com "falhou" ou "falta desfazer".
+18. Desinstale o Axion (Configurações › Aplicativos). Agora o aviso de "alterações ativas" não deve aparecer. Na pergunta da pasta de dados, responda **Não** se quiser manter as medições, ou **Sim** para apagar tudo.
+19. Saia da conta de teste e entre na sua. Se a Steam pedir para escolher a conta, escolha a sua.
+20. Apague a conta de teste: Configurações › Contas › Outros usuários › conta de teste › **Remover** › **Excluir conta e dados**.
+21. Se algo do seu Windows parecer diferente, use o ponto de restauração da Preparação: menu Iniciar › "Criar um ponto de restauração" › **Restauração do Sistema**.
 
 ## O que anotar e mandar
 
@@ -172,8 +179,9 @@ Mande três coisas:
 | N2-11 | Mouse 1:1 desfeito | Caixa como estava antes | |
 | N2-13 | Preset do CS2 (opcional) | Muda no jogo e volta com "Desfazer preset" | |
 | N2-14 | Aplicar as recomendadas (opcional) | (itens da lista; pediu reinício?) | |
-| N2-16 | Desfazer tudo | Nada ativo, nenhum "falhou" | |
-| N2-17 | Desinstalação depois do teste | Sem aviso de alterações ativas | |
+| N2-15 | Desinstalar com ajuste aplicado | Aviso com o número de alterações ativas; com "Não", nada é removido | |
+| N2-17 | Desfazer tudo | Nada ativo, nenhum "falhou" | |
+| N2-18 | Desinstalação depois do teste | Sem aviso de alterações ativas | |
 
 ## Se algo der errado
 
