@@ -234,6 +234,66 @@ func hkcuRoot() (registry.Key, string) {
 	return registry.CURRENT_USER, ""
 }
 
+// confineUserFolders puts back under the profile a per-user folder that
+// points into a place the user cannot write. Windows takes AppData, Local
+// AppData and Startup from the account's own registry (User Shell Folders)
+// and TEMP from its environment, and any program of that account can change
+// both without administrator rights. Axion runs elevated and cleans, lists
+// and moves things in these folders, so an entry aimed at the Windows
+// folder, Program Files, ProgramData or another account's profile would
+// lend it the rights the user lacks. A folder moved to another drive or to
+// a network share (folder redirection) is the user's own and is kept.
+func confineUserFolders(p *sys.Paths) {
+	if p.UserProfile == "" {
+		return
+	}
+	fix := func(what string, cur *string, def string) {
+		if *cur == "" || !offLimits(*cur, *p) {
+			return
+		}
+		log.Printf("pasta %s do usuário aponta para %s, fora do alcance da conta: usando o local padrão", what, *cur)
+		*cur = filepath.Join(p.UserProfile, def)
+	}
+	fix("AppData", &p.AppData, `AppData\Roaming`)
+	fix("Local AppData", &p.LocalAppData, `AppData\Local`)
+	fix("Inicializar", &p.StartupUser, `AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`)
+	if p.UserTemp != "" && offLimits(p.UserTemp, *p) {
+		log.Printf("pasta TEMP do usuário aponta para %s, fora do alcance da conta: usando o local padrão", p.UserTemp)
+		p.UserTemp = filepath.Join(p.LocalAppData, "Temp")
+	}
+}
+
+// offLimits reports a folder that is not inside the user profile and sits
+// where only administrators write: a drive root, the Windows folder, Program
+// Files, ProgramData or the folder that holds every profile (C:\Users).
+func offLimits(dir string, p sys.Paths) bool {
+	d := filepath.Clean(dir)
+	if pathWithin(d, p.UserProfile) {
+		return false
+	}
+	if !filepath.IsAbs(d) || filepath.Dir(d) == d {
+		return true
+	}
+	for _, root := range []string{p.WindowsDir, p.ProgramFiles, p.ProgramFilesX86, p.ProgramData, filepath.Dir(filepath.Clean(p.UserProfile))} {
+		if root == "" || filepath.Dir(filepath.Clean(root)) == filepath.Clean(root) {
+			continue // unknown, or a drive root: it would take in the whole drive
+		}
+		if pathWithin(d, root) {
+			return true
+		}
+	}
+	return false
+}
+
+// pathWithin reports whether path is dir or inside it (case-insensitive).
+func pathWithin(path, dir string) bool {
+	if path == "" || dir == "" {
+		return false
+	}
+	p, d := strings.ToLower(filepath.Clean(path)), strings.ToLower(filepath.Clean(dir))
+	return p == d || strings.HasPrefix(p, strings.TrimRight(d, `\`)+`\`)
+}
+
 // UserPaths fills the per-user members of Paths for the console account
 // when it differs from the process account, so cleanup, startup entries
 // and program detection look at the right profile.

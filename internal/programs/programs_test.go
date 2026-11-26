@@ -59,7 +59,18 @@ func TestListAndCommands(t *testing.T) {
 		t.Error("desinstalador fora das pastas protegidas deveria rodar sem elevação")
 	}
 	if RunsAsUser(Program{Scope: ScopeMachine}, filepath.Join(paths.ProgramData, "Package Cache", "x", "setup.exe"), paths) || RunsAsUser(Program{Scope: ScopeMachine}, "msiexec.exe", paths) {
-		t.Error("ProgramData e programas do Windows desinstalam como administrador")
+		t.Error("Package Cache e programas do Windows desinstalam como administrador")
+	}
+	// The rest of ProgramData is open to any user by default (create files
+	// and folders): an uninstaller there never runs elevated through Axion.
+	for _, exe := range []string{
+		filepath.Join(paths.ProgramData, "App", "uninstall.exe"),
+		filepath.Join(paths.ProgramData, "Package Cache Falso", "setup.exe"),
+		filepath.Join(paths.ProgramData, "Package Cache", "..", "App", "setup.exe"),
+	} {
+		if !RunsAsUser(Program{Scope: ScopeMachine}, exe, paths) {
+			t.Errorf("desinstalador em %s deveria rodar sem elevação", exe)
+		}
 	}
 	for in, want := range map[string][2]string{
 		`"C:\Program Files\X\uninstall.exe" /S`:  {`C:\Program Files\X\uninstall.exe`, "/S"},

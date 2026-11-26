@@ -1079,14 +1079,7 @@ func (a *App) AddManualGame(exe string) error {
 }
 
 // underWindowsDir reports whether path is inside the Windows folder.
-func underWindowsDir(path, win string) bool {
-	if win == "" {
-		win = `C:\Windows`
-	}
-	p := strings.ToLower(strings.ReplaceAll(path, "/", `\`))
-	w := strings.ToLower(strings.TrimRight(win, `\`)) + `\`
-	return strings.HasPrefix(p, w)
-}
+func underWindowsDir(path, win string) bool { return catalog.UnderDir(path, win) }
 
 // RemoveManualGame forgets a manual game (profile changes stay in the history).
 func (a *App) RemoveManualGame(exe string) error {

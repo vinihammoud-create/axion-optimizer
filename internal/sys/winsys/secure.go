@@ -29,6 +29,11 @@ const dataDirSDDL = "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;OW)"
 // things other accounts put there before it was protected (done once).
 const auditMarker = ".protegida"
 
+// WebViewDir is the folder, inside the data folder, that holds the profile
+// of the WebView2 window (cache, local storage). The browser owns what is in
+// it and rewrites it all the time.
+const WebViewDir = "WebView2"
+
 // asideTag is appended to what is moved out of the way; Axion never reads
 // those names again.
 const asideTag = ".nao-confiavel-"
@@ -41,16 +46,19 @@ func notFound(err error) bool {
 // running Axion (elevated). Anything owned by another account was put there
 // by someone else.
 func trustedOwner(sid *windows.SID) bool {
-	if sid == nil {
-		return false
-	}
-	if sid.IsWellKnown(windows.WinBuiltinAdministratorsSid) || sid.IsWellKnown(windows.WinLocalSystemSid) {
+	if adminSID(sid) {
 		return true
 	}
 	if tu, err := windows.GetCurrentProcessToken().GetTokenUser(); err == nil && tu.User.Sid != nil {
 		return sid.Equals(tu.User.Sid)
 	}
 	return false
+}
+
+// adminSID reports the Administrators group or SYSTEM: an owner no program
+// without administrator rights can give to what it creates.
+func adminSID(sid *windows.SID) bool {
+	return sid != nil && (sid.IsWellKnown(windows.WinBuiltinAdministratorsSid) || sid.IsWellKnown(windows.WinLocalSystemSid))
 }
 
 // adminOwned reports files owned by the Administrators group or SYSTEM.
@@ -171,7 +179,7 @@ const (
 // links and, when it is a real folder created by an administrator, applies
 // the protected permissions through that same handle: a junction swapped in
 // at the last moment cannot redirect the change.
-func inspectAndProtect(dir string, dacl *windows.ACL) (dirState, error) {
+func inspectAndProtect(dir string, dacl *windows.ACL, okOwner func(*windows.SID) bool) (dirState, error) {
 	h, err := openDirNoFollow(dir)
 	switch {
 	case err != nil && notFound(err):
@@ -194,7 +202,7 @@ func inspectAndProtect(dir string, dacl *windows.ACL) (dirState, error) {
 	if err != nil {
 		return 0, fmt.Errorf("ler o dono de %s: %w", dir, err)
 	}
-	if owner, _, err := sd.Owner(); err != nil || !trustedOwner(owner) {
+	if owner, _, err := sd.Owner(); err != nil || !okOwner(owner) {
 		return dirUntrusted, nil
 	}
 	// The folder is also handed to the Administrators group, so any
@@ -226,7 +234,12 @@ func PrepareDataDir(dir string) (warn error, err error) {
 		return nil, err
 	}
 	for attempt := 0; attempt < 6; attempt++ {
-		st, err := inspectAndProtect(dir, dacl)
+		// Axion creates this folder owned by the Administrators group and
+		// hands it to that group whenever it protects it, so any other
+		// owner (the account itself included: a program of the account,
+		// running without administrator rights, can create the folder
+		// first) means someone else prepared it.
+		st, err := inspectAndProtect(dir, dacl, adminSID)
 		if err != nil {
 			return nil, err
 		}
@@ -261,7 +274,7 @@ func HardenDir(dir string) error {
 	if err != nil {
 		return err
 	}
-	st, err := inspectAndProtect(dir, dacl)
+	st, err := inspectAndProtect(dir, dacl, trustedOwner)
 	if err != nil {
 		return err
 	}
@@ -351,6 +364,14 @@ func resetContents(dir string, audit bool) error {
 		if e := windows.SetNamedSecurityInfo(p, windows.SE_FILE_OBJECT,
 			windows.DACL_SECURITY_INFORMATION|windows.UNPROTECTED_DACL_SECURITY_INFORMATION, nil, nil, empty, nil); e != nil {
 			note(fmt.Errorf("proteger %s: %w", p, e))
+		}
+		if d.IsDir() && !audit && filepath.Dir(p) == dir && strings.EqualFold(d.Name(), WebViewDir) {
+			// The window's browser profile: thousands of small files that
+			// only the (elevated) browser writes, inside a folder nobody
+			// else can change. Walking them on every start would only slow
+			// the opening on a hard disk. The folder itself was checked
+			// above (not a link, permissions inherited).
+			return filepath.SkipDir
 		}
 		return nil
 	})

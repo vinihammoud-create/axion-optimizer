@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"axion/internal/facts"
@@ -72,14 +71,59 @@ var systemExes = map[string]bool{
 // inWindowsDir reports whether path is inside the Windows folder: whatever
 // lives there is part of Windows and never gets a game profile, even when
 // its name is not in systemExes.
+//
+// SystemRoot is pinned by the program to what the Windows API answers before
+// anything else runs (the inherited value is the user's to change); without
+// it the usual folder is assumed, so the check never passes by omission.
 func inWindowsDir(path string) bool {
-	root := strings.TrimSpace(os.Getenv("SystemRoot"))
-	if root == "" || path == "" {
+	if path == "" {
 		return false
 	}
-	p := strings.ToLower(filepath.Clean(path))
-	r := strings.ToLower(filepath.Clean(root))
-	return strings.HasPrefix(p, r+string(filepath.Separator))
+	return UnderDir(path, strings.TrimSpace(os.Getenv("SystemRoot")))
+}
+
+// UnderDir reports whether path is dir itself or inside it, for the checks
+// that keep Windows' own programs out of game profiles. The path is
+// normalized first: ".." segments, forward slashes, letter case and the
+// \\?\ and \\.\ prefixes all name the same file to Windows, and a comparison
+// of the raw text would let any of them through. An empty dir stands for
+// C:\Windows.
+func UnderDir(path, dir string) bool {
+	if dir == "" {
+		dir = `C:\Windows`
+	}
+	p, d := plainPath(path), plainPath(dir)
+	return p == d || strings.HasPrefix(p, d+`\`)
+}
+
+// plainPath lowers a Windows path to one comparable form (see UnderDir).
+// It works on the text alone, the same way on every system the tests run on.
+func plainPath(s string) string {
+	s = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(s), "/", `\`))
+	for _, pre := range []string{`\\?\unc\`, `\\.\unc\`} {
+		if strings.HasPrefix(s, pre) {
+			s = `\\` + s[len(pre):]
+		}
+	}
+	for _, pre := range []string{`\\?\`, `\\.\`, `\??\`} {
+		s = strings.TrimPrefix(s, pre)
+	}
+	var out []string
+	for _, seg := range strings.Split(s, `\`) {
+		switch seg {
+		case "", ".":
+		case "..":
+			if len(out) > 1 {
+				out = out[:len(out)-1]
+			}
+		default:
+			// Windows drops trailing dots and spaces of a name.
+			if t := strings.TrimRight(seg, ". "); t != "" {
+				out = append(out, t)
+			}
+		}
+	}
+	return strings.Join(out, `\`)
 }
 
 // SystemExe reports whether name (a file name like "dwm.exe") is a Windows

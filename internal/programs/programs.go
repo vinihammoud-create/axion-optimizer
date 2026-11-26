@@ -180,12 +180,16 @@ func expand(s string, getenv func(string) string) string {
 // RunsAsUser tells whether the uninstaller must run with the user's normal
 // rights: per-user installations (anyone can write their registry entry) and
 // any uninstaller outside the folders only administrators can change (the
-// Windows folder, Program Files and ProgramData). An uninstaller in the
-// user's profile or on a games drive (D:\Jogos...) can be swapped by a
-// program without administrator rights, which would then run elevated
-// through Axion; run as the user, an uninstaller that needs administrator
-// rights asks for them itself (UAC). Bare names (msiexec.exe) are Windows'
-// own programs, resolved in System32.
+// Windows folder, Program Files and the installers' Package Cache). An
+// uninstaller in the user's profile or on a games drive (D:\Jogos...) can be
+// swapped by a program without administrator rights, which would then run
+// elevated through Axion; run as the user, an uninstaller that needs
+// administrator rights asks for them itself (UAC). ProgramData as a whole is
+// not on the list: by default any user may create files and folders there,
+// and many programs open their own subfolder to everyone. Only its Package
+// Cache counts, which the installers that use it (WiX Burn: Visual C++,
+// .NET, drivers) lock to administrators. Bare names (msiexec.exe) are
+// Windows' own programs, resolved in System32.
 func RunsAsUser(p Program, exe string, paths sys.Paths) bool {
 	if p.Scope == ScopeUser {
 		return true
@@ -196,7 +200,11 @@ func RunsAsUser(p Program, exe string, paths sys.Paths) bool {
 	if within(exe, paths.UserProfile) {
 		return true
 	}
-	for _, dir := range []string{paths.WindowsDir, paths.ProgramFiles, paths.ProgramFilesX86, paths.ProgramData} {
+	trusted := []string{paths.WindowsDir, paths.ProgramFiles, paths.ProgramFilesX86}
+	if paths.ProgramData != "" {
+		trusted = append(trusted, filepath.Join(paths.ProgramData, "Package Cache"))
+	}
+	for _, dir := range trusted {
 		if within(exe, dir) {
 			return false
 		}

@@ -178,6 +178,17 @@ func TestTempOutsideProfileIsNotCleaned(t *testing.T) {
 	if d := Targets(p)[0].Dirs; len(d) != 0 {
 		t.Errorf("sem LocalAppData, a pasta fora do perfil não pode ser limpa: %v", d)
 	}
+
+	// Local AppData itself comes from the account's registry (User Shell
+	// Folders): pointed outside the profile, its Temp is not cleaned either.
+	p.LocalAppData = filepath.Join(base, "Dados")
+	if d := Targets(p)[0].Dirs; len(d) != 0 {
+		t.Errorf("Local AppData fora do perfil: a pasta Temp de lá não pode ser limpa: %v", d)
+	}
+	Clean(Targets(p)[0], time.Now())
+	if _, err := os.Stat(kept); err != nil {
+		t.Fatalf("arquivo fora do perfil foi apagado por Local AppData redirecionado: %v", err)
+	}
 }
 
 // An installer extracting right now restores old modification times; its

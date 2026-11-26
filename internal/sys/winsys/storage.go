@@ -98,5 +98,6 @@ func (n *Native) Paths() sys.Paths {
 	}
 	// Per-user folders belong to the console account (see user.go).
 	userPaths(&p)
+	confineUserFolders(&p)
 	return p
 }
