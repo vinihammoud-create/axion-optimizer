@@ -18,7 +18,7 @@ func appWithSettings(t *testing.T, body []byte) *App {
 		t.Fatal(err)
 	}
 	if body != nil {
-		if err := os.WriteFile(filepath.Join(m.Platform.DataDir, "settings.json"), body, 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(m.DataDir, "settings.json"), body, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
