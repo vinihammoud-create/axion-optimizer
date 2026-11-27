@@ -781,6 +781,7 @@ type Facts struct {
 	Adapters    []Adapter           `json:"adapters"`
 	Net         NetInfo             `json:"net"`
 	Security    SecurityInfo        `json:"security"`
+	Management  ManagementInfo      `json:"management"`
 	Gaming      GamingInfo          `json:"gaming"`
 	Power       PowerInfo           `json:"power"`
 	Nvidia      NvidiaInfo          `json:"nvidia"`

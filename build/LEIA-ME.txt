@@ -161,6 +161,20 @@ NOVO NA 0.10.1 (seleção de otimizações em arquivo)
     escolhidos nas próprias páginas.
   - O arquivo é conferido antes: formato e versão do formato, até 64 KB e
     até 500 itens. Arquivo fora disso é recusado com o motivo.
+  PC de empresa ou escola e o Windows Update
+  - A análise agora lê se o PC é gerenciado por uma organização: se faz
+    parte de um domínio (WMI, Win32_ComputerSystem.PartOfDomain) e se está
+    inscrito num gerenciamento de dispositivos, o MDM, como o Intune (função
+    do Windows IsDeviceRegisteredWithManagement). As duas leituras só leem;
+    o nome do domínio não é guardado.
+  - Num PC gerenciado, "Desbloquear o Windows Update" passa a ser "não
+    recomendado" e fica fora do 1 clique: as políticas de atualização podem
+    ser da organização, removê-las vai contra o TI e a Política de Grupo
+    pode gravá-las de novo. O motivo diz para falar com o TI. Quando a
+    leitura falha, o item também fica fora do 1 clique, com "não foi
+    possível saber se o PC é gerenciado". Num PC de casa, lido como não
+    gerenciado, nada muda. O item continua na página Otimizações, com
+    desfazer, para quem quiser aplicar mesmo assim.
 
 NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por conta e fontes revistas)
   Instalador

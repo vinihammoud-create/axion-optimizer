@@ -897,6 +897,11 @@ type Native interface {
 	// (\\.\DISPLAY1): NvAPI_DISP_GetDisplayIdByDisplayName + NvAPI_Disp_GetVRRInfo
 	// (driver R525 or newer).
 	NVVRR(device string) (NVVRRInfo, error)
+	// MDMRegistered tells whether the device is registered with a mobile
+	// device management service (IsDeviceRegisteredWithManagement in
+	// MDMRegistration.dll: "Checks whether the device is registered with an
+	// MDM service"). It only reads; an error means unknown, not "no".
+	MDMRegistered() (bool, error)
 }
 
 // DPCHistBoundsUS are the upper edges, in microseconds, of the duration

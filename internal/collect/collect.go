@@ -999,6 +999,7 @@ func (c *collector) security() {
 			}
 		}
 	}
+	c.management()
 }
 
 // antiCheatPrograms matches installed programs (name or publisher, lower
