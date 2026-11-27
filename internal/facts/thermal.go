@@ -2,8 +2,10 @@ package facts
 
 // ThermalInfo is what Windows exposes about heat without a hardware driver:
 // the ACPI thermal zones (the "Thermal Zone Information" performance
-// counters) and the frequency limit Windows puts on the processors for heat
-// (CallNtPowerInformation). Neither is the processor's own temperature: a
+// counters) and the frequency limit Windows reports for the processors
+// (CallNtPowerInformation; Microsoft calls it thermal, but the firmware lowers
+// it too, so alone it does not prove heat). Neither is the processor's own
+// temperature: a
 // thermal zone is an area of the board or chassis chosen by the manufacturer,
 // and many PCs (most desktops, many gaming notebooks) expose none.
 type ThermalInfo struct {
@@ -54,7 +56,7 @@ func (t ThermalInfo) ThrottledNow() []ThermalZone {
 }
 
 // LimitedNow is true when Windows holds the processors below their maximum
-// frequency for heat right now.
+// frequency right now (heat or a firmware limit: the number does not say).
 func (t ThermalInfo) LimitedNow() bool {
 	return t.LimitRead && t.MaxMhz > 0 && t.MhzLimit > 0 && t.MhzLimit < t.MaxMhz
 }

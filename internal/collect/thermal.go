@@ -13,8 +13,8 @@ const StepThermal = "Temperatura e limite térmico"
 
 // thermal reads what Windows exposes about heat without a driver: the ACPI
 // thermal zones through their performance counters (temperature in Kelvin,
-// "% Passive Limit", throttle reason) and the frequency limit Windows puts on
-// the processors for heat (CallNtPowerInformation, MhzLimit).
+// "% Passive Limit", throttle reason) and the frequency limit Windows reports
+// for the processors (CallNtPowerInformation, MhzLimit; heat or firmware).
 func (c *collector) thermal() {
 	t := &c.f.Thermal
 	if rows, err := c.p.WMI.Query(`root\cimv2`, "SELECT Name, Temperature, PercentPassiveLimit, ThrottleReasons FROM Win32_PerfFormattedData_Counters_ThermalZoneInformation"); err == nil {

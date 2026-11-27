@@ -975,8 +975,8 @@
     const st = S.state || {};
     const out = [];
     if (IN_BROWSER) out.push(h('div', { class: 'banner quiet' }, icon('info'), h('div', null,
-      'Aberto no navegador: instale o WebView2 Runtime da Microsoft para usar a janela própria do Axion, que é o modo recomendado. ',
-      extLink('Baixar o WebView2 Runtime', 'https://developer.microsoft.com/microsoft-edge/webview2/'))));
+      'Aberto no navegador porque a janela própria do Axion não abriu. Se o WebView2 Runtime da Microsoft não estiver instalado, instale-o; se estiver, o motivo ficou registrado em C:\\ProgramData\\Axion\\axion.log. ',
+      extLink('Página do WebView2 Runtime', 'https://developer.microsoft.com/microsoft-edge/webview2/'))));
     if (st.scanned && !st.elevated && !st.mock) out.push(h('div', { class: 'banner' }, icon('alert'), h('div', { text: 'O Axion não está como administrador: a análise funciona, mas as otimizações não podem ser aplicadas. Abra o programa novamente e aceite o pedido de permissão.' })));
     if (st.rebootPending) out.push(h('div', { class: 'banner' }, icon('refresh'), h('div', { text: 'Há alterações que só passam a valer depois de reiniciar o PC.' })));
     if (st.drifted) out.push(h('div', { class: 'banner' }, icon('alert'), h('div', { text: plural(st.drifted, 'otimização foi desfeita', 'otimizações foram desfeitas') + ' pelo Windows ou por outro programa.' }), h('div', { class: 'spacer' }), btn('Ver', () => go('diagnostico'), 'sm', null, { 'data-focus': 'banner-drift' })));

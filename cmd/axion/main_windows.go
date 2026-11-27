@@ -378,7 +378,7 @@ func browserSession(srv *app.Server, why string) {
 	messageBox("O Axion abriu no seu navegador porque "+why+".\n\n"+
 		"Mantenha esta mensagem aberta enquanto usa o Axion. Clique em OK para encerrar o programa. "+
 		"Se fechar a aba, abra o Axion de novo pelo atalho: ele abre outra aba.\n\n"+
-		"Para usar a janela própria do Axion, mantenha o WebView2Loader.dll junto do Axion.exe e o WebView2 Runtime instalado: https://developer.microsoft.com/microsoft-edge/webview2/", 0x40)
+		"A janela própria do Axion precisa do WebView2Loader.dll junto do Axion.exe e do WebView2 Runtime da Microsoft: https://developer.microsoft.com/microsoft-edge/webview2/", 0x40)
 }
 
 // watchReopen opens a new browser tab each time another launch of Axion

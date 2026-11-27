@@ -16,9 +16,11 @@ var (
 )
 
 // tweakNames turns optimization IDs into the names the person sees in
-// Otimizar. An ID outside the catalog (startup entries are built per PC)
-// stays as it is rather than being dropped.
-func tweakNames(ids []string) string {
+// Otimizar: the title the engine put in the state (it also knows the items
+// built per PC: startup entries, DNS, active hours, game profiles), then the
+// static catalog; an ID neither knows stays as it is rather than being
+// dropped.
+func tweakNames(ids []string, st map[string]tweaks.State) string {
 	titlesOnce.Do(func() {
 		titles = map[string]string{}
 		for _, t := range catalog.All() {
@@ -28,7 +30,9 @@ func tweakNames(ids []string) string {
 	out := make([]string, len(ids))
 	for i, id := range ids {
 		out[i] = id
-		if t := titles[id]; t != "" {
+		if t := st[id].Title; t != "" {
+			out[i] = t
+		} else if t := titles[id]; t != "" {
 			out[i] = t
 		}
 	}
