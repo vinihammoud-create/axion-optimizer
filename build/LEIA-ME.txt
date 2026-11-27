@@ -142,7 +142,7 @@ O QUE ESTA VERSÃO FAZ
   - Perfil do driver NVIDIA: lê e, com desfazer exato, corrige ajustes do
     driver deixados por outros programas.
 
-NOVO NA 0.10.1 (seleção de otimizações em arquivo)
+NOVO NA 0.10.1 (modo Simples e Avançado, ajuda "?", quatro estados no diagnóstico, seleção em arquivo e PC de empresa)
   Exportar e importar a seleção
   - Em Otimizações, "Exportar seleção" salva num arquivo .json a lista das
     otimizações que o Axion aplicou nesta conta, com a versão do formato, a
@@ -196,6 +196,42 @@ NOVO NA 0.10.1 (seleção de otimizações em arquivo)
     o botão e o painel. Os diálogos de aplicar, desfazer e instalar, as
     mensagens de erro e o detalhe de cada achado e de cada otimização
     continuam como estavam. Nada muda no Windows.
+
+  Diagnóstico com quatro estados
+  - Cada ponto do diagnóstico diz, ao lado da gravidade, se é "Problema
+    confirmado" (uma leitura direta mostra o problema), "Possível problema"
+    (dedução, critério do Axion ou algo que depende do seu uso),
+    "Informação insuficiente" (a leitura não respondeu) ou "Condição
+    normal". A nota não muda; o relatório HTML e o JSON trazem o estado.
+  - A nota de cada área fica neutra, nunca verde, quando uma leitura de que
+    ela depende não respondeu.
+
+  Interface
+  - Cores derivadas do azul e do laranja do logotipo, com contraste AA nos
+    textos e botões. Linhas que não se aplicam não ficam mais apagadas: só o
+    título fica mais discreto.
+  - Cada otimização mostra o estado, o risco (também "seguro"), se foi o
+    Axion que aplicou ("Aplicado pelo Axion", "Já estava assim no Windows"
+    ou "Não aplicado") e, quando foi o Axion, um "Desfazer" ali mesmo, o
+    mesmo do Histórico.
+  - Perfis Trabalho, Criação e Programação: o Início sugere a Avaliação
+    completa no lugar de "Medir FPS", a busca não oferece o perfil do CS2 e
+    "Jogos e medição" vai para o fim do menu.
+  - A atualização automática da tela (a cada 15 s) para quando a janela
+    está minimizada ou escondida.
+
+  Desfazer e textos
+  - Desligar um recurso opcional do Windows que pede reinício (o DISM
+    responde 3010) não é mais desfeito logo depois de aplicar: até reiniciar,
+    vale o que o DISM aceitou, e a tela diz "desativação pendente: reinicie
+    o PC".
+  - A janela própria não é apresentada como proteção contra os outros
+    programas da sua conta: o WebView2 roda sem privilégio, como a conta.
+    O aviso do modo navegador não manda instalar o WebView2 quando ele já
+    está instalado; diz onde ficou o motivo (axion.log).
+  - O diagnóstico mostra o nome das otimizações, também das montadas para
+    este PC (DNS, horário ativo, inicialização, perfis de jogo), nunca o
+    código interno.
 
 NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por conta e fontes revistas)
   Instalador

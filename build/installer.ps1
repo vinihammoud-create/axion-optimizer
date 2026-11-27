@@ -1,8 +1,8 @@
 ﻿# Compila o instalador (dist\Axion-<versão>-setup.exe) com o Inno Setup 6, a
 # partir do pacote que o build\build.ps1 monta.
 #
-#   .\build\build.ps1 -Version 0.10.0
-#   .\build\installer.ps1 -Version 0.10.0 [-SignTool '<comando com $f>']
+#   .\build\build.ps1 -Version 0.10.1
+#   .\build\installer.ps1 -Version 0.10.1 [-SignTool '<comando com $f>']
 #
 # O pacote é conferido antes: arquivos esperados, um único PresentMon (o nome
 # vai para o instalador como PresentMonFile), SHA256SUMS.txt batendo com os
