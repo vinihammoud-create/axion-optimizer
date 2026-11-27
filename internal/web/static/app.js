@@ -1441,7 +1441,7 @@
       (!z.passiveLimitRead ? 'limite não lido' : z.passiveLimitPct < 100 ? 'limitando a ' + z.passiveLimitPct + '%' + ((z.reasons & 1) ? ' (temperatura)' : (z.reasons & 2) ? ' (corrente elétrica)' : '') : 'sem limite')]);
     if (!th.zonesRead) rows.push(['Zonas térmicas', 'não lidas']);
     else if (!zones.length) rows.push(['Zonas térmicas', 'nenhuma exposta pelo firmware (comum em desktop e em muitos notebooks)']);
-    rows.push(['Limite de frequência por temperatura', !th.limitRead ? 'não lido' : th.limitedNow ? th.mhzLimit + ' de ' + th.maxMhz + ' MHz (limitando agora)' : 'sem limite agora (' + th.maxMhz + ' MHz)']);
+    rows.push(['Limite de frequência (informado pelo Windows)', !th.limitRead ? 'não lido' : th.limitedNow ? th.mhzLimit + ' de ' + th.maxMhz + ' MHz (limitando agora)' : 'sem limite agora (' + th.maxMhz + ' MHz)']);
     return h('div', { class: 'mt-4' }, h('h3', { text: 'Temperatura (o que o Windows informa)' }), kv(rows),
       h('p', { class: 'small muted', text: 'Uma zona térmica é uma área da placa ou do gabinete escolhida pelo fabricante, não o núcleo do processador. A temperatura do próprio processador só um driver lê, e o Axion não instala driver.' }));
   }

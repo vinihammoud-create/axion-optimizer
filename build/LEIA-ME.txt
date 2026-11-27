@@ -341,9 +341,11 @@ NOVO NA 0.9.1 (interface nova, aviso térmico, ícone e revisão completa)
   - Limite do firmware na velocidade do processador (Kernel-Processor-Power
     37) em 3 dias ou mais (critério do Axion): sugestão.
   - No momento da análise: zonas térmicas limitando por calor e o limite de
-    frequência por temperatura (CallNtPowerInformation).
+    frequência do processador (CallNtPowerInformation). A Microsoft descreve
+    esse limite como térmico, mas o firmware também o reduz; sozinho, ele
+    aparece como "abaixo da frequência máxima", sem afirmar a causa.
   - Nas medições de FPS e nos relatórios de partida: quanto do tempo o
-    Windows limitou o processador por temperatura.
+    Windows limitou a frequência do processador.
   - O Axion não lê a temperatura do núcleo do processador: isso exige um
     driver, e o Axion não instala driver. Muitos PCs (quase todo desktop e
     vários notebooks gamer) não expõem zonas térmicas; aí só os eventos e o
