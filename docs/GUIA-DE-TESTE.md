@@ -39,7 +39,7 @@ Pode ser na sua conta principal. Nada aqui muda o Windows: a análise só lê, a
 ### Abrir
 
 7. O esperado é o Axion abrir numa **janela própria**, não numa aba do navegador. Anote como abriu.
-   - Se abrir no navegador, ou se aparecer no topo o aviso **"Aberto no navegador: instale o WebView2 Runtime…"**, tire uma captura e anote.
+   - Se abrir no navegador, ou se aparecer no topo o aviso **"Aberto no navegador porque a janela própria do Axion não abriu…"**, tire uma captura e anote.
 8. Escolha o perfil **Jogo competitivo** e espere a análise terminar (alguns segundos).
 
 ### Conferir a análise

@@ -14,8 +14,8 @@ REQUISITOS
     (a análise em si não altera nada).
   - Microsoft Edge WebView2 Runtime, o componente gratuito da Microsoft que
     abre a janela própria do Axion. Já vem no Windows 11 e na maioria dos
-    Windows 10. Sem ele, o Axion funciona, mas abre no navegador padrão, com
-    proteção reduzida (veja "Modo navegador" em NOVO NA 0.10.0); a página
+    Windows 10. Sem ele, o Axion funciona, mas abre no navegador padrão
+    (veja "Modo navegador" em NOVO NA 0.10.0); a página
     oficial para instalar é
     https://developer.microsoft.com/microsoft-edge/webview2/
 
@@ -160,7 +160,8 @@ NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por c
     não conseguir ler o histórico, diz isso em vez de seguir como se não
     houvesse nada.
   - A desinstalação remove o programa, os atalhos e o cache da janela (o
-    perfil do WebView2 em %LOCALAPPDATA%\Axion\WebView2, a cópia do
+    perfil do WebView2 em %LOCALAPPDATA%\Axion\WebView2 da conta que
+    aceitou o pedido de administrador ao desinstalar, a cópia do
     WebView2Loader.dll em C:\ProgramData\Axion\bin e a pasta
     C:\ProgramData\Axion\WebView2, se um rascunho da 0.10.0 a criou). A
     pasta de dados (histórico para
@@ -299,7 +300,9 @@ NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por c
     privilégio, como essa conta (é como a Microsoft faz desde a versão 103
     do WebView2), e precisa gravar o perfil. Numa pasta só de
     administradores a janela não abre. Se o pedido de administrador foi
-    aceito com outra conta, o perfil fica na conta de quem está usando o PC.
+    aceito com outra conta, o perfil fica na conta de quem está usando o PC
+    (quando o Windows informa essa conta; senão, a janela pode não abrir e
+    o Axion abre no navegador, dizendo o motivo).
   - Quando a janela própria não abre e o WebView2 está instalado, o aviso
     do modo navegador diz isso e onde ficou o motivo (axion.log), em vez
     de dizer que falta o WebView2.
@@ -319,10 +322,13 @@ NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por c
     "Package Cache" dos instaladores continua rodando como administrador.
   - Perfis de jogo: programas da pasta do Windows são recusados também quando
     o caminho vem escrito com "..", com o prefixo \\?\ ou com outra grafia.
-  - Modo navegador (quando o WebView2 Runtime não existe no PC): a interface
-    roda dentro do navegador, sem elevação, e por isso fica ao alcance dos
-    outros programas da sua conta. Com o WebView2 instalado isso não
-    acontece; é o modo recomendado.
+  - Modo navegador (quando a janela própria não abre): a interface roda
+    dentro do navegador padrão, e a chave de acesso a ela passa por esse
+    navegador (e pelas extensões dele) e pela linha de comando que o abre.
+    Na janela própria a chave fica só dentro da janela; é o modo
+    recomendado. A janela própria também não é um cofre: o WebView2 roda
+    sem privilégio, como a sua conta, e outros programas dela conseguem
+    alcançá-lo.
 
   Relatórios
   - Relatório anônimo: se não puder ser anonimizado, nada é exportado (antes

@@ -1446,7 +1446,7 @@ var rules = []rule{
 		}
 		sort.Strings(ids)
 		add(Finding{ID: "axion.drift", Area: AreaDesempenho, Severity: SevWarning, Title: plural(len(ids), "otimização desfeita desde a aplicação", "otimizações desfeitas desde a aplicação"),
-			Evidence:    "Alteradas depois de aplicadas: " + tweakNames(ids) + ".",
+			Evidence:    "Alteradas depois de aplicadas: " + tweakNames(ids, st) + ".",
 			Explanation: "Atualizações grandes do Windows e outros programas às vezes restauram configurações. O backup original continua guardado; você pode reaplicar.",
 			Actions:     []Action{fixTweaks("Reaplicar", ids...)}})
 	},

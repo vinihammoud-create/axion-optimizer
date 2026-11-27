@@ -145,7 +145,7 @@ Nos dois casos, os dados ficam em `C:\ProgramData\Axion`.
 
 - Windows 10 ou Windows 11, de 64 bits. No Windows 10 anterior à versão 2004, a troca de DNS não está disponível.
 - Uma conta de administrador: o Axion pede permissão sempre que abre, porque as otimizações mudam configurações do Windows. A análise só lê.
-- Microsoft Edge WebView2 Runtime, que já vem no Windows 11 e na maioria dos Windows 10. Sem ele, o Axion abre no navegador; o instalador avisa e leva à [página oficial da Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/). A janela própria é o modo recomendado: no navegador a interface fica ao alcance dos outros programas da sua conta.
+- Microsoft Edge WebView2 Runtime, que já vem no Windows 11 e na maioria dos Windows 10. Sem ele, o Axion abre no navegador; o instalador avisa e leva à [página oficial da Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/). A janela própria é o modo recomendado: no navegador, a chave de acesso à interface passa pelo navegador padrão e pelas extensões dele; na janela própria, fica só dentro dela.
 
 ### "O Windows protegeu o computador"
 

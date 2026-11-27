@@ -81,7 +81,10 @@ type OpState struct {
 
 // State is the live state of one tweak on this machine.
 type State struct {
-	ID         string         `json:"id"`
+	ID string `json:"id"`
+	// Title is the name the person sees (also for items built per PC:
+	// startup entries, DNS, active hours, game profiles).
+	Title      string         `json:"title,omitempty"`
 	Applicable bool           `json:"applicable"`
 	NAReason   string         `json:"naReason,omitempty"`
 	Status     string         `json:"status"` // on | off | partial | na | error
@@ -133,7 +136,7 @@ func (e *Engine) ActiveFor(tweakID string) *Entry { return e.J.ActiveForUser(twe
 
 // StateOf computes the live state of a tweak (read-only).
 func (e *Engine) StateOf(ctx context.Context, f *facts.Facts, t *Tweak) State {
-	st := State{ID: t.ID, Rec: t.Recommendation(f)}
+	st := State{ID: t.ID, Title: t.Title, Rec: t.Recommendation(f)}
 	ok, why := t.IsApplicable(f)
 	ent := e.ActiveFor(t.ID)
 	st.Applicable = ok

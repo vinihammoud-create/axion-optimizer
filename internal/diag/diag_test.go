@@ -379,6 +379,13 @@ func TestDriftFinding(t *testing.T) {
 	if strings.Contains(x.Evidence, "game.mode") || !strings.Contains(x.Evidence, "Modo de Jogo ativado") {
 		t.Errorf("drift deve citar o nome da otimização: %s", x.Evidence)
 	}
+	// Items built per PC (DNS, active hours, startup, game profiles) are not
+	// in the static catalog: the title comes from the engine's state.
+	st["activehours:18-2"] = tweaks.State{ID: "activehours:18-2", Title: "Horário ativo das 18h às 2h", ByAxion: true, Drifted: true, Status: "off", Applicable: true}
+	x = find(diag.Build(f, st), "axion.drift")
+	if x == nil || strings.Contains(x.Evidence, "activehours:") || !strings.Contains(x.Evidence, "Horário ativo das 18h às 2h") {
+		t.Errorf("item montado por PC deve aparecer pelo nome: %+v", x)
+	}
 }
 
 func TestFirmwareRules(t *testing.T) {
