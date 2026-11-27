@@ -239,11 +239,12 @@
   }
   function badge(text, kind, ic) { return h('span', { class: 'badge ' + (kind || '') }, ic ? icon(ic) : null, text); }
   function extLink(title, url) { return h('a', { href: url, class: 'small', rel: 'noreferrer' }, title); }
-  // The simple mode is one screen whatever the address says: a button that
-  // opens a page (an action of a finding, a banner, "Ver histórico" after a
-  // job) leaves it and opens the page, instead of doing nothing.
+  // The simple level shows its own screen and the Histórico (SIMPLE_PAGES)
+  // whatever the address says: a button that opens any other page (an
+  // action of a finding, a banner) switches to the advanced level and opens
+  // the page, instead of doing nothing.
   function go(page) {
-    if (isSimple() && S.state && S.state.scanned) { leaveSimple(page); return; }
+    if (isSimple() && S.state && S.state.scanned && !SIMPLE_PAGES.includes(page)) { leaveSimple(page); return; }
     location.hash = '#/' + page;
   }
 
@@ -600,7 +601,7 @@
       : (bad ? ['warn', 'alert', 'Algumas alterações não foram desfeitas'] : ['ok', 'check', 'Alterações desfeitas']);
     return h('div', null,
       h('div', { class: 'res-head ' + head[0] }, icon(head[1]), h('div', null, h('h4', { text: head[2] }),
-        isApply ? h('div', { class: 'small muted', text: 'Pode ser desfeito a qualquer momento em Otimizar › Histórico.' }) : null)),
+        isApply ? h('div', { class: 'small muted', text: isSimple() ? 'Pode ser desfeito a qualquer momento em Desfazer mudanças, no Início.' : 'Pode ser desfeito a qualquer momento em Otimizar › Histórico.' }) : null)),
       h('div', { class: 'stats' }, stats.map(([n, one, many]) => h('div', { class: 'stat' + (n && (one === 'aplicada' || one === 'desfeita') ? ' ok' : n && (one === 'falhou' || one === 'conflito') ? ' bad' : ' neutral') }, h('div', { class: 'n', text: String(n) }), h('div', { class: 'l', text: n === 1 ? one : many })))),
       r.scoreBefore && r.scoreAfter && r.scoreBefore !== r.scoreAfter
         ? h('div', { class: 'score-delta' + (r.scoreAfter > r.scoreBefore ? ' up' : ' down') }, icon(r.scoreAfter > r.scoreBefore ? 'check' : 'info'),
@@ -841,7 +842,22 @@
     if (!profileList || !id) return true;
     return profileOf(id, profileList.profiles).gaming !== false;
   }
-  const isSimple = () => !!(S.state && S.state.settings && S.state.settings.simple);
+  // The level of the interface (settings.mode, app.ModeSimple and
+  // app.ModeAdvanced): a settings file from before 0.10.1 only has `simple`,
+  // and the server fills `mode` from it.
+  const MODES = [
+    { id: 'simples', title: 'Simples', tip: 'Uma tela: a nota, o que mais pesa, as recomendadas (só itens sem risco) e o Histórico para desfazer' },
+    { id: 'avancado', title: 'Avançado', tip: 'Todas as páginas e otimizações, com os valores do registro e os dados lidos do PC' },
+  ];
+  function uiMode() {
+    const s = S.state && S.state.settings;
+    if (!s) return 'avancado';
+    if (s.mode === 'simples' || s.mode === 'avancado') return s.mode;
+    return s.simple ? 'simples' : 'avancado';
+  }
+  const isSimple = () => uiMode() === 'simples';
+  // Pages the simple level opens without leaving it (besides its own screen).
+  const SIMPLE_PAGES = ['painel', 'historico'];
 
   // pickProfile asks what the PC is used for. first: the one-time question
   // on the first run (no closing without an answer). Resolves true when a
@@ -884,28 +900,64 @@
     });
   }
 
-  async function setSimple(on) {
-    try { await api('POST', '/api/settings', { simple: on }); } catch (e) { toast(e.message, 'bad'); return; }
-    await refreshState();
-    rerender(true);
+  // setMode saves the level of the interface (the selector of the top bar).
+  // Entering the simple level from a page it does not show puts the address
+  // back on Início, so the advanced level opens there when chosen again.
+  let modeSaving = false;
+  async function setMode(mode) {
+    if (modeSaving || mode === uiMode()) return;
+    modeSaving = true;
+    try {
+      try { await api('POST', '/api/settings', { mode }); } catch (e) { toast(e.message, 'bad'); return; }
+      if (mode === 'simples' && !SIMPLE_PAGES.includes(currentPage())) history.replaceState(null, '', '#/painel');
+      await refreshState();
+      rerender(true);
+    } finally { modeSaving = false; }
   }
 
-  // leaveSimple goes back to the complete mode and opens a page there.
+  // leaveSimple switches to the advanced level and opens a page there (a page
+  // the simple level does not show).
   let leavingSimple = false;
   async function leaveSimple(page) {
     if (leavingSimple) return;
     leavingSimple = true;
     try {
-      try { await api('POST', '/api/settings', { simple: false }); } catch (e) { toast(e.message, 'bad'); return; }
+      try { await api('POST', '/api/settings', { mode: 'avancado' }); } catch (e) { toast(e.message, 'bad'); return; }
       await refreshState();
       if (page) location.hash = '#/' + page;
       rerender(true);
-      toast('Modo completo. Para voltar ao modo simples, use o botão Modo simples no Início.', 'info', 6000);
+      toast('Modo Avançado: esta página não faz parte do modo Simples. Para voltar, use o seletor Simples no topo.', 'info', 6000);
     } finally { leavingSimple = false; }
   }
 
-  // solveSafe applies the recommended plan from the simple mode after one
-  // confirmation listing the items (the full plan dialog is the complete mode's).
+  // The selector of the level, always in the top bar: a radio group (Tab
+  // reaches the checked option; the arrows, Home and End choose the other).
+  function modeSwitch() {
+    const cur = uiMode();
+    const opts = MODES.map(m => h('button', {
+      class: 'mode-opt' + (m.id === cur ? ' active' : ''), type: 'button', role: 'radio', 'aria-checked': m.id === cur ? 'true' : 'false',
+      tabindex: m.id === cur ? '0' : '-1', title: m.tip, 'data-focus': 'top-mode-' + m.id, onclick: () => setMode(m.id),
+    }, m.title));
+    const group = h('div', { class: 'mode-switch', role: 'radiogroup', 'aria-label': 'Modo da interface' }, opts);
+    group.addEventListener('keydown', e => {
+      const i = MODES.findIndex(m => m.id === uiMode());
+      let j = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % MODES.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + MODES.length) % MODES.length;
+      else if (e.key === 'Home') j = 0;
+      else if (e.key === 'End') j = MODES.length - 1;
+      if (j < 0) return;
+      e.preventDefault();
+      opts[j].focus();
+      setMode(MODES[j].id);
+    });
+    return group;
+  }
+
+  // solveSafe applies the recommended plan from the simple level after one
+  // confirmation listing the items (the full plan dialog is the advanced
+  // level's). The server keeps that plan to items without risk
+  // (Tweak.Recommendable); the interface adds no rule of its own.
   async function solveSafe() {
     let plan;
     try { plan = await api('GET', '/api/plan?tier=recomendado'); } catch (e) { toast(e.message, 'bad'); return; }
@@ -913,16 +965,16 @@
     if (!items.length) { toast('Nada pendente: o que é seguro e recomendado já está aplicado.', 'ok'); return; }
     const rp = h('input', { type: 'checkbox', checked: !!(S.state && S.state.settings && S.state.settings.restorePoint) });
     const ok = await confirmDlg({
-      title: 'Resolver o que é seguro', ok: 'Aplicar ' + plural(items.length, 'item', 'itens'), icon: 'zap', wide: true,
+      title: 'Aplicar recomendadas', ok: 'Aplicar ' + plural(items.length, 'item', 'itens'), icon: 'zap', wide: true,
       body: h('div', null,
         h('p', { class: 'small', style: { marginTop: 0 }, text: plan.note }),
         h('ul', { class: 'plan-mini' }, items.map(it => h('li', null, icon('check'), h('div', null, h('b', { text: it.title }), ' — ', h('span', { class: 'muted', text: it.summary }))))),
         plan.reboot ? h('div', { class: 'callout warn', style: { marginTop: '12px' } }, icon('refresh'), h('div', { text: 'Alguns itens só valem após reiniciar o PC.' })) : null,
         h('label', { class: 'check small', style: { marginTop: '12px' } }, rp, 'Criar ponto de restauração do Windows antes'),
-        h('p', { class: 'small muted', text: 'Cada mudança guarda o valor anterior e pode ser desfeita no Histórico. No modo simples, o botão Desfazer mudanças abre o Histórico.' })),
+        h('p', { class: 'small muted', text: 'Só entram itens sem risco. Cada mudança guarda o valor anterior e pode ser desfeita em Desfazer mudanças, sem sair do modo Simples.' })),
     });
     if (!ok) return;
-    await runJob(api('POST', '/api/apply', { ids: items.map(it => it.id), restorePoint: rp.checked, label: 'Resolver o que é seguro' }), { title: 'Resolver o que é seguro' });
+    await runJob(api('POST', '/api/apply', { ids: items.map(it => it.id), restorePoint: rp.checked, label: 'Aplicar recomendadas' }), { title: 'Aplicar recomendadas' });
   }
 
   const SEV_RANK = { critical: 0, warning: 1, info: 2, good: 3 };
@@ -931,15 +983,23 @@
     return rep.findings.filter(x => !x.dismissed && !x.offProfile).slice().sort((a, b) => (SEV_RANK[a.severity] || 0) - (SEV_RANK[b.severity] || 0));
   }
 
+  // In the simple level a finding offers pages, links and the items of the
+  // recommended plan (safe: the ids the server put in it); an action that
+  // applies anything else stays in the advanced level.
+  const simpleActions = (acts, safe) => (acts || []).filter(a => a.kind === 'page' || a.kind === 'url'
+    || (a.kind === 'tweaks' && (a.tweaks || []).length > 0 && a.tweaks.every(id => safe.has(id))));
+
   async function pageSimple() {
-    const [rep, pr] = await Promise.all([get('report', '/api/report'), profiles()]);
+    const [rep, pr, plan] = await Promise.all([get('report', '/api/report'), profiles(), get('planrec', '/api/plan?tier=recomendado').catch(() => null)]);
     const st = S.state;
     const prof = profileOf(rep.profile || st.settings.profile, pr.profiles);
-    const top = activeFindings(rep).filter(x => x.severity !== 'good').slice(0, 3);
+    const safe = new Set(((plan && plan.items) || []).filter(it => !it.optional).map(it => it.id));
+    const top = activeFindings(rep).filter(x => x.severity !== 'good').slice(0, 3).map(x => Object.assign({}, x, { actions: simpleActions(x.actions, safe) }));
     const n = st.pendingRecommended || 0;
+    const applied = st.applied || 0;
     return h('div', { class: 'page simple' },
-      pageHead(prof.scoreTitle, 'Perfil ' + prof.title + ' · analisado ' + ago(st.lastScan) + '. Modo simples: a nota, o que mais pesa nela e um botão para o que é seguro.',
-        [btn('Trocar perfil', () => pickProfile(false), 'ghost', 'sliders'), btn('Modo completo', () => setSimple(false), 'ghost', 'layout', { title: 'Todas as páginas: diagnóstico, otimizações, CS2, medições, histórico' })]),
+      pageHead(prof.scoreTitle, 'Perfil ' + prof.title + ' · analisado ' + ago(st.lastScan) + '. Modo Simples: a nota, o que mais pesa nela e as recomendadas, só com itens sem risco.',
+        [btn('Trocar perfil', () => pickProfile(false), 'ghost', 'sliders')]),
       h('div', { class: 'grid g-hero' },
         h('div', { class: 'card' }, h('h2', null, icon('gauge'), prof.scoreTitle),
           h('div', { class: 'score' }, scoreRing(rep), h('div', null,
@@ -947,15 +1007,15 @@
             h('div', { class: 'muted', style: { margin: '4px 0 12px' }, text: rep.summary }),
             unreadNote(rep))),
           h('div', { class: 'faint tiny', style: { marginTop: '14px' }, text: rep.scoreNote })),
-        h('div', { class: 'card' }, h('h2', null, icon('zap'), 'Resolver o que é seguro'),
+        h('div', { class: 'card' }, h('h2', null, icon('zap'), 'Aplicar recomendadas'),
           h('div', { class: 'sub', text: n ? plural(n, 'ajuste recomendado para o seu PC: sem risco, com evidência e reversível.', 'ajustes recomendados para o seu PC: sem risco, com evidência e reversíveis.') : 'Tudo o que é seguro e recomendado para o seu PC já está aplicado.' }),
-          h('div', { class: 'row wrap' }, btn('Resolver o que é seguro', solveSafe, 'primary hero', 'zap', { disabled: !n }), btn('Reanalisar', rescan, '', 'refresh'), btn('Exportar relatório', exportReport, '', 'download')),
+          h('div', { class: 'row wrap' }, btn(n ? 'Aplicar recomendadas (' + n + ')' : 'Aplicar recomendadas', solveSafe, 'primary hero', 'zap', { disabled: !n }), btn('Reanalisar', rescan, '', 'refresh'), btn('Exportar relatório', exportReport, '', 'download')),
           h('div', { class: 'row wrap', style: { marginTop: '10px' } },
-            btn('Desfazer mudanças', () => go('historico'), 'ghost', 'undo', { title: 'Sai do modo simples e abre o Histórico, onde cada mudança feita pelo Axion pode ser desfeita' })),
+            btn(applied ? 'Desfazer mudanças (' + applied + ')' : 'Desfazer mudanças', () => go('historico'), 'ghost', 'undo', { title: 'Abre o Histórico sem sair do modo Simples: cada mudança feita pelo Axion pode ser desfeita' })),
           st.rebootPending ? h('div', { class: 'callout warn', style: { marginTop: '14px' } }, icon('refresh'), h('div', { text: 'Há alterações que só passam a valer depois de reiniciar o PC.' })) : null)),
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('alert'), 'O que mais pesa na nota'),
         top.length ? h('div', { class: 'findings' }, top.map(x => findingCard(x, false))) : h('div', { class: 'callout' }, icon('check'), h('div', { text: 'Nenhum problema encontrado para o seu perfil.' })),
-        h('div', { class: 'small muted', style: { marginTop: '12px' }, text: 'O modo completo mostra todos os pontos, as medições (FPS, rede, periféricos) e o histórico de cada mudança.' })));
+        h('div', { class: 'small muted', style: { marginTop: '12px' }, text: 'O modo Avançado, no seletor do topo, mostra todos os pontos, as medições (FPS, rede, periféricos) e o que cada otimização altera no Windows.' })));
   }
 
   // ---------------------------------------------------------------------------
@@ -1034,11 +1094,11 @@
     const g = groupOf(page);
     add(tb, [
       isSimple() && st.scanned
-        ? h('div', { class: 'crumb' }, h('b', { text: 'Axion · modo simples' }))
+        ? h('div', { class: 'crumb' }, page === 'historico' ? [h('span', { text: 'Início' }), icon('chevron'), h('b', { text: 'Histórico' })] : h('b', { text: 'Início' }))
         : h('div', { class: 'crumb' }, g.pages.length > 1 ? [h('span', { text: g.title }), icon('chevron')] : null, h('b', { text: TITLES[page] || g.title })),
       st.mock ? badge('Demonstração', 'info') : null,
       h('div', { class: 'spacer' }),
-      st.scanned && isSimple() ? btn('Sair do modo simples', () => setSimple(false), 'ghost sm', 'layout', { title: 'Volta ao modo completo, com todas as páginas', 'data-focus': 'top-simple' }) : null,
+      modeSwitch(),
       st.scanned && !isSimple() ? h('button', { class: 'btn ghost cmdk-btn', type: 'button', onclick: openPalette, title: 'Buscar uma página ou ação (Ctrl+K)', 'aria-label': 'Buscar ou ir para (Ctrl+K)', 'data-focus': 'top-cmdk' }, icon('search'), h('span', { class: 'cmdk-txt', text: 'Buscar ou ir para…' }), h('span', { class: 'kbd', text: 'Ctrl K' })) : null,
       pill,
       st.scanned ? btn('Reanalisar', rescan, 'sm', 'refresh', { disabled: !!busy, 'data-focus': 'top-rescan' }) : null]);
@@ -1362,7 +1422,6 @@
     return h('div', { class: 'page home' },
       pageHead('Início', 'Última análise ' + ago(st.lastScan) + ' · perfil ' + prof.title + (offN ? ' · ' + plural(offN, 'ponto fora da nota', 'pontos fora da nota') : ''),
         [btn('Trocar perfil', () => pickProfile(false), 'ghost sm', 'sliders'),
-          btn('Modo simples', () => setSimple(true), 'ghost sm', 'layout', { title: 'Uma tela: a nota, o que mais pesa e um botão para o que é seguro' }),
           btn('Exportar relatório', exportReport, 'ghost sm', 'download', { title: 'Página (HTML) ou dados (JSON); anônimo por padrão' })]),
       hwStrip,
       h('div', { class: 'grid g-hero' },
@@ -3919,7 +3978,7 @@
       act('download', 'Exportar relatório', exportReport),
       act('shield', 'Criar ponto de restauração', () => runJob(api('POST', '/api/restorepoint', {}), { title: 'Ponto de restauração' })),
       act('sliders', 'Trocar perfil', () => pickProfile(false)),
-      act('layout', 'Modo simples', () => setSimple(true)),
+      act('layout', 'Modo Simples', () => setMode('simples')),
       gamer ? act('gauge', 'Medir FPS', () => go('desempenho')) : null,
       act('wifi', 'Testar a rede', () => go('rede')),
       act('pulse', 'Medir latência do sistema', () => go('dpc')),
@@ -3993,11 +4052,17 @@
   async function render(keepScroll) {
     renderChrome();
     const content = $('#content');
-    // The simple mode is one screen whatever the address says; the sidebar
-    // goes away with it (CSS on the app element).
+    // The simple level shows its own screen whatever the address says, and
+    // the Histórico when the address asks for it; the sidebar goes away with
+    // it (CSS on the app element).
     const simple = isSimple() && S.state && S.state.scanned;
     $('#app').classList.toggle('simple', !!simple);
-    const page = simple ? 'simples' : currentPage();
+    const page = simple ? (currentPage() === 'historico' ? 'historico' : 'simples') : currentPage();
+    const frame = el => {
+      if (!simple) return withSub(page, el);
+      if (page === 'historico') el.prepend(h('div', { class: 'simple-back' }, btn('Voltar ao início', () => go('painel'), 'ghost sm', 'grid', { 'data-focus': 'simple-back' })));
+      return [el];
+    };
     const same = page === lastPage;
     lastPage = page;
     const y = content.scrollTop;
@@ -4008,13 +4073,13 @@
     const act = document.activeElement;
     const focusKey = act && act.dataset ? act.dataset.focus : null;
     const caret = focusKey && typeof act.selectionStart === 'number' ? act.selectionStart : null;
-    if (!same) content.replaceChildren(...withSub(page, h('div', { class: 'page' }, skeleton())));
+    if (!same) content.replaceChildren(...frame(h('div', { class: 'page' }, skeleton())));
     // Live lists are read again each time their page is opened.
     if (!same && page === 'processos') delete S.cache.processes;
     try {
-      const el = await (simple ? pageSimple() : ROUTES[page]());
+      const el = await (page === 'simples' ? pageSimple() : ROUTES[page]());
       if (seq !== renderSeq) return;
-      content.replaceChildren(...withSub(page, el));
+      content.replaceChildren(...frame(el));
       content.scrollTop = same || keepScroll ? y : 0;
       let kept = false;
       if (focusKey) {
@@ -4023,9 +4088,11 @@
       }
       // A new page, or a re-render that removed the focused control: move the
       // focus to the page title instead of letting it fall to the document.
+      // The selector of the level keeps it: the arrows switch again from there.
       const cur = document.activeElement;
       const lost = !cur || cur === document.body || !cur.isConnected;
-      if (!kept && !MODALS.length && (!same || lost)) focusPageTitle();
+      const onSwitch = !lost && cur.closest && cur.closest('.mode-switch');
+      if (!kept && !onSwitch && !MODALS.length && (!same || lost)) focusPageTitle();
     } catch (e) {
       if (seq !== renderSeq) return;
       if (e.status === 409 && /análise/.test(e.message)) { S.state.scanned = false; content.replaceChildren(scanView()); return; }

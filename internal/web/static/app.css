@@ -220,6 +220,19 @@ h1, h2, h3, h4 { font-family: var(--font-display); }
 .crumb svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .cmdk-btn { width: 240px; justify-content: flex-start; color: var(--text-3); font-weight: 400; }
 .cmdk-btn .kbd { margin-left: auto; }
+/* Seletor do modo (Simples | Avançado): grupo de rádio na barra superior */
+.mode-switch {
+  display: inline-flex; flex: none; gap: 2px; padding: 2px;
+  border: 1px solid var(--border); border-radius: var(--r-full); background: var(--surface-2);
+}
+.mode-opt {
+  height: 28px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--r-full);
+  background: transparent; color: var(--text-2); font: inherit; font-size: 13px; cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.mode-opt:hover { color: var(--text-1); }
+.mode-opt.active { background: var(--primary-soft); border-color: var(--electric-40); color: var(--primary-text); font-weight: 600; }
+.simple-back { margin-bottom: 12px; }
 .pill {
   display: inline-flex; align-items: center; gap: 8px;
   height: 30px; padding: 0 12px; border-radius: var(--r-full);
