@@ -71,7 +71,7 @@ func nvVSyncFinding(f *facts.Facts, capable, known bool, add func(Finding)) {
 	src := []tweaks.Source{srcBBGsync4Diag, srcBBGsync9Diag, srcBBGsyncDiag, srcNvSettingsHDiag}
 	switch {
 	case len(invalid) > 0:
-		add(Finding{ID: "gpu.nvdrs.vsync", Area: AreaLatencia, Severity: SevWarning, Title: "V-Sync do driver NVIDIA com um valor que o driver não conhece",
+		add(Finding{ID: "gpu.nvdrs.vsync", Area: AreaLatencia, Severity: SevWarning, Certainty: CertConfirmed, Title: "V-Sync do driver NVIDIA com um valor que o driver não conhece",
 			Evidence: strings.Join(invalid, "; ") + " (valor de usuário).",
 			Explanation: "O valor gravado não está na lista de valores do driver (NvApiDriverSettings.h). É o que a opção de reverter de alguns otimizadores deixa no perfil global, e o efeito de um valor desconhecido não é documentado. " +
 				"Voltar ao padrão do driver (\"Usar a configuração do aplicativo 3D\") resolve sem mudar nada que o driver conheça.",

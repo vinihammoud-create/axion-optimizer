@@ -1030,8 +1030,16 @@
     } catch (e) { toast(e.message, 'bad'); }
   }
 
+  // How firmly the reading backs each finding (diag.Finding.Certainty).
+  const CERT = {
+    confirmado: 'Problema confirmado',
+    possivel: 'Possível problema',
+    insuficiente: 'Informação insuficiente',
+    normal: 'Condição normal',
+  };
   function findingCard(x, compact, opts) {
     const sev = SEV[x.severity] || SEV.info;
+    const cert = CERT[x.certainty] ? badge(CERT[x.certainty], 'cert ' + x.certainty) : null;
     const acts = (x.actions || []).map(actionButton).filter(Boolean);
     // Only a critical finding gets a filled first action.
     if (x.severity === 'critical' && acts[0] && acts[0].classList) acts[0].classList.add('primary');
@@ -1046,7 +1054,7 @@
       : null;
     return h('div', { class: 'finding ' + x.severity + (compact ? ' compact' : '') },
       h('div', { class: 'sev ' + x.severity, title: sev.label }, icon(sev.ic)),
-      h('div', null, h('div', { class: 'ft' }, compact ? null : badge(sev.label, sev.badge), x.title),
+      h('div', null, h('div', { class: 'ft' }, compact ? null : badge(sev.label, sev.badge), cert, x.title),
         x.evidence ? h('div', { class: 'fe', text: x.evidence }) : null,
         why,
         acts.length || src.length ? h('div', { class: 'fa' }, acts, src) : null));

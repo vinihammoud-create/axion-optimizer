@@ -71,9 +71,13 @@ var (
 
 // Finding is one diagnostic result.
 type Finding struct {
-	ID          string          `json:"id"`
-	Area        string          `json:"area"`
-	Severity    string          `json:"severity"`
+	ID       string `json:"id"`
+	Area     string `json:"area"`
+	Severity string `json:"severity"`
+	// Certainty: how firmly the reading backs the conclusion (CertConfirmed,
+	// CertPossible, CertInsufficient, CertNormal). Set by Score from the
+	// rule's classification (certainty.go); it does not change the score.
+	Certainty   string          `json:"certainty"`
 	Title       string          `json:"title"`
 	Evidence    string          `json:"evidence"`
 	Explanation string          `json:"explanation"`
@@ -93,6 +97,9 @@ type AreaScore struct {
 	Title string `json:"title"`
 	Score int    `json:"score"`
 	Count int    `json:"count"`
+	// Unread: a part of the collection this area depends on was not read
+	// (unreadAreas), so the area can say "Informação insuficiente".
+	Unread bool `json:"unread,omitempty"`
 }
 
 // Report is the diagnostic output.
@@ -128,6 +135,16 @@ func (r *Report) markUnread(unread []string) {
 		if !seen[u] {
 			seen[u] = true
 			r.Unread = append(r.Unread, u)
+		}
+	}
+	for i := range r.Scores {
+		r.Scores[i].Unread = false
+		for _, u := range r.Unread {
+			for _, a := range unreadAreas[u] {
+				if a == r.Scores[i].Area {
+					r.Scores[i].Unread = true
+				}
+			}
 		}
 	}
 	if len(r.Unread) == 0 {
@@ -264,6 +281,9 @@ const summaryNothing = "Nenhum problema importante encontrado. Veja as sugestõe
 
 // Score sorts findings and computes the scores.
 func Score(fs []Finding) *Report {
+	for i := range fs {
+		fs[i].Certainty = certaintyOf(fs[i])
+	}
 	sort.SliceStable(fs, func(i, j int) bool { return sevRank(fs[i].Severity) < sevRank(fs[j].Severity) })
 	r := &Report{Generated: time.Now(), Findings: fs}
 	overall := 100
@@ -846,7 +866,8 @@ var rules = []rule{
 			case now.Before(end) && !faceit:
 				// LTSC still supported: nothing to report.
 			case now.Before(end):
-				add(Finding{ID: "os.win10", Area: AreaSeguranca, Severity: SevWarning, Title: "FACEIT: regra para o Windows 10 a partir de 14/10/2026",
+				// The FACEIT page does not name the LTSC editions: a possible problem.
+				add(Finding{ID: "os.win10", Area: AreaSeguranca, Severity: SevWarning, Certainty: CertPossible, Title: "FACEIT: regra para o Windows 10 a partir de 14/10/2026",
 					Evidence:    fmt.Sprintf("%s (%s), build %d; suporte até %s.", f.OS.Caption, f.OS.Edition, f.OS.Build, end.Format("02/01/2006")),
 					Explanation: "Esta edição de longo prazo (LTSC) ainda recebe atualizações, mas a regra publicada pelo FACEIT pede, a partir de 14/10/2026, o Windows 10 versão 22H2 com as Atualizações de Segurança Estendidas (ESU) ativas, e o Windows 11 a partir de outubro de 2027. A página do FACEIT não cita as edições LTSC: confirme com o suporte do FACEIT antes da data.",
 					Sources:     []tweaks.Source{srcMS("FACEIT — FAQ de requisitos do Windows", "https://support.faceit.com/hc/en-us/articles/23117181142556-Windows-Security-Requirements-FAQ")}})
@@ -921,7 +942,13 @@ var rules = []rule{
 				wearTitle = fmt.Sprintf("SSD além da vida útil nominal (%d%%)", d.WearPct)
 			}
 			if d.WearPct >= 90 {
-				add(Finding{ID: "disk.wear." + num, Area: AreaArmaz, Severity: SevCritical, Title: wearTitle,
+				// Past 100% the drive itself says it went beyond its rated
+				// endurance; below that, the line is the Axion's.
+				cert := ""
+				if d.WearPct >= 100 {
+					cert = CertConfirmed
+				}
+				add(Finding{ID: "disk.wear." + num, Area: AreaArmaz, Severity: SevCritical, Certainty: cert, Title: wearTitle,
 					Evidence: wearEv, Explanation: "Perto do fim (ou além) da resistência nominal de gravação o SSD pode ficar lento, perder dados ou entrar em somente leitura. Faça backup e planeje a troca."})
 			} else if d.WearPct >= 70 {
 				add(Finding{ID: "disk.wear." + num, Area: AreaArmaz, Severity: SevWarning, Title: wearTitle,

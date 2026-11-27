@@ -580,6 +580,9 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .sev.info { background: var(--info-soft); color: var(--info); }
 .sev.good { background: var(--ok-soft); color: var(--ok); }
 .finding .ft { font: 600 15px/22px var(--font-display); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Certeza do achado: sempre neutra (o peso fica com a severidade); a leitura insuficiente nunca fica verde. */
+.badge.cert { background: transparent; border: 1px solid var(--border-strong); color: var(--text-2); font-weight: 500; }
+.badge.cert.insuficiente { border-style: dashed; }
 .finding .fe { color: var(--text-2); font-size: 13px; margin-top: 3px; max-width: 72ch; }
 .finding .fx { color: var(--text-2); font-size: 13px; margin-top: 8px; max-width: 72ch; }
 .finding .fa { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

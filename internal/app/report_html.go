@@ -82,6 +82,8 @@ var htmlFuncs = template.FuncMap{
 		}
 		return s
 	},
+	// cert names the certainty of a finding ("" when it has none).
+	"cert": func(c string) string { return diag.CertaintyLabels[c] },
 	"limiter": func(l string) string {
 		switch l {
 		case "gpu":
@@ -125,7 +127,7 @@ h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px;border-bot
 .sc-ok{color:#0f8a5f}.sc-info{color:#2f5fd0}.sc-warn{color:#b26a00}.sc-bad{color:#c62828}.sc-none{color:#8a90a3}
 .f{border-left:4px solid #c9cedc;padding:8px 12px;margin:8px 0;background:#fff;border-radius:0 8px 8px 0}
 .f.critical{border-color:#c62828}.f.warning{border-color:#e0a000}.f.info{border-color:#2f5fd0}.f.good{border-color:#0f8a5f}
-.f .t{font-weight:600}.f .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;background:#eef0f6;margin-left:6px;vertical-align:middle}
+.f .t{font-weight:600}.f .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;background:#eef0f6;margin-left:6px;vertical-align:middle}.f .tag.cert{background:transparent;border:1px solid #c9cedc;color:#39404f}
 .f .e{color:#39404f;font-size:13.5px;margin-top:2px}.f .x{font-size:13.5px;margin-top:4px}
 .f .s a{font-size:12.5px;margin-right:10px}
 table{border-collapse:collapse;width:100%;font-size:13.5px}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid #e6e8f0}th{font-weight:600}
@@ -145,12 +147,12 @@ footer{margin-top:30px;font-size:12.5px;color:#5b6274}
 
 <h2>Diagnóstico (configuração)</h2>
 {{range .Areas}}<h3>{{.Title}} <span class="muted small">nota {{.Score}}</span></h3>
-{{range .Findings}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span></div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}{{if .Explanation}}<div class="x">{{.Explanation}}</div>{{end}}{{if .Sources}}<div class="s">{{range .Sources}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</div>{{end}}</div>{{end}}{{end}}
-{{if .Off}}<details><summary>Fora do perfil {{.Profile.Title}} ({{len .Off}}) — não contam na nota neste perfil</summary>{{range .Off}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span></div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}{{if .Explanation}}<div class="x">{{.Explanation}}</div>{{end}}</div>{{end}}</details>{{end}}
-{{if .Dismissed}}<details><summary>Dispensados pelo usuário ({{len .Dismissed}}) — não contam na nota</summary>{{range .Dismissed}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span></div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}</div>{{end}}</details>{{end}}
+{{range .Findings}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span>{{with cert .Certainty}}<span class="tag cert">{{.}}</span>{{end}}</div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}{{if .Explanation}}<div class="x">{{.Explanation}}</div>{{end}}{{if .Sources}}<div class="s">{{range .Sources}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</div>{{end}}</div>{{end}}{{end}}
+{{if .Off}}<details><summary>Fora do perfil {{.Profile.Title}} ({{len .Off}}) — não contam na nota neste perfil</summary>{{range .Off}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span>{{with cert .Certainty}}<span class="tag cert">{{.}}</span>{{end}}</div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}{{if .Explanation}}<div class="x">{{.Explanation}}</div>{{end}}</div>{{end}}</details>{{end}}
+{{if .Dismissed}}<details><summary>Dispensados pelo usuário ({{len .Dismissed}}) — não contam na nota</summary>{{range .Dismissed}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span>{{with cert .Certainty}}<span class="tag cert">{{.}}</span>{{end}}</div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}</div>{{end}}</details>{{end}}
 
 {{range $p := .Pillars}}{{if ne $p.Title "Configuração"}}<h2>{{$p.Title}} <span class="muted small">{{if lt $p.Overall 0}}{{$p.Grade}}{{else}}nota {{$p.Overall}} · {{$p.Grade}}{{end}}</span></h2>{{if lt $p.Overall 0}}<p class="small muted">{{$p.Summary}}</p>{{end}}
-{{range $p.Findings}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span></div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}{{if .Explanation}}<div class="x">{{.Explanation}}</div>{{end}}{{if .Sources}}<div class="s">{{range .Sources}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</div>{{end}}</div>{{end}}{{end}}{{end}}
+{{range $p.Findings}}<div class="f {{.Severity}}"><div class="t">{{.Title}}<span class="tag">{{sev .Severity}}</span>{{with cert .Certainty}}<span class="tag cert">{{.}}</span>{{end}}</div>{{if .Evidence}}<div class="e">{{.Evidence}}</div>{{end}}{{if .Explanation}}<div class="x">{{.Explanation}}</div>{{end}}{{if .Sources}}<div class="s">{{range .Sources}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</div>{{end}}</div>{{end}}{{end}}{{end}}
 
 {{if .Net}}<h2>Último teste de rede</h2><div class="card kv"><b>Quando</b><span>{{.NetWhen}}</span>{{if .Net.Grade}}<b>Bufferbloat</b><span>nota {{.Net.Grade}} (+{{printf "%.0f" .Net.AddedMs}} ms com a conexão cheia); {{printf "%.0f" .Net.DownMbps}} Mb/s de download, {{printf "%.0f" .Net.UpMbps}} Mb/s de upload</span>{{end}}{{if ge .Net.NetMs 0.0}}<b>Internet (1.1.1.1)</b><span>{{printf "%.1f" .Net.NetMs}} ms, jitter {{printf "%.1f" .Net.NetJitter}} ms, perda {{printf "%.1f" .Net.NetLoss}}%</span>{{end}}{{if ge .Net.ValveMs 0.0}}<b>Relay da Valve</b><span>{{.Net.ValvePOP}}: {{printf "%.1f" .Net.ValveMs}} ms, jitter {{printf "%.1f" .Net.ValveJit}} ms, perda {{printf "%.1f" .Net.ValveLoss}}%</span>{{end}}</div>{{end}}
 

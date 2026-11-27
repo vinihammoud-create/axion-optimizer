@@ -61,7 +61,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 		// CPU threads: Valve's minimum is 4.
 		switch {
 		case threads == 0:
-			add(Finding{ID: "cap.cpu", Severity: SevInfo, Title: "Threads do processador não lidas", Evidence: cpu, Explanation: "A análise não conseguiu contar as threads; a Valve pede 4 para o CS2.", Sources: []tweaks.Source{srcCS2Req}})
+			add(Finding{ID: "cap.cpu", Severity: SevInfo, Certainty: CertInsufficient, Title: "Threads do processador não lidas", Evidence: cpu, Explanation: "A análise não conseguiu contar as threads; a Valve pede 4 para o CS2.", Sources: []tweaks.Source{srcCS2Req}})
 		case threads < 4:
 			add(Finding{ID: "cap.cpu", Severity: SevCritical, Title: fmt.Sprintf("Processador abaixo do mínimo do CS2 (%d threads; a Valve pede 4)", threads), Evidence: cpu, Explanation: "Com menos de 4 threads o jogo abre, mas a Valve não dá suporte e o FPS fica instável em partidas cheias.", Sources: []tweaks.Source{srcCS2Req}})
 		case threads < 8:
@@ -72,7 +72,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 		// RAM: 8 GB minimum.
 		switch {
 		case f.RAM.TotalBytes == 0:
-			add(Finding{ID: "cap.ram", Severity: SevInfo, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcCS2Req}})
+			add(Finding{ID: "cap.ram", Severity: SevInfo, Certainty: CertInsufficient, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcCS2Req}})
 		case gb < 7.5:
 			add(Finding{ID: "cap.ram", Severity: SevCritical, Title: "Memória abaixo do mínimo do CS2 (" + ram + "; a Valve pede 8 GB)", Evidence: "Memória instalada: " + ram + ".", Explanation: "Abaixo de 8 GB o Windows e o jogo disputam a memória e o arquivo de paginação entra em jogo: engasgos e tempos de carga altos.", Sources: []tweaks.Source{srcCS2Req}})
 		case gb < 15.5:
@@ -115,9 +115,9 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 	case p.ID == profile.Creation:
 		switch {
 		case f.RAM.TotalBytes == 0:
-			add(Finding{ID: "cap.ram", Severity: SevInfo, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcResolveHW}})
+			add(Finding{ID: "cap.ram", Severity: SevInfo, Certainty: CertInsufficient, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcResolveHW}})
 		case gb < 15.5:
-			add(Finding{ID: "cap.ram", Severity: SevWarning, Title: "Memória de " + ram + ": abaixo do mínimo dos editores de vídeo (16 GB)", Evidence: "Memória instalada: " + ram + ".", Explanation: "O DaVinci Resolve pede 16 GB (32 GB com o Fusion); abaixo disso a edição em 4K e a renderização usam o disco como memória e ficam lentas.", Sources: []tweaks.Source{srcResolveHW}})
+			add(Finding{ID: "cap.ram", Severity: SevWarning, Certainty: CertConfirmed, Title: "Memória de " + ram + ": abaixo do mínimo dos editores de vídeo (16 GB)", Evidence: "Memória instalada: " + ram + ".", Explanation: "O DaVinci Resolve pede 16 GB (32 GB com o Fusion); abaixo disso a edição em 4K e a renderização usam o disco como memória e ficam lentas.", Sources: []tweaks.Source{srcResolveHW}})
 		case gb < 31.5:
 			add(Finding{ID: "cap.ram", Severity: SevInfo, Title: "Memória de " + ram + ": atende ao mínimo dos editores de vídeo (16 GB)", Evidence: "Memória instalada: " + ram + ".", Explanation: "No mínimo do DaVinci Resolve; 32 GB são o pedido para o Fusion e para projetos em 4K com vários efeitos.", Sources: []tweaks.Source{srcResolveHW}})
 		default:
@@ -131,7 +131,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 			add(Finding{ID: "cap.gpu", Severity: SevCritical, Title: "Placa de vídeo sem driver do fabricante", Evidence: "A análise não encontrou uma placa de vídeo com driver do fabricante.", Explanation: "Os editores de vídeo usam a GPU para efeitos e para o encoder; sem driver nada disso existe.", Sources: []tweaks.Source{srcResolveHW}})
 		case g.VRAMMiB == 0:
 		case g.VRAMMiB < 1900:
-			add(Finding{ID: "cap.gpu", Severity: SevWarning, Title: fmt.Sprintf("Placa de vídeo com %d MB: abaixo dos 2 GB mínimos dos editores", g.VRAMMiB), Evidence: g.Name + vramText(g.VRAMMiB) + ".", Explanation: "O DaVinci Resolve pede pelo menos 2 GB de memória de vídeo (4 GB nas configurações recomendadas); com menos, efeitos e timelines em 4K falham por falta de memória da GPU.", Sources: []tweaks.Source{srcResolveHW}})
+			add(Finding{ID: "cap.gpu", Severity: SevWarning, Certainty: CertConfirmed, Title: fmt.Sprintf("Placa de vídeo com %d MB: abaixo dos 2 GB mínimos dos editores", g.VRAMMiB), Evidence: g.Name + vramText(g.VRAMMiB) + ".", Explanation: "O DaVinci Resolve pede pelo menos 2 GB de memória de vídeo (4 GB nas configurações recomendadas); com menos, efeitos e timelines em 4K falham por falta de memória da GPU.", Sources: []tweaks.Source{srcResolveHW}})
 		case g.VRAMMiB < 3900:
 			add(Finding{ID: "cap.gpu", Severity: SevInfo, Title: fmt.Sprintf("Placa de vídeo com %d MB: atende ao mínimo dos editores (2 GB), abaixo dos 4 GB recomendados", g.VRAMMiB), Evidence: g.Name + vramText(g.VRAMMiB) + ".", Explanation: "Timelines em 4K com efeitos pedem mais memória de vídeo; em 1080p o trabalho segue normal.", Sources: []tweaks.Source{srcResolveHW}})
 		default:
@@ -146,7 +146,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 	case p.ID == profile.Dev:
 		switch {
 		case f.RAM.TotalBytes == 0:
-			add(Finding{ID: "cap.ram", Severity: SevInfo, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcVSReq}})
+			add(Finding{ID: "cap.ram", Severity: SevInfo, Certainty: CertInsufficient, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcVSReq}})
 		case gb < 7.5:
 			add(Finding{ID: "cap.ram", Severity: SevWarning, Title: "Memória de " + ram + ": pouca para IDE, contêineres e navegador juntos", Evidence: "Memória instalada: " + ram + ".", Explanation: "O Visual Studio pede 4 GB no mínimo e recomenda 16 GB para soluções profissionais; o Docker Desktop e o WSL reservam memória própria.", Sources: []tweaks.Source{srcVSReq}})
 		case gb < 15.5:
@@ -158,7 +158,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 	default: // work and office
 		switch {
 		case f.RAM.TotalBytes == 0:
-			add(Finding{ID: "cap.ram", Severity: SevInfo, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcTeamsHW}})
+			add(Finding{ID: "cap.ram", Severity: SevInfo, Certainty: CertInsufficient, Title: "Memória não lida", Evidence: "A análise não leu a memória instalada.", Sources: []tweaks.Source{srcTeamsHW}})
 		case gb < 3.9:
 			add(Finding{ID: "cap.ram", Severity: SevCritical, Title: "Memória de " + ram + ": abaixo do mínimo do Teams (4 GB)", Evidence: "Memória instalada: " + ram + ".", Sources: []tweaks.Source{srcTeamsHW}})
 		case gb < 7.5:
@@ -168,7 +168,7 @@ func Capacity(f *facts.Facts, profileID string) []Finding {
 		}
 		switch {
 		case threads == 0:
-			add(Finding{ID: "cap.cpu", Severity: SevInfo, Title: "Threads do processador não lidas", Evidence: cpu, Sources: []tweaks.Source{srcTeamsHW}})
+			add(Finding{ID: "cap.cpu", Severity: SevInfo, Certainty: CertInsufficient, Title: "Threads do processador não lidas", Evidence: cpu, Sources: []tweaks.Source{srcTeamsHW}})
 		case f.CPU.Cores == 0:
 		case f.CPU.Cores < 2:
 			add(Finding{ID: "cap.cpu", Severity: SevCritical, Title: "Processador de 1 núcleo: abaixo do mínimo do Teams (2)", Evidence: cpu, Sources: []tweaks.Source{srcTeamsHW}})
@@ -213,7 +213,7 @@ func cpuCap(f *facts.Facts, add func(Finding), n int, use string, src tweaks.Sou
 	cpu := cpuText(f)
 	switch {
 	case f.CPU.Threads == 0:
-		add(Finding{ID: "cap.cpu", Severity: SevInfo, Title: "Threads do processador não lidas", Evidence: cpu, Sources: []tweaks.Source{src}})
+		add(Finding{ID: "cap.cpu", Severity: SevInfo, Certainty: CertInsufficient, Title: "Threads do processador não lidas", Evidence: cpu, Sources: []tweaks.Source{src}})
 	case f.CPU.Threads < n:
 		add(Finding{ID: "cap.cpu", Severity: SevInfo, Title: fmt.Sprintf("Processador com %d threads: %s escala com mais núcleos", f.CPU.Threads, use), Evidence: cpu, Explanation: "Não há mínimo publicado; o tempo de exportação e de build cai quase na proporção dos núcleos. A medição de carga sustentada mostra se o processador é o gargalo.", Sources: []tweaks.Source{src}})
 	default:
@@ -364,7 +364,7 @@ func Measurement(f *facts.Facts, profileID string, m *Measured, periphs []periph
 			}
 			switch {
 			case hz <= 0:
-				add(Finding{ID: "meas.fps", Severity: SevInfo, Title: fmt.Sprintf("%s FPS médio, 1%% low %s (monitor não identificado)", fmtMs(s.AvgFPS), fmtMs(s.Low1FPS)), Evidence: ev, Explanation: "Sem a taxa do monitor não dá para dizer se o FPS acompanha a tela." + stale})
+				add(Finding{ID: "meas.fps", Severity: SevInfo, Certainty: CertInsufficient, Title: fmt.Sprintf("%s FPS médio, 1%% low %s (monitor não identificado)", fmtMs(s.AvgFPS), fmtMs(s.Low1FPS)), Evidence: ev, Explanation: "Sem a taxa do monitor não dá para dizer se o FPS acompanha a tela." + stale})
 			case s.Low1FPS >= float64(hz):
 				add(Finding{ID: "meas.fps", Severity: SevGood, Title: fmt.Sprintf("FPS acima da taxa do monitor (%d Hz) até no 1%% low", hz), Evidence: ev, Explanation: fmt.Sprintf("Mesmo nos piores 1%% dos quadros o jogo entregou mais do que o %s mostra: a tela está sempre com quadro novo.", orText(name, "monitor")) + stale})
 			case s.AvgFPS >= float64(hz):
@@ -391,7 +391,7 @@ func Measurement(f *facts.Facts, profileID string, m *Measured, periphs []periph
 				case d.Verdict == periph.VerdictOK:
 					add(Finding{ID: "meas.mouse", Severity: SevInfo, Title: "Mouse a " + periph.FormatHz(d.MeasuredHz) + ": estável, mas abaixo de 500 Hz", Evidence: ev, Explanation: "A 125 Hz o PC lê o mouse a cada 8 ms; a 1000 Hz, a cada 1 ms. A taxa é definida no software do fabricante (ou num botão do próprio mouse), não no Windows.", Actions: []Action{{Kind: "page", Label: "Ver periféricos", Page: "perifericos"}}})
 				case d.Verdict == periph.VerdictLittle:
-					add(Finding{ID: "meas.mouse", Severity: SevInfo, Title: "Mouse: poucos dados na medição", Evidence: ev, Explanation: "Repita a medição movendo o mouse sem parar durante toda a contagem.", Actions: []Action{{Kind: "page", Label: "Ver periféricos", Page: "perifericos"}}})
+					add(Finding{ID: "meas.mouse", Severity: SevInfo, Certainty: CertInsufficient, Title: "Mouse: poucos dados na medição", Evidence: ev, Explanation: "Repita a medição movendo o mouse sem parar durante toda a contagem.", Actions: []Action{{Kind: "page", Label: "Ver periféricos", Page: "perifericos"}}})
 				default:
 					add(Finding{ID: "meas.mouse", Severity: SevWarning, Title: "Mouse abaixo da taxa nominal ou irregular (" + periph.FormatHz(d.MeasuredHz) + ")", Evidence: ev, Explanation: "O mouse entregou menos relatórios do que anuncia ou em intervalos irregulares: hub USB compartilhado, porta USB 2.0 lenta, suspensão seletiva ou software do fabricante. A página Periféricos mostra o caminho USB e as correções.", Actions: []Action{{Kind: "page", Label: "Ver periféricos", Page: "perifericos"}}})
 				}
