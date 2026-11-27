@@ -183,3 +183,40 @@ Otimizações                                     [Aplicar recomendadas (14)]
 │ …                    │ │ …                                                       │
 └──────────────────────┘ └─────────────────────────────────────────────────────────┘
 ```
+
+## 10. Uma frase na tela, o resto no "?"
+
+Regra: cabeçalho de página, cartão ou aviso mostra **uma frase** (de preferência até 120 caracteres) com o que
+importa para decidir. O resto da explicação fica atrás de um botão "?" e só aparece quando o usuário pede. Nada é
+apagado: o texto muda de lugar, com o mesmo sentido.
+
+```
+Desempenho (FPS)
+Mede FPS, 1% e 0,1% low, engasgos e o que limitou cada quadro, e compara antes × depois. (?)
+┃ O que limita cada quadro é a CPU, a GPU ou um limite de FPS. A medição usa o PresentMon…   ← aberto
+```
+
+Componente único em `app.js` (seção "Components"):
+
+- `helpText(frase, resto, { cls, style, label })`: a frase, o "?" logo depois dela e o painel com o resto (texto,
+  nó ou lista deles, um parágrafo cada). `cls` e `style` vão no invólucro, então a frase mantém a aparência do
+  parágrafo que substitui (`page-desc` no cabeçalho de página, `sub`, `small muted`…).
+- `helpLead(texto)`: para parágrafo que vem pronto do servidor (os textos "Como funciona", `honest`, `privacy`).
+  O texto do Go não muda; só a exibição se divide: a primeira frase fica na tela e o resto vai para o "?".
+  Frase longa demais é cortada onde anuncia uma lista (": "), salvo `{ wholeSentence: true }`.
+- Por baixo, `help(resto, rótulo)` devolve `{ btn, panel }` para quem precisar montar outro arranjo.
+
+Comportamento e acessibilidade:
+
+- O "?" é um `<button>` de verdade (24 × 24 px, `--surface-2`, borda `--border-strong`), com `aria-expanded`,
+  `aria-controls` apontando para o painel e `aria-label` "Mais detalhes: <começo da frase>". Enter ou Espaço
+  abre e fecha; Esc (no botão ou no painel) fecha e devolve o foco ao botão, sem fechar o diálogo em volta.
+- O painel abre **no lugar**, logo abaixo da frase (`.help-panel`: `--bg-1`, borda `--border` com filete
+  `--electric` à esquerda, texto `--text-2` 13 px). Não é balão flutuante: nenhum cartão, tabela ou diálogo o
+  corta, e o leitor de tela o encontra logo depois do botão.
+- Um painel aberto continua aberto quando a página é redesenhada (mesma chave, tirada do texto) e o foco volta
+  ao mesmo botão (`data-focus`).
+
+Não usar o "?" em: evidência e explicação de achado que já ficam num `<details>`, detalhe de cada otimização,
+confirmações de aplicar, desfazer e instalar (o usuário precisa ler antes de confirmar), mensagens de erro e estados
+vazios. Aviso que evita expectativa errada fica na frase visível (ex.: "não aumenta o FPS" no reparo do Windows).

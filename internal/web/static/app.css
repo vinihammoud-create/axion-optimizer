@@ -738,6 +738,26 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .callout.game { background: var(--accent-soft); border-color: var(--accent-30); }
 .callout.game svg { color: var(--accent-text); }
 
+/* Ajuda "?": uma frase na tela, o resto só quando pedido (docs/UI_DESIGN_SYSTEM.md, seção 10).
+   O painel abre no lugar, logo abaixo da frase: nenhum cartão ou diálogo o corta. */
+.help-btn {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  width: 24px; height: 24px; margin: -4px 0 -4px 2px; padding: 0;
+  border: 1px solid var(--border-strong); border-radius: var(--r-full); background: var(--surface-2);
+  color: var(--text-2); font: 600 12px/1 var(--font); cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.help-btn:hover { color: var(--text-1); border-color: var(--electric); }
+.help-btn[aria-expanded="true"] { background: var(--primary-soft); color: var(--primary-text); border-color: var(--electric); }
+.help-panel {
+  margin-top: var(--s-2); padding: var(--s-3) var(--s-4); max-width: 760px;
+  background: var(--bg-1); border: 1px solid var(--border); border-left: 2px solid var(--electric); border-radius: var(--r-sm);
+  color: var(--text-2); font-size: 13px; line-height: 20px; font-weight: 400; text-align: left;
+}
+.help-panel p { margin: 0; }
+.help-panel p + p { margin-top: var(--s-2); }
+.page-head .page-desc { margin: 4px 0 0; color: var(--text-3); max-width: 760px; }
+
 /* Janelas */
 .modal-back {
   position: fixed; inset: 0; z-index: 50;
@@ -810,7 +830,7 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .scan-hero .big { width: 120px; height: 120px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; }
 .scan-hero .big img { width: 100%; height: 100%; border-radius: var(--r-lg); box-shadow: 0 0 0 1px var(--border), var(--glow-primary); }
 .scan-hero h1 { margin: 0 0 8px; font: 600 26px/32px var(--font-display); }
-.scan-hero p { color: var(--text-3); margin: 0 0 22px; }
+.scan-hero p, .scan-hero .scan-lead { color: var(--text-3); margin: 0 0 22px; }
 .welcome-list li svg { color: var(--electric); margin-top: 4px; }
 .welcome-list { gap: 10px; margin: 12px 0; }
 .page.simple .ring { width: 160px; height: 160px; flex-basis: 160px; }
