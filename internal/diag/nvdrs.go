@@ -185,6 +185,9 @@ func nvResidueFinding(f *facts.Facts, add func(Finding)) {
 func nvVRRFinding(f *facts.Facts, add func(Finding)) {
 	d := f.Nvidia.DRS
 	refs := d.GlobalRefs()
+	if len(refs) == 0 {
+		return
+	}
 	g := refs[len(refs)-1]
 	vs, _, _ := d.Effective(g, sys.NVDRSVSyncMode)
 	frl, _, _ := d.Effective(g, sys.NVDRSFrameRateLimit)

@@ -688,6 +688,24 @@ func featureState(c *tweaks.Ctx, name string) (int64, error) {
 	return st, nil
 }
 
+// featPending remembers, per platform, the features DISM changed in this run
+// with "success, restart required" (3010) and the state they will have after
+// the restart. Until then Win32_OptionalFeature may still report the old
+// state, and reading it right after applying would make the engine "fail"
+// the change and undo it at once (G-021 of the 26/11/2026 review). The
+// memory ends with Axion: after a restart the real state is read again.
+var featPending = struct {
+	sync.Mutex
+	m map[string]int64
+}{m: map[string]int64{}}
+
+func pendingFeature(c *tweaks.Ctx, name string) (int64, bool) {
+	featPending.Lock()
+	defer featPending.Unlock()
+	s, ok := featPending.m[featKey(c, name)]
+	return s, ok
+}
+
 func dropFeatureCache(c *tweaks.Ctx, name string) {
 	featCache.Lock()
 	delete(featCache.m, featKey(c, name))
@@ -708,6 +726,17 @@ func dismFeature(c *tweaks.Ctx, name string, enable bool) error {
 	if res.ExitCode != 0 && res.ExitCode != 3010 {
 		return fmt.Errorf("DISM %s %s retornou %d", verb, name, res.ExitCode)
 	}
+	target := int64(2)
+	if enable {
+		target = 1
+	}
+	featPending.Lock()
+	if res.ExitCode == 3010 {
+		featPending.m[featKey(c, name)] = target
+	} else {
+		delete(featPending.m, featKey(c, name))
+	}
+	featPending.Unlock()
 	return nil
 }
 
@@ -741,6 +770,11 @@ func featureOp(name, label string) tweaks.Op {
 			if err != nil {
 				return false, err
 			}
+			if p, ok := pendingFeature(c, name); ok && p != s {
+				// Changed in this run, waiting for the restart: what DISM
+				// accepted counts, not the state Windows still reports.
+				return p != 1, nil
+			}
 			return s != 1, nil
 		},
 		ApplyFn: func(c *tweaks.Ctx) error { return dismFeature(c, name, false) },
@@ -758,6 +792,12 @@ func featureOp(name, label string) tweaks.Op {
 			s, err := featureState(c, name)
 			if err != nil {
 				return "erro: " + err.Error()
+			}
+			if p, ok := pendingFeature(c, name); ok && p != s {
+				if p == 1 {
+					return "ativação pendente: reinicie o PC"
+				}
+				return "desativação pendente: reinicie o PC"
 			}
 			switch s {
 			case 1:
