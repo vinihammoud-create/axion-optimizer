@@ -1417,9 +1417,18 @@ var rules = []rule{
 					why = append(why, b.Why)
 				}
 			}
+			ex := "Sem atualizações o PC fica sem correções de segurança e de estabilidade. Para evitar drivers automáticos existe uma opção específica, sem bloquear o resto."
+			acts := []Action{fixTweaks("Desbloquear", "fix.update.policies")}
+			switch m := f.Management; {
+			case m.Managed():
+				// Work or school PC: the organization may own these policies.
+				ex += " Este PC é gerenciado por uma organização (domínio ou MDM): essas políticas podem ser do TI e voltar sozinhas. Fale com o TI antes de mudar."
+				acts = nil
+			case !m.KnownUnmanaged():
+				ex += " Não foi possível saber se o PC é gerenciado por uma organização: se ele for do trabalho ou da escola, fale com o TI antes de desbloquear."
+			}
 			add(Finding{ID: "res.wu", Area: AreaSeguranca, Severity: SevWarning, Title: "Windows Update bloqueado",
-				Evidence: strings.Join(why, "; ") + ".", Explanation: "Sem atualizações o PC fica sem correções de segurança e de estabilidade. Para evitar drivers automáticos existe uma opção específica, sem bloquear o resto.",
-				Actions: []Action{fixTweaks("Desbloquear", "fix.update.policies")}})
+				Evidence: strings.Join(why, "; ") + ".", Explanation: ex, Actions: acts})
 		}
 		var sysSvc, appSvc []string
 		for _, s := range r.DisabledServices {
