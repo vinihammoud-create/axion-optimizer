@@ -24,7 +24,7 @@ const (
 var (
 	srcThermalDiag = tweaks.Source{Title: "Microsoft Learn — Diagnóstico térmico no Windows: eventos 125, 86 e 114 e os contadores das zonas térmicas", URL: "https://learn.microsoft.com/windows-hardware/design/device-experiences/examples--requirements-and-diagnostics"}
 	srcEvent37     = tweaks.Source{Title: "Microsoft Learn — Evento 37 (Kernel-Processor-Power): o firmware não deixa o Windows usar parte da faixa de frequência do processador", URL: "https://learn.microsoft.com/troubleshoot/windows-server/setup-upgrade-and-drivers/event-id-37-windows-kernel-processor-power"}
-	srcProcPower   = tweaks.Source{Title: "Microsoft Learn — PROCESSOR_POWER_INFORMATION: MhzLimit é o limite de frequência por temperatura", URL: "https://learn.microsoft.com/windows/win32/power/processor-power-information-str"}
+	srcProcPower   = tweaks.Source{Title: "Microsoft Learn — PROCESSOR_POWER_INFORMATION: a Microsoft descreve o MhzLimit como limite térmico de frequência", URL: "https://learn.microsoft.com/windows/win32/power/processor-power-information-str"}
 )
 
 // FirmwareLimitDays is Axion's criterion for the firmware limit notice: the
@@ -86,7 +86,8 @@ func thermalFindings(evs []sys.Event, f *facts.Facts) []Finding {
 	if f != nil {
 		th := f.Thermal
 		var now []string
-		for _, z := range th.ThrottledNow() {
+		zones := th.ThrottledNow()
+		for _, z := range zones {
 			s := fmt.Sprintf("zona %s a %d%% (100%% = sem limite)", z.Name, z.PassiveLimitPct)
 			if z.TempC >= 0 {
 				s += fmt.Sprintf(", %.0f °C", z.TempC)
@@ -94,14 +95,32 @@ func thermalFindings(evs []sys.Event, f *facts.Facts) []Finding {
 			now = append(now, s)
 		}
 		if th.LimitedNow() {
-			now = append(now, fmt.Sprintf("limite de frequência por temperatura do processador em %d de %d MHz", th.MhzLimit, th.MaxMhz))
+			now = append(now, fmt.Sprintf("limite de frequência do processador informado pelo Windows em %d de %d MHz", th.MhzLimit, th.MaxMhz))
 		}
-		if len(now) > 0 {
+		switch {
+		case len(zones) > 0:
+			// A thermal zone says it limits for heat: the cause is known.
 			out = append(out, Finding{ID: "therm.now", Area: AreaDesempenho, Severity: SevWarning,
 				Title:       "O Windows está limitando o desempenho por temperatura agora",
 				Evidence:    "Na hora da análise: " + strings.Join(now, "; ") + ".",
-				Explanation: "São os contadores das zonas térmicas e o limite de frequência por temperatura que o próprio Windows informa (não é a temperatura do núcleo do processador, que só um driver lê). Com o PC parado isso não deveria acontecer. " + coolingAdvice(f),
+				Explanation: "São os contadores das zonas térmicas que o próprio Windows informa (não é a temperatura do núcleo do processador, que só um driver lê). Com o PC parado isso não deveria acontecer. " + coolingAdvice(f),
 				Sources:     []tweaks.Source{srcThermalDiag, srcProcPower}})
+		case len(now) > 0:
+			// Only the frequency limit: the Microsoft page calls it thermal,
+			// but the platform firmware lowers it too (the limit Kernel-
+			// Processor-Power 37 reports). Seen on a 2011 notebook held at
+			// 90% while idle at 53 °C, with event 37 logged: the cause is not
+			// known from this number alone.
+			ex := "É o limite de frequência que o Windows informa para o processador. A Microsoft o descreve como limite térmico, mas o firmware do PC também o reduz (limite de energia do fabricante, bateria, opção da BIOS), e só com este número não dá para saber qual dos dois é. "
+			if n := distinctDays(firmware); n > 0 {
+				ex += fmt.Sprintf("Neste PC o firmware registrou limitação da velocidade do processador (evento 37) em %s dos últimos 30, o que aponta para o firmware. ", plural(n, "dia", "dias"))
+			}
+			ex += "Com o PC parado e na tomada isso não deveria acontecer: se acontece também jogando, olhe a temperatura. " + coolingAdvice(f)
+			out = append(out, Finding{ID: "therm.now", Area: AreaDesempenho, Severity: SevWarning,
+				Title:       "O processador está abaixo da frequência máxima agora",
+				Evidence:    "Na hora da análise: " + strings.Join(now, "; ") + ".",
+				Explanation: ex,
+				Sources:     []tweaks.Source{srcProcPower, srcEvent37}})
 		}
 	}
 	if n := distinctDays(firmware); n >= FirmwareLimitDays {

@@ -160,8 +160,8 @@ func Remarks(r *Run) []Remark {
 	if g := r.Sensors; g != nil && g.CPU != nil && g.CPU.Samples >= 3 {
 		s := g.CPU
 		if s.LimitSamples >= 3 && s.ThermalLimitPct >= ThermalLimitMinPct {
-			warn(fmt.Sprintf("O Windows limitou a frequência do processador por temperatura em %s%% da medição", comma(s.ThermalLimitPct, 0)),
-				fmt.Sprintf("É o limite térmico que o próprio Windows informa (chegou a %s%% da frequência máxima). Com o processador limitado por calor o FPS cai sem nenhuma configuração ter mudado: limpe a poeira e melhore a ventilação; no notebook, use uma base com ventilação e o modo de desempenho do fabricante. Avisar a partir de %s%% das leituras é critério do Axion.", comma(s.MinLimitPct, 0), comma(ThermalLimitMinPct, 0)))
+			warn(fmt.Sprintf("O Windows limitou a frequência do processador em %s%% da medição", comma(s.ThermalLimitPct, 0)),
+				fmt.Sprintf("É o limite de frequência que o próprio Windows informa (chegou a %s%% da frequência máxima). A Microsoft o descreve como limite térmico, mas o firmware do PC também o reduz (limite de energia do fabricante, bateria); com o processador limitado o FPS cai sem nenhuma configuração ter mudado. Se o PC esquenta, limpe a poeira e melhore a ventilação; no notebook, jogue na tomada, com uma base com ventilação e o modo de desempenho do fabricante. Avisar a partir de %s%% das leituras é critério do Axion.", comma(s.MinLimitPct, 0), comma(ThermalLimitMinPct, 0)))
 		}
 		if s.BusySamples >= 3 && s.BusyFreqPct >= 0 && s.BusyFreqPct < BelowBasePct {
 			warn(fmt.Sprintf("O processador trabalhou abaixo da frequência base (%s%%) enquanto estava ocupado", comma(s.BusyFreqPct, 0)),

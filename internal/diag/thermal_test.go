@@ -75,9 +75,28 @@ func TestThermalNow(t *testing.T) {
 	if x == nil || x.Severity != SevWarning || !strings.Contains(x.Evidence, "70%") || !strings.Contains(x.Evidence, "68 °C") {
 		t.Fatalf("zona limitando: %+v", x)
 	}
+	if !strings.Contains(x.Title, "temperatura") {
+		t.Errorf("zona limitando por calor: o título diz a causa: %s", x.Title)
+	}
 	f.Thermal.Zones = nil
 	f.Thermal.MhzLimit = 1800
-	if x := thermFind(thermalFindings(nil, f), "therm.now"); x == nil || !strings.Contains(x.Evidence, "1800 de 2400 MHz") {
+	x = thermFind(thermalFindings(nil, f), "therm.now")
+	if x == nil || !strings.Contains(x.Evidence, "1800 de 2400 MHz") {
 		t.Fatalf("limite de frequência: %+v", x)
+	}
+	// Only the frequency limit: firmware lowers it too, so the cause is not
+	// claimed (a 2011 notebook sat at 90% while idle at 53 °C, event 37).
+	if strings.Contains(x.Title, "temperatura") || strings.Contains(x.Evidence, "temperatura") {
+		t.Errorf("só o limite de frequência não prova temperatura: %s / %s", x.Title, x.Evidence)
+	}
+	if strings.Contains(x.Explanation, "evento 37) em") {
+		t.Errorf("sem evento 37 a explicação não pode citá-lo como registrado: %s", x.Explanation)
+	}
+	noon := time.Now()
+	noon = time.Date(noon.Year(), noon.Month(), noon.Day(), 12, 0, 0, 0, noon.Location())
+	evs := []sys.Event{{Channel: "System", Provider: provKProcPower, ID: 37, Time: noon.Add(-24 * time.Hour)},
+		{Channel: "System", Provider: provKProcPower, ID: 37, Time: noon.Add(-48 * time.Hour)}}
+	if x := thermFind(thermalFindings(evs, f), "therm.now"); x == nil || !strings.Contains(x.Explanation, "em 2 dias dos últimos 30") {
+		t.Errorf("com evento 37 a explicação aponta o firmware: %+v", x)
 	}
 }
