@@ -1427,8 +1427,10 @@ var rules = []rule{
 		}
 		if r.SpectreOverride && !st["adv.spectre"].ByAxion {
 			add(Finding{ID: "res.spectre", Area: AreaSeguranca, Severity: SevInfo, Title: "Mitigações Spectre/Meltdown desligadas por outro programa",
-				Evidence: "FeatureSettingsOverride = 3 em Memory Management.", Explanation: "Em CPUs atuais o ganho de desligar é mínimo e a exposição a ataques continua.",
-				Actions: []Action{fixTweaks("Religar", "fix.spectre")}})
+				Evidence:    "FeatureSettingsOverride = 3 em Memory Management.",
+				Explanation: "Segundo a Microsoft, com as mitigações ligadas a perda é pequena em processadores de 2016 em diante (Intel Skylake ou mais novo) e maior nos de 2015 para trás (Haswell ou anterior), onde alguns usuários notam a diferença. Desligadas, a exposição a ataques continua em qualquer processador.",
+				Actions:     []Action{fixTweaks("Religar", "fix.spectre")},
+				Sources:     []tweaks.Source{srcSpectrePerf}})
 		}
 	},
 	// Axion changes undone by Windows (updates, other tools).
@@ -1444,7 +1446,7 @@ var rules = []rule{
 		}
 		sort.Strings(ids)
 		add(Finding{ID: "axion.drift", Area: AreaDesempenho, Severity: SevWarning, Title: plural(len(ids), "otimização desfeita desde a aplicação", "otimizações desfeitas desde a aplicação"),
-			Evidence:    "Alteradas depois de aplicadas: " + strings.Join(ids, ", ") + ".",
+			Evidence:    "Alteradas depois de aplicadas: " + tweakNames(ids) + ".",
 			Explanation: "Atualizações grandes do Windows e outros programas às vezes restauram configurações. O backup original continua guardado; você pode reaplicar.",
 			Actions:     []Action{fixTweaks("Reaplicar", ids...)}})
 	},

@@ -22,8 +22,6 @@
   <sub><a href="#como-instalar">Como instalar</a> · <a href="#primeiros-passos">Primeiros passos</a> · <a href="#seguran%C3%A7a-e-privacidade">Segurança e privacidade</a> · <a href="#perguntas-frequentes">Perguntas frequentes</a></sub>
 </p>
 
-> **Versão 0.10.0 em validação final.** Esta página já descreve a 0.10.0, com o instalador. Ela está sendo testada num PC de jogo de verdade antes de ser publicada; até lá, a [página de versões](https://github.com/vinihammoud-create/axion-optimizer/releases) ainda mostra a 0.9.1 (só em ZIP).
-
 <p align="center"><img src="docs/img/inicio.png" width="900" alt="Início do Axion: a nota do PC para jogos, as 19 melhorias recomendadas e o botão para aplicar"></p>
 
 <p align="center"><sub>Todas as imagens desta página são da interface real rodando sobre o PC simulado do projeto (modo demonstração, por isso o selo "Demonstração"). Os números não são de uma máquina real.</sub></p>
