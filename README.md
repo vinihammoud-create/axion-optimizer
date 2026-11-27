@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 0.10.0" src="https://img.shields.io/badge/vers%C3%A3o-0.10.0-3BA0FF">
+  <img alt="Versão 0.10.1" src="https://img.shields.io/badge/vers%C3%A3o-0.10.1-3BA0FF">
   <img alt="Windows 10 e 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white">
   <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-34D27B"></a>
   <img alt="Sem driver de kernel" src="https://img.shields.io/badge/driver%20de%20kernel-nenhum-FF7A1A">
@@ -22,7 +22,7 @@
   <sub><a href="#como-instalar">Como instalar</a> · <a href="#primeiros-passos">Primeiros passos</a> · <a href="#seguran%C3%A7a-e-privacidade">Segurança e privacidade</a> · <a href="#perguntas-frequentes">Perguntas frequentes</a></sub>
 </p>
 
-<p align="center"><img src="docs/img/inicio.png" width="900" alt="Início do Axion: a nota do PC para jogos, as 19 melhorias recomendadas e o botão para aplicar"></p>
+<p align="center"><img src="docs/img/inicio.png" width="900" alt="Início do Axion no modo Avançado: o seletor Simples | Avançado na barra superior, a nota do PC para jogos, as 19 melhorias recomendadas e o botão para aplicar"></p>
 
 <p align="center"><sub>Todas as imagens desta página são da interface real rodando sobre o PC simulado do projeto (modo demonstração, por isso o selo "Demonstração"). Os números não são de uma máquina real.</sub></p>
 
@@ -35,7 +35,8 @@
 | **Sem driver, sem injeção, sem telemetria** | Não instala driver de kernel, não injeta nada no jogo nem desenha sobre ele, não roda PowerShell nem arquivos de lote e não envia dados. Usa só registro, WMI, a API do Windows e ferramentas do próprio Windows. |
 | **Mede antes e depois** | FPS, 1% e 0,1% low e engasgos pelo PresentMon, da Intel. A "Prova no seu PC" só mantém um ajuste se ele melhorar pelo critério do Axion; se não melhorar, desfaz sozinho. |
 | **O que ele recusa é público** | A página "O que não fazemos" lista ajustes populares que ficam de fora de propósito, cada um com o mecanismo, o motivo e a fonte. |
-| **Para quem joga e para quem não joga** | Perfis de jogo competitivo, jogo + live, trabalho, criação e programação. O perfil decide o que conta na nota e o que entra no 1 clique. Notebook é tratado como notebook: na bateria, o Axion avisa antes de medir e não aplica o modo de energia. |
+| **Para quem joga e para quem não joga** | Perfis de jogo competitivo, jogo + live, trabalho, criação e programação. O perfil decide o que conta na nota e o que entra no 1 clique; nos perfis que não jogam, os atalhos de FPS e do CS2 saem do caminho. Notebook é tratado como notebook: na bateria, o Axion avisa antes de medir e não aplica o modo de energia. |
+| **Simples ou Avançado** | O seletor no topo escolhe entre uma tela só (a nota, o que mais pesa e as recomendadas sem risco) e a interface completa. As explicações longas ficam atrás de um botão "?", e abrem só quando você pede. |
 
 ## O que ele faz
 
@@ -49,30 +50,52 @@ O Axion lê o PC e mostra cada ponto com o que foi lido, por que importa e como 
 - Estabilidade: erros de hardware, telas azuis com orientação por código, desligamentos inesperados, reinícios do driver de vídeo.
 - Temperatura do processador pelo que o Windows informa sem driver: desligamento por temperatura crítica, throttling confirmado e limite de frequência.
 
-<p align="center"><img src="docs/img/diagnostico.png" width="860" alt="Diagnóstico com os pontos agrupados por gravidade, cada um com o que foi lido e o porquê"></p>
+Além da gravidade, cada achado diz quanto a leitura sustenta a conclusão:
+
+| Rótulo | Quando aparece |
+|---|---|
+| **Problema confirmado** | Uma leitura direta mostra o problema: um valor do registro, do WMI ou da API do Windows, um número comparado com um limite publicado, um registro do Visualizador de Eventos. |
+| **Possível problema** | A conclusão depende de uma inferência, de uma correlação ou do critério do Axion. É também o padrão: na dúvida, a regra não afirma mais do que leu. |
+| **Informação insuficiente** | O achado existe para dizer que algo não pôde ser lido. Aparece em tom neutro, nunca verde. |
+| **Condição normal** | Não há nada a corrigir. |
+
+<p align="center"><img src="docs/img/diagnostico.png" width="860" alt="Diagnóstico com os pontos agrupados por área, cada um com a gravidade, o rótulo Problema confirmado ou Possível problema, o que foi lido e o porquê"></p>
 
 A **Avaliação completa** junta tudo num botão e dá três notas: configuração, capacidade do hardware para o seu uso e medição.
 
-<p align="center"><img src="docs/img/avaliacao.png" width="860" alt="Avaliação completa com as notas de configuração, capacidade e medição"></p>
+<p align="center"><img src="docs/img/avaliacao.png" width="860" alt="Avaliação completa com as notas de configuração, capacidade e medição e o que ainda não foi medido"></p>
 
 ### Otimizar, item por item ou em 1 clique
 
 O catálogo é dividido por categoria, com a recomendação calculada para o seu PC. O 1 clique aplica o plano Recomendado, o Completo ou o Perfil Counter-Strike 2, e você revisa a lista antes.
 
-**Seleção em arquivo:** "Exportar seleção" salva a lista do que o Axion aplicou (só os identificadores, sem dados do PC); "Importar seleção" abre o plano com esses itens neste ou em outro PC, com as mesmas regras do 1 clique, e nada é aplicado sem você confirmar.
+Cada linha mostra quatro sinais sem abrir nada:
 
-<p align="center"><img src="docs/img/otimizar.png" width="860" alt="Página Otimizações com as categorias e os itens recomendados para o PC"></p>
+1. **Estado:** Ativo, Recomendado, Opcional, Não indicado, Bloqueado neste PC ou Não se aplica.
+2. **Risco:** sempre visível, inclusive "risco seguro".
+3. **Origem:** "Aplicado pelo Axion", "Já estava assim no Windows" ou "Não aplicado".
+4. **Desfazer:** um botão na própria linha, quando foi o Axion que aplicou. Faz o mesmo que o Desfazer do Histórico.
+
+**Seleção em arquivo:** "Exportar seleção" salva a lista do que o Axion aplicou (só os identificadores, sem dados do PC); "Importar seleção" abre o plano com esses itens neste ou em outro PC, com as mesmas regras do 1 clique, e nada é aplicado sem você confirmar. O que fica de fora aparece com o motivo.
+
+<p align="center"><img src="docs/img/otimizar.png" width="860" alt="Página Otimizações com Exportar seleção e Importar seleção, as categorias e cada item recomendado com o estado, o risco e Não aplicado"></p>
 
 Abra qualquer item para ver **como funciona, a evidência, o risco, o valor exato que vai mudar (e o atual) e as fontes**:
 
-<p align="center"><img src="docs/img/ajuste.png" width="860" alt="Um ajuste aberto: como funciona, evidência alta, risco seguro, o valor do registro que muda e a fonte"></p>
+<p align="center"><img src="docs/img/ajuste.png" width="860" alt="Um ajuste aberto: como funciona, evidência alta, risco seguro, o valor do registro que muda (e o atual) e a fonte"></p>
+
+Depois de aplicar, a linha diz de onde veio cada item ativo e oferece o Desfazer ali mesmo. O "?" ao lado da frase do topo abre o resto da explicação logo abaixo:
+
+<p align="center"><img src="docs/img/ajuda.png" width="860" alt="Otimizações ativas com o painel do botão ? aberto e, em cada linha, Ativo, risco seguro, Já estava assim no Windows ou Aplicado pelo Axion com o botão Desfazer"></p>
 
 | Antes de aplicar, a lista completa | Frequência do monitor: você confirma |
 |---|---|
-| <img src="docs/img/plano.png" width="430" alt="Plano de otimização recomendada com cada item, a evidência e o que pede reiniciar"> | <img src="docs/img/manter-frequencia.png" width="430" alt="Diálogo Manter esta frequência? com os botões Reverter e Manter e o aviso de volta automática em 15 segundos"> |
+| <img src="docs/img/plano.png" width="430" alt="Plano de otimização recomendada com cada item, a evidência, o que pede reiniciar e o motivo para este PC"> | <img src="docs/img/manter-frequencia.png" width="430" alt="Diálogo Manter esta frequência? com os botões Reverter e Manter e a contagem para a volta automática"> |
 | Dá para desmarcar qualquer item. O ponto de restauração do Windows vem marcado. | O monitor troca para a frequência máxima e o Axion pergunta se você está vendo a tela. Sem resposta em 15 segundos, volta sozinho à anterior e nada fica gravado. |
 
 O Axion também encontra e oferece desfazer o que **outros otimizadores deixaram para trás**: HPET forçado e tick do sistema, ajustes de TCP e offloads da placa de rede, modo de teste de drivers, DEP e UAC desligados, TDR da GPU, arquivo de paginação, serviços essenciais desativados e Windows Update bloqueado.
+
+**PC de empresa ou escola:** a análise lê se o PC faz parte de um domínio e se está inscrito num gerenciamento de dispositivos (MDM, como o Intune), sem guardar o nome do domínio. Num PC gerenciado, "Desbloquear o Windows Update" passa a "não recomendado" e sai do 1 clique, porque as políticas de atualização podem ser da organização e a Política de Grupo pode gravá-las de novo; o motivo diz para falar com o TI. Se a leitura falhar, o item também fica fora do 1 clique. Ele continua em Otimizações, com desfazer, para quem quiser aplicar mesmo assim.
 
 ### Medir
 
@@ -99,7 +122,7 @@ O Axion também encontra e oferece desfazer o que **outros otimizadores deixaram
 
 | Biblioteca de jogos | Counter-Strike 2 |
 |---|---|
-| <img src="docs/img/jogos.png" width="430" alt="Biblioteca de jogos com o launcher, o anti-cheat e as opções de perfil de cada jogo"> | <img src="docs/img/cs2.png" width="430" alt="Página do Counter-Strike 2 com a instalação, as opções de inicialização e as configurações de vídeo"> |
+| <img src="docs/img/jogos.png" width="430" alt="Biblioteca de jogos com o jogo sem uso, o launcher, o anti-cheat e as opções de perfil de cada jogo"> | <img src="docs/img/cs2.png" width="430" alt="Página do Counter-Strike 2 com a instalação, as opções de inicialização e as configurações de vídeo lidas do jogo"> |
 
 ### Saúde do Windows e manutenção
 
@@ -109,22 +132,28 @@ O Axion também encontra e oferece desfazer o que **outros otimizadores deixaram
 - **Inicialização e programas:** o que abre com o Windows (com desfazer) e desinstalação com as sobras na quarentena.
 - **Instalar programas** pelo winget depois de formatar, e **guia de BIOS** da sua placa-mãe.
 
-<p align="center"><img src="docs/img/saude.png" width="860" alt="Saúde do Windows: proteção, atualizações e disco, com o que está em ordem e o que pede atenção"></p>
+<p align="center"><img src="docs/img/saude.png" width="860" alt="Saúde do Windows: proteção, atualizações e disco, com o que está em ordem, o que pede atenção e o que não foi lido"></p>
 
 ### Histórico: tudo volta ao que era
 
-Cada mudança aparece com a hora, o valor anterior e um botão **Desfazer**. Dá para desfazer um item, um lote ou tudo; se outro programa mexeu no item depois, o Axion avisa antes de sobrescrever.
+Cada mudança aparece com a hora, o valor anterior e um botão **Desfazer**. Dá para desfazer um item, um lote ou tudo; se outro programa mexeu no item depois, o Axion avisa antes de sobrescrever. O mesmo Desfazer aparece na linha de cada otimização que o Axion aplicou.
 
 | Histórico com os valores anteriores | Resultado do "Desfazer tudo" |
 |---|---|
-| <img src="docs/img/historico.png" width="430" alt="Histórico com cada alteração, o valor anterior e o botão Desfazer"> | <img src="docs/img/desfazer.png" width="430" alt="Resultado do Desfazer tudo: 19 desfeitas, 0 conflitos, 0 falharam"> |
+| <img src="docs/img/historico.png" width="430" alt="Histórico com o lote da otimização recomendada, cada alteração com o valor anterior e o botão Desfazer"> | <img src="docs/img/desfazer.png" width="430" alt="Resultado do Desfazer tudo: 19 desfeitas, 0 conflitos, 0 falharam e a nota recalculada"> |
 
 ### Fácil para quem não quer mexer em nada
 
-| Modo simples | Busca Ctrl+K |
+O seletor **Simples | Avançado** fica sempre na barra superior, e a escolha fica guardada. Instalação nova começa no Simples; quem já usava o Axion continua no modo em que estava. Trocar de modo não aplica nem desfaz nada.
+
+- **Simples** é uma tela só: a nota, o que mais pesa nela, "Aplicar recomendadas" (só itens sem risco, os mesmos do 1 clique, com a lista para conferir antes) e "Desfazer mudanças", que abre o Histórico sem sair do modo Simples.
+- **Avançado** é a interface completa: todas as páginas, todas as otimizações e o que cada uma altera no Windows. As imagens desta página, menos a do modo Simples, são do Avançado.
+- **Ajuda "?":** as explicações longas viraram uma frase na tela e um botão "?" ao lado. O resto abre logo abaixo com um clique (ou Enter ou Espaço) e fecha com Esc. Os diálogos de aplicar e desfazer, as mensagens de erro e o detalhe de cada achado e de cada otimização continuam inteiros na tela.
+
+| Modo Simples | Busca Ctrl+K |
 |---|---|
-| <img src="docs/img/modo-simples.png" width="430" alt="Modo simples com a nota, o que mais pesa e o botão Resolver o que é seguro"> | <img src="docs/img/busca.png" width="430" alt="Busca Ctrl+K com páginas e ações"> |
-| A nota, os três pontos que mais pesam, um botão "Resolver o que é seguro" e outro para desfazer. | Digite o nome de uma página, de uma ação ("medir FPS") ou de uma otimização. |
+| <img src="docs/img/modo-simples.png" width="430" alt="Modo Simples com o seletor no topo, a nota, Aplicar recomendadas, Desfazer mudanças e o que mais pesa, com o rótulo Problema confirmado"> | <img src="docs/img/busca.png" width="430" alt="Busca Ctrl+K com páginas e ações"> |
+| A nota, o que mais pesa nela, "Aplicar recomendadas" e "Desfazer mudanças". | Digite o nome de uma página, de uma ação ("medir FPS") ou de uma otimização. Disponível no modo Avançado. |
 
 ### O que não fazemos
 
@@ -138,8 +167,8 @@ Na [página da versão mais recente](https://github.com/vinihammoud-create/axion
 
 | | Para quem | Como |
 |---|---|---|
-| **Instalador** `Axion-0.10.0-setup.exe` | Recomendado para a maioria | Instala em Arquivos de Programas, cria o atalho no menu Iniciar e aparece em Configurações > Aplicativos, de onde se desinstala. Antes de instalar, mostra o que o Axion faz e a licença. |
-| **ZIP portátil** `Axion-0.10.0-win64.zip` | Quem não quer instalar nada | Extraia numa pasta e abra o `Axion.exe`, mantendo os arquivos juntos. Para remover, apague a pasta. |
+| **Instalador** `Axion-0.10.1-setup.exe` | Recomendado para a maioria | Instala em Arquivos de Programas, cria o atalho no menu Iniciar e aparece em Configurações > Aplicativos, de onde se desinstala. Antes de instalar, mostra o que o Axion faz e a licença. |
+| **ZIP portátil** `Axion-0.10.1-win64.zip` | Quem não quer instalar nada | Extraia numa pasta e abra o `Axion.exe`, mantendo os arquivos juntos. Para remover, apague a pasta. |
 
 Nos dois casos, os dados ficam em `C:\ProgramData\Axion`.
 
@@ -156,11 +185,11 @@ O Axion ainda **não tem assinatura digital** (o projeto vai pedir a assinatura 
 1. **Confira o SHA-256** do arquivo baixado com o valor do `SHA256SUMS.txt` da mesma página da versão. Os dois comandos abaixo são do próprio Windows; use o que preferir:
 
    ```powershell
-   Get-FileHash .\Axion-0.10.0-setup.exe -Algorithm SHA256
+   Get-FileHash .\Axion-0.10.1-setup.exe -Algorithm SHA256
    ```
 
    ```bat
-   certutil -hashfile Axion-0.10.0-setup.exe SHA256
+   certutil -hashfile Axion-0.10.1-setup.exe SHA256
    ```
 
    Os 64 caracteres precisam ser iguais (maiúsculas e minúsculas não importam). Se forem diferentes, não abra o arquivo e baixe de novo pela página oficial.
@@ -172,17 +201,17 @@ Não desligue o antivírus nem o SmartScreen. Se o antivírus acusar um alarme f
 
 <p align="center"><img src="docs/img/perfil.png" width="640" alt="Pergunta da primeira abertura: para que você usa este PC, com os cinco perfis"></p>
 
-1. **Escolha o seu perfil.** Na primeira abertura o Axion pergunta para que você usa o PC e faz a análise, que leva alguns segundos. A análise só lê.
-2. **Leia o diagnóstico.** O Início mostra a nota, o que mais pesa nela e o próximo passo. Em "Por que importa", cada ponto explica o motivo.
+1. **Escolha o seu perfil.** Na primeira abertura o Axion pergunta para que você usa o PC e faz a análise, que leva alguns segundos. A análise só lê. Ele abre no modo Simples; para ver todas as páginas, escolha **Avançado** no topo.
+2. **Leia o diagnóstico.** O Início mostra a nota, o que mais pesa nela e o próximo passo. Cada ponto diz se o problema é confirmado ou possível, e "Por que importa" explica o motivo.
 3. **Aplique as recomendadas.** "Aplicar as recomendadas" abre a lista: revise, desmarque o que quiser e aplique. Os itens que só valem depois de reiniciar vêm sinalizados.
 4. **Meça antes e depois.** Em Medir > Desempenho, grave com o rótulo "antes", aplique, e grave com "depois", sempre no mesmo cenário do jogo.
-5. **Desfaça o que não quiser.** Em Otimizar > Histórico, um item, um lote ou tudo.
+5. **Desfaça o que não quiser.** Em Otimizar > Histórico, um item, um lote ou tudo; ou no botão Desfazer da própria linha da otimização. No modo Simples, "Desfazer mudanças" abre o Histórico.
 
-<p align="center"><img src="docs/img/inicio-depois.png" width="860" alt="Início depois de aplicar as recomendadas: tudo certo por aqui, 21 ativas e 0 recomendadas pendentes"></p>
+<p align="center"><img src="docs/img/inicio-depois.png" width="860" alt="Início depois de aplicar as recomendadas: tudo certo por aqui, 21 ativas, 0 recomendadas pendentes e a linha ativa com Aplicado pelo Axion e Desfazer"></p>
 
 ## Como desfazer e como desinstalar
 
-- **Desfazer:** Otimizar > Histórico > **Desfazer tudo** (ou um item, ou um lote). No modo simples, o botão "Desfazer mudanças" abre o Histórico. A Restauração do Sistema do Windows também serve, já que o Axion cria um ponto antes dos lotes.
+- **Desfazer:** Otimizar > Histórico > **Desfazer tudo** (ou um item, ou um lote). Cada otimização que o Axion aplicou também tem um botão Desfazer na própria linha. No modo Simples, o botão "Desfazer mudanças" abre o Histórico sem sair do Simples. A Restauração do Sistema do Windows também serve, já que o Axion cria um ponto antes dos lotes.
 - **Desinstalar não desfaz os ajustes.** O que o Axion mudou no Windows continua mudado. Para voltar tudo ao que era, use **Desfazer tudo antes de desinstalar**.
 - **O desinstalador avisa:** ele lê o histórico e, se ainda houver alterações ativas, diz quantas e recomenda desfazer antes. Se não conseguir ler o histórico, diz isso em vez de seguir como se não houvesse nada.
 - **O histórico fica guardado, a menos que você peça.** O desinstalador remove o programa, os atalhos e o cache da janela. A pasta de dados (`C:\ProgramData\Axion`, com o histórico para desfazer, a quarentena e as medições) só é apagada se você responder Sim; o padrão é manter, e um Axion instalado de novo continua podendo desfazer.
@@ -220,7 +249,11 @@ Achou uma falha de segurança? Veja o [`SECURITY.md`](SECURITY.md) para avisar e
 
 ## O que ainda é testado só no simulador
 
-O projeto não tem, nem no PC de desenvolvimento nem na nuvem de testes, jogo, placa de vídeo dedicada e anti-cheat reais. Estas partes passam nos testes do PC simulado, mas ainda não foram conferidas numa máquina real:
+O projeto não tem, nem no PC de desenvolvimento nem na nuvem de testes, jogo, placa de vídeo dedicada e anti-cheat reais.
+
+**Numa máquina real:** a versão 0.10.0 foi testada num notebook com Windows 10: instalar, analisar, aplicar, desfazer um item e desfazer tudo, e desinstalar. Um PC de jogos com placa de vídeo dedicada não foi testado.
+
+**Só no simulador:** as novidades da 0.10.1 (modo Simples e Avançado, ajuda "?", rótulos de certeza no diagnóstico, os quatro sinais e o Desfazer na linha, exportar e importar a seleção, e a leitura de PC de empresa ou escola) passam nos testes do PC simulado, mas ainda não foram conferidas numa máquina real. O mesmo vale para:
 
 - **Medição de FPS e relatório da partida** num jogo de verdade (com Vanguard, EAC ou BattlEye, o relatório da partida não foi testado).
 - **Perfil do driver NVIDIA** (leitura e correções).
@@ -241,7 +274,7 @@ Depende do seu PC, e o Axion não promete número. Ele corrige o que comprovadam
 Sim. O Axion reconhece o notebook e a bateria: avisa quando uma medição é feita na bateria, só aplica e desfaz o modo de energia na tomada e não trata a tela a 60 Hz na bateria como problema importante. O ajuste que desliga a economia de energia da rede por cabo avisa que, num notebook, ela poupa bateria.
 
 **Não jogo. Serve para mim?**
-Sim. Nos perfis Trabalho, Criação e Programação, os pontos que só importam em jogo não contam na nota nem entram no 1 clique, e o Início destaca a Saúde do Windows no lugar do CS2.
+Sim. Nos perfis Trabalho, Criação e Programação, os pontos que só importam em jogo não contam na nota nem entram no 1 clique. O Início destaca a Saúde do Windows no lugar do CS2, o último passo do ciclo é a Avaliação completa em vez da medição de FPS, a busca não oferece o perfil do CS2 nem "Medir FPS", e as páginas de jogos e medição vão para o fim do menu (nenhuma some).
 
 **Por que ele não faz o ajuste X que vi num vídeo?**
 Provavelmente está em "O que não fazemos", com o motivo e a fonte. Se não estiver, abra uma issue com a fonte.
