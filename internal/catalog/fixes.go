@@ -340,8 +340,11 @@ func fixTweaks() []*tweaks.Tweak {
 			ID: "fix.update.policies", Category: "correcoes", Title: "Desbloquear o Windows Update",
 			Summary: "Políticas ou uma pausa \"infinita\" bloqueiam as atualizações do Windows. Sem elas o PC fica sem correções de segurança e sem drivers e recursos novos.",
 			Detail: "Remove apenas os valores de bloqueio encontrados (NoAutoUpdate, DisableWindowsUpdateAccess, servidor WSUS falso, pausa até datas distantes). " +
-				"Para controlar atualizações sem bloquear, use \"Pausar\" nas Configurações ou a opção de não receber drivers pelo Windows Update.",
-			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcWUSettings, srcWUDrivers},
+				"Para controlar atualizações sem bloquear, use \"Pausar\" nas Configurações ou a opção de não receber drivers pelo Windows Update. " +
+				"Num PC de empresa ou escola (que faz parte de um domínio ou está inscrito num gerenciamento de dispositivos, o MDM, como o Intune), essas políticas podem ter vindo da organização: removê-las vai contra a configuração do TI, e a organização pode gravá-las de novo (a Política de Grupo do domínio é aplicada ao iniciar o PC e atualizada em segundo plano a cada 90 minutos). " +
+				"Por isso, nesse PC, ou quando não foi possível ler se ele é gerenciado, o Axion não recomenda este item e ele fica fora do 1 clique; fale com o TI. " +
+				"O Axion lê o domínio pelo WMI (Win32_ComputerSystem.PartOfDomain) e o MDM pela função do Windows IsDeviceRegisteredWithManagement; as duas leituras não mudam nada.",
+			Evidence: tweaks.EvHigh, Sources: []tweaks.Source{srcWUSettings, srcWUDrivers, srcPartOfDomain, srcMDMReg, srcGPProcessing},
 			Risk: tweaks.RiskSafe, Reboot: tweaks.RebootNone, Tags: []string{"seguranca"}, OneClick: true,
 			Applicable: func(f *facts.Facts) (bool, string) {
 				if len(f.Residue.UpdateBlocks) == 0 {
@@ -349,7 +352,7 @@ func fixTweaks() []*tweaks.Tweak {
 				}
 				return true, ""
 			},
-			Recommend: yes("bloqueio do Windows Update encontrado neste PC"),
+			Recommend: updatePoliciesRec,
 			Ops: func(f *facts.Facts) []tweaks.Op {
 				var ops []tweaks.Op
 				for _, b := range f.Residue.UpdateBlocks {
@@ -648,4 +651,35 @@ func fixTweaks() []*tweaks.Tweak {
 			},
 		},
 	}
+}
+
+// Sources of the management reads behind updatePoliciesRec.
+var (
+	srcPartOfDomain = tweaks.Source{Title: "Microsoft Learn — Classe Win32_ComputerSystem: PartOfDomain diz se o PC faz parte de um domínio (NULL: fora de domínio ou estado desconhecido)", URL: "https://learn.microsoft.com/windows/win32/cimwin32prov/win32-computersystem"}
+	srcMDMReg       = tweaks.Source{Title: "Microsoft Learn — IsDeviceRegisteredWithManagement: verifica se o dispositivo está registrado num serviço de MDM", URL: "https://learn.microsoft.com/windows/win32/api/mdmregistration/nf-mdmregistration-isdeviceregisteredwithmanagement"}
+	srcGPProcessing = tweaks.Source{Title: "Microsoft Learn — Processamento da Política de Grupo: aplicada ao iniciar o PC e atualizada em segundo plano a cada 90 minutos", URL: "https://learn.microsoft.com/windows-server/identity/ad-ds/manage/group-policy/group-policy-processing"}
+)
+
+// updatePoliciesRec recommends removing the Windows Update blocks only on a
+// PC known not to be managed: on a PC that is part of a domain or enrolled
+// in an MDM the policies may be the organization's (removing them goes
+// against IT, and Group Policy may write them again), and a management read
+// that failed is not "unmanaged".
+func updatePoliciesRec(f *facts.Facts) tweaks.Recommendation {
+	m := f.Management
+	if m.Managed() {
+		var who []string
+		if m.DomainRead && m.Domain {
+			who = append(who, "faz parte de um domínio")
+		}
+		if m.MDMRead && m.MDM {
+			who = append(who, "está inscrito no gerenciamento de dispositivos (MDM) de uma organização")
+		}
+		return tweaks.Rec(tweaks.RecNo, "este PC "+strings.Join(who, " e ")+
+			": as políticas do Windows Update podem ter vindo da empresa ou escola, que pode gravá-las de novo; fale com o TI antes de remover")
+	}
+	if !m.KnownUnmanaged() {
+		return tweaks.Rec(tweaks.RecNo, "não foi possível saber se o PC é gerenciado por uma empresa ou escola (domínio ou MDM); se for, essas políticas são da organização: confira com o TI antes de remover")
+	}
+	return tweaks.Rec(tweaks.RecYes, "bloqueio do Windows Update encontrado neste PC, que não faz parte de domínio nem está inscrito em MDM")
 }

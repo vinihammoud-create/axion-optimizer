@@ -337,6 +337,20 @@ func TestResidueFindings(t *testing.T) {
 			t.Errorf("%s: severidade %s, esperado %s", id, x.Severity, sev)
 		}
 	}
+	// Windows Update blocked on a work/school PC: the policies may be the
+	// organization's, so no "Desbloquear" button; unknown management warns.
+	if x := find(r, "res.wu"); x == nil || !strings.Contains(x.Explanation, "Não foi possível saber se o PC é gerenciado") || len(x.Actions) != 1 {
+		t.Errorf("res.wu sem leitura de gerenciamento: %+v", x)
+	}
+	f.Management = facts.ManagementInfo{DomainRead: true, Domain: true, MDMRead: true}
+	if x := find(diag.Build(f, nil), "res.wu"); x == nil || len(x.Actions) != 0 || !strings.Contains(x.Explanation, "fale com o TI") && !strings.Contains(x.Explanation, "Fale com o TI") {
+		t.Errorf("res.wu em PC de domínio não pode oferecer desbloquear: %+v", x)
+	}
+	f.Management = facts.ManagementInfo{DomainRead: true, MDMRead: true}
+	if x := find(diag.Build(f, nil), "res.wu"); x == nil || len(x.Actions) != 1 || strings.Contains(x.Explanation, "gerenciado") {
+		t.Errorf("res.wu em PC pessoal: %+v", x)
+	}
+	f.Management = facts.ManagementInfo{}
 	// The fix is attached to the finding.
 	if x := find(r, "res.mem.compression"); x == nil || len(x.Actions) != 1 || len(x.Actions[0].Tweaks) != 1 || x.Actions[0].Tweaks[0] != "fix.mem.compression" {
 		t.Errorf("res.mem.compression sem a correção: %+v", x)

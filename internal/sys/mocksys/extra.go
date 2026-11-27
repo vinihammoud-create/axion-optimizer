@@ -27,6 +27,24 @@ type WMI struct {
 	// OutHandler answers CallOut for tests that need their own method; nil
 	// uses the built-in simulation (PS_MMAgent, see mmagent.go).
 	OutHandler func(namespace, path, method string, in map[string]any) (sys.WMIRow, error)
+	// fail makes every query of a class fail (see FailQuery).
+	fail map[string]error
+}
+
+// FailQuery makes every query of the class in the namespace return err, as
+// a WMI provider that times out or is broken; nil makes it answer again.
+func (w *WMI) FailQuery(namespace, class string, err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	k := strings.ToLower(namespace) + "|" + strings.ToLower(class)
+	if err == nil {
+		delete(w.fail, k)
+		return
+	}
+	if w.fail == nil {
+		w.fail = map[string]error{}
+	}
+	w.fail[k] = err
 }
 
 // NewWMI creates an empty WMI.
@@ -113,8 +131,12 @@ func (w *WMI) Query(namespace, wql string) ([]sys.WMIRow, error) {
 		where = strings.TrimSpace(rest[j+7:])
 	}
 	w.mu.Lock()
-	rows := w.Tables[strings.ToLower(namespace)+"|"+strings.ToLower(class)]
+	key := strings.ToLower(namespace) + "|" + strings.ToLower(class)
+	rows, failErr := w.Tables[key], w.fail[key]
 	w.mu.Unlock()
+	if failErr != nil {
+		return nil, failErr
+	}
 	if where == "" {
 		return rows, nil
 	}

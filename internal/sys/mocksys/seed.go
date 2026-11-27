@@ -173,7 +173,8 @@ func SeedWindowsDefaults(m *Mock) {
 		sys.WMIRow{"Capacity": uint64(16 << 30), "Speed": int64(4800), "ConfiguredClockSpeed": int64(4800), "Manufacturer": "Kingston", "PartNumber": "KF560C36-16", "DeviceLocator": "DIMM 1", "BankLabel": "P0 CHANNEL B", "SMBIOSMemoryType": int64(34)})
 	w.Set(`root\cimv2`, "Win32_BaseBoard", sys.WMIRow{"Manufacturer": "Gigabyte Technology Co., Ltd.", "Product": "B650M H"})
 	w.Set(`root\cimv2`, "Win32_BIOS", sys.WMIRow{"Manufacturer": "American Megatrends International, LLC.", "SMBIOSBIOSVersion": "F31", "ReleaseDate": "20250312000000.000000+000"})
-	w.Set(`root\cimv2`, "Win32_ComputerSystem", sys.WMIRow{"Manufacturer": "Gigabyte Technology Co., Ltd.", "Model": "B650M H", "PCSystemType": int64(1), "HypervisorPresent": true})
+	w.Set(`root\cimv2`, "Win32_ComputerSystem", sys.WMIRow{"Manufacturer": "Gigabyte Technology Co., Ltd.", "Model": "B650M H", "PCSystemType": int64(1), "HypervisorPresent": true,
+		"PartOfDomain": false, "Domain": "WORKGROUP", "DomainRole": int64(0)})
 	w.Set(`root\cimv2`, "Win32_SCSIController",
 		sys.WMIRow{"Name": "Controlador NVM Express padrão", "DriverName": "stornvme", "PNPDeviceID": `PCI\VEN_15B7&DEV_5019&SUBSYS_501915B7&REV_01\4&2B1D6F&0&0009`},
 		sys.WMIRow{"Name": "Controlador SATA AHCI padrão", "DriverName": "storahci", "PNPDeviceID": `PCI\VEN_1022&DEV_43EB&SUBSYS_10621B21&REV_00\4&2766D23F&0&000A`},

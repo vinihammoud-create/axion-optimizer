@@ -740,6 +740,10 @@ type Native struct {
 	// 4200 MHz with no thermal limit); ProcPowersErr makes it fail.
 	ProcPowers    []sys.ProcPower
 	ProcPowersErr error
+	// MDMEnrolled is what MDMRegistered reports (false = a home PC with no
+	// work or school management); MDMErr makes it fail (see mdm.go).
+	MDMEnrolled bool
+	MDMErr      error
 	// Modules is what KernelModules reports (nil = a few ordinary drivers);
 	// ModulesErr makes it fail, like a run without administrator rights.
 	Modules    []string
