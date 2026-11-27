@@ -160,6 +160,7 @@ func dpcFinding(m *Measured, now time.Time) (Finding, bool) {
 		Sources: []tweaks.Source{srcDPCLimits}}
 	if worst == nil {
 		x.Title = "Os drivers gastam muito do processador em DPCs e interrupções"
+		x.Certainty = CertPossible // a share of the processor, the Axion's line
 		return x, true
 	}
 	name := worst.Module
@@ -175,6 +176,7 @@ func dpcFinding(m *Measured, now time.Time) (Finding, bool) {
 		x.Title = "Rotinas lentas de driver: " + name
 	default:
 		x.Title = "Driver ocupando muito do processador: " + name
+		x.Certainty = CertPossible // a share of the processor, the Axion's line
 	}
 	if hint := dpc.HintFor(worst.Module); hint.Text != "" {
 		x.Explanation = hint.Area + ": " + hint.Text + " " + x.Explanation

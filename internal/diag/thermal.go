@@ -116,7 +116,7 @@ func thermalFindings(evs []sys.Event, f *facts.Facts) []Finding {
 				ex += fmt.Sprintf("Neste PC o firmware registrou limitação da velocidade do processador (evento 37) em %s dos últimos 30, o que aponta para o firmware. ", plural(n, "dia", "dias"))
 			}
 			ex += "Com o PC parado e na tomada isso não deveria acontecer: se acontece também jogando, olhe a temperatura. " + coolingAdvice(f)
-			out = append(out, Finding{ID: "therm.now", Area: AreaDesempenho, Severity: SevWarning,
+			out = append(out, Finding{ID: "therm.now", Area: AreaDesempenho, Severity: SevWarning, Certainty: CertPossible, // the cause is not known
 				Title:       "O processador está abaixo da frequência máxima agora",
 				Evidence:    "Na hora da análise: " + strings.Join(now, "; ") + ".",
 				Explanation: ex,
