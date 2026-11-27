@@ -23,6 +23,7 @@ import (
 
 	webview2 "github.com/jchv/go-webview2"
 	"github.com/jchv/go-webview2/pkg/edge"
+	"github.com/jchv/go-webview2/webviewloader"
 	"golang.org/x/sys/windows"
 
 	"axion/internal/app"
@@ -207,10 +208,10 @@ func main() {
 	var userClosed bool
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		AutoFocus: true,
-		// The browser profile lives in the protected data folder: this
-		// window runs elevated and reads its profile on every start, so
-		// it must not sit where programs without rights can write.
-		DataPath:        filepath.Join(dataDir, winsys.WebViewDir),
+		// The browser runs de-elevated, as the signed-in account: its
+		// profile must be a folder that account writes (see
+		// winsys.WebViewProfileDir).
+		DataPath:        winsys.WebViewProfileDir(p.Native.Paths()),
 		BackgroundColor: bg,
 		WindowOptions:   webview2.WindowOptions{Title: windowTitle, Width: uint(width), Height: uint(height), IconId: 1, Center: true},
 		Closed:          &userClosed,
@@ -230,8 +231,14 @@ func main() {
 		return
 	}
 	if w == nil {
-		log.Printf("WebView2 indisponível: abrindo no navegador")
-		browser("o Microsoft Edge WebView2 Runtime não está disponível neste Windows")
+		// Only a missing runtime is called missing: with it installed, the
+		// window failed for another reason (the log has it).
+		why := "o Microsoft Edge WebView2 Runtime não está disponível neste Windows"
+		if v, err := webviewloader.GetInstalledVersion(); err == nil && v != "" {
+			why = "a janela própria do Axion não abriu (o WebView2 " + v + " está instalado; o motivo ficou registrado em " + filepath.Join(dataDir, "axion.log") + ")"
+		}
+		log.Printf("janela não criada (%s): abrindo no navegador", why)
+		browser(why)
 		end()
 		return
 	}

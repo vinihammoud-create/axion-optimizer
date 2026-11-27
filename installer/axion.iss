@@ -279,10 +279,10 @@ begin
   end;
 end;
 
-{ Cache, não dado: o perfil do WebView2 (que o navegador recria), a cópia do
-  WebView2Loader.dll que o Axion faz para a pasta protegida e o perfil antigo,
-  de versões que o guardavam em %LOCALAPPDATA%. DelTree apaga uma junção sem
-  entrar nela. }
+{ Cache, não dado: o perfil do WebView2 em %LOCALAPPDATA% (que o navegador
+  recria), a cópia do WebView2Loader.dll que o Axion faz para a pasta
+  protegida e o perfil que rascunhos da 0.10.0 tentaram criar na pasta de
+  dados. DelTree apaga uma junção sem entrar nela. }
 procedure RemoveCaches;
 var
   OldDir: String;

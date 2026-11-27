@@ -14,6 +14,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"axion/internal/sys"
 )
 
 // dataDirSDDL protects Axion's data folder: SYSTEM and elevated
@@ -29,10 +31,23 @@ const dataDirSDDL = "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;OW)"
 // things other accounts put there before it was protected (done once).
 const auditMarker = ".protegida"
 
-// WebViewDir is the folder, inside the data folder, that holds the profile
-// of the WebView2 window (cache, local storage). The browser owns what is in
-// it and rewrites it all the time.
-const WebViewDir = "WebView2"
+// WebViewProfileDir is the folder of the window's browser profile (cache,
+// local storage). It is NOT in the protected data folder: the WebView2
+// runtime never runs its browser elevated. Since version 103 it starts the
+// browser de-elevated, as the account signed in to the session, even when
+// Axion runs as administrator (Microsoft, WebView2Feedback #932 and #960), so
+// the profile has to be writable by that account. Put in the protected
+// folder, the browser could not create it and the window did not open (seen
+// on a real PC with the 0.10.0 draft). Protecting it would not protect the
+// window either: a program of the same account can reach the de-elevated
+// browser process directly. Axion itself never writes there; it is the
+// console account's Local AppData (see userPaths), confined to its profile.
+func WebViewProfileDir(p sys.Paths) string {
+	if p.LocalAppData == "" {
+		return ""
+	}
+	return filepath.Join(p.LocalAppData, "Axion", "WebView2")
+}
 
 // asideTag is appended to what is moved out of the way; Axion never reads
 // those names again.
@@ -364,14 +379,6 @@ func resetContents(dir string, audit bool) error {
 		if e := windows.SetNamedSecurityInfo(p, windows.SE_FILE_OBJECT,
 			windows.DACL_SECURITY_INFORMATION|windows.UNPROTECTED_DACL_SECURITY_INFORMATION, nil, nil, empty, nil); e != nil {
 			note(fmt.Errorf("proteger %s: %w", p, e))
-		}
-		if d.IsDir() && !audit && filepath.Dir(p) == dir && strings.EqualFold(d.Name(), WebViewDir) {
-			// The window's browser profile: thousands of small files that
-			// only the (elevated) browser writes, inside a folder nobody
-			// else can change. Walking them on every start would only slow
-			// the opening on a hard disk. The folder itself was checked
-			// above (not a link, permissions inherited).
-			return filepath.SkipDir
 		}
 		return nil
 	})
