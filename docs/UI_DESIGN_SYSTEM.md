@@ -66,9 +66,10 @@ inteiro (o motivo escrito cairia abaixo de 4,5:1). Só o título passa de `--tex
 | Sem medição | `--text-disabled` | Anel com "—" |
 
 A régua é uma só: `scoreClass` em `app.js` (90 / 75 / 50). Anel, barras por área e pílula "nota N" usam a mesma
-função. Quando o relatório tem partes não lidas (`report.unread`), o anel e todas as barras por área ficam no tom
-neutro (`s-unread`, `.bar.unread`) e a pílula perde a cor: a nota leva em conta só o que foi lido e não pode
-parecer "verde".
+função. Quando o relatório tem partes não lidas (`report.unread`), o anel fica no tom neutro (`s-unread`); cada
+barra por área fica neutra (`.bar.unread`) e a pílula perde a cor quando aquela área depende de uma parte não lida
+(`scores[].unread`, calculado em `internal/diag/unread_areas.go`): a nota leva em conta só o que foi lido e não
+pode parecer "verde".
 
 Dado não lido aparece escrito como "não lido" (função `tri`), nunca como "não", "sem" ou "desligado".
 

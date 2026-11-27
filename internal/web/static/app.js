@@ -374,7 +374,8 @@
   const scoreRing = rep => ring(rep.overall, unreadOf(rep).length > 0);
   // Area scores use the ring's rule (scoreClass) and its neutral tone when
   // parts of the collection were not read: a bar is never green then.
-  const areaClass = (rep, n) => (unreadOf(rep).length && n >= 0 ? 'unread' : scoreClass(n));
+  // An area goes neutral only when a part it depends on was not read (diag AreaScore.unread).
+  const areaClass = s => (s.unread && s.score >= 0 ? 'unread' : scoreClass(s.score));
   const areaBadgeKind = c => (c === 'unread' || c === 'none' ? '' : c);
   function unreadNote(rep) {
     const u = unreadOf(rep);
@@ -1390,7 +1391,7 @@
             rep.findings.length > attention.length ? h('div', { class: 'mt-3' }, h('button', { class: 'linkbtn small', type: 'button', text: (rep.findings.length === 1 ? 'Ver o ponto do diagnóstico' : 'Ver os ' + rep.findings.length + ' pontos do diagnóstico') + ' →', onclick: () => go('diagnostico') })) : null),
           h('div', { class: 'card' }, h('h2', null, icon('pulse'), 'Notas por área'),
             h('div', { class: 'bars' }, rep.scores.map(s => h('div', { class: 'bar-row' }, h('span', { class: 'ellipsis', text: s.title }),
-              h('div', { class: 'bar ' + areaClass(rep, s.score) }, h('i', { style: { width: s.score + '%' } })), h('span', { class: 'n', text: String(s.score) }))))))),
+              h('div', { class: 'bar ' + areaClass(s) }, h('i', { style: { width: s.score + '%' } })), h('span', { class: 'n', text: String(s.score) }))))))),
       gamesCard,
       h('div', { class: 'eyebrow mt-6', text: 'Outras formas de otimizar' }),
       h('div', { class: 'tiers', style: { marginTop: '0' } },
@@ -1500,8 +1501,8 @@
         h('b', { text: 'Análise incompleta. ' }), unreadNote(rep))) : null,
       h('div', { class: 'diag-sum', role: 'group', 'aria-label': 'Filtrar por gravidade' }, dc('critical', 'Importantes', count('critical'), 'bad', 'alert'), dc('warning', 'Atenção', count('warning'), 'warn', 'alertc'), dc('info', 'Sugestões', count('info'), 'info', 'info'), dc('good', 'Tudo certo', count('good'), 'ok', 'check')),
       byArea.length ? byArea.map(g => h('div', { style: { marginBottom: '22px' } },
-        h('div', { class: 'row', style: { margin: '0 2px 10px' } }, h('h3', { style: { margin: 0, fontSize: '15px' }, text: g.s.title }), badge('nota ' + g.s.score, areaBadgeKind(areaClass(rep, g.s.score))),
-          h('div', { class: 'bar ' + areaClass(rep, g.s.score), style: { width: '120px' }, 'aria-hidden': 'true' }, h('i', { style: { width: g.s.score + '%' } }))),
+        h('div', { class: 'row', style: { margin: '0 2px 10px' } }, h('h3', { style: { margin: 0, fontSize: '15px' }, text: g.s.title }), badge('nota ' + g.s.score, areaBadgeKind(areaClass(g.s))),
+          h('div', { class: 'bar ' + areaClass(g.s), style: { width: '120px' }, 'aria-hidden': 'true' }, h('i', { style: { width: g.s.score + '%' } }))),
         h('div', { class: 'findings' }, g.items.map(x => findingCard(x, false, { dismiss: true })))))
         : empty('check', 'Nada neste filtro', 'Escolha outro filtro para ver os demais pontos.'),
       off.length ? h('details', { class: 'card', style: { marginBottom: '22px' } },
