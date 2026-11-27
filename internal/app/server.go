@@ -591,10 +591,14 @@ func (s *Server) routes() http.Handler {
 			RestorePoint *bool   `json:"restorePoint"`
 			Accepted     *bool   `json:"accepted"`
 			Profile      *string `json:"profile"`
-			Simple       *bool   `json:"simple"`
+			Mode         *string `json:"mode"`
+			Simple       *bool   `json:"simple"` // before 0.10.1; mode wins when both come
 		}
 		if err := readJSON(r, &req); err != nil {
 			return nil, err
+		}
+		if req.Mode != nil && !ValidMode(*req.Mode) {
+			return nil, fmt.Errorf("%w: modo da interface desconhecido", errBadRequest)
 		}
 		if req.Profile != nil {
 			if err := s.App.SetProfile(*req.Profile); err != nil {
@@ -608,8 +612,13 @@ func (s *Server) routes() http.Handler {
 			if req.Accepted != nil {
 				st.Accepted = *req.Accepted
 			}
-			if req.Simple != nil {
-				st.Simple = *req.Simple
+			switch {
+			case req.Mode != nil:
+				st.setMode(*req.Mode)
+			case req.Simple != nil && *req.Simple:
+				st.setMode(ModeSimple)
+			case req.Simple != nil:
+				st.setMode(ModeAdvanced)
 			}
 		})
 		return s.App.Settings(), err

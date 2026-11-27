@@ -129,12 +129,31 @@ ficam em "Detalhes e fontes".
 - O estado (`/api/state`) é relido a cada 15 s só com a janela visível; oculta, a leitura para e acontece uma vez
   quando a janela volta.
 
+### Os dois níveis: Simples e Avançado
+
+```
+Início                       ( Simples | Avançado )  [Buscar… Ctrl K]  (● Analisado agora)  [Reanalisar]
+```
+
+- **Seletor:** sempre na barra superior, antes da busca. É um grupo de rádio (`role="radiogroup"`, cada opção
+  `role="radio"` com `aria-checked`): o Tab chega na opção marcada; setas, Home e End trocam o nível, e o foco
+  fica no seletor. A opção marcada usa `--primary-soft`, borda `--electric-40` e texto `--primary-text`.
+- **Gravação:** `settings.mode` (`simples` ou `avancado`, `app.ModeSimple`/`app.ModeAdvanced`). O booleano
+  antigo `simple` continua gravado igual ao modo, para uma versão anterior ler o mesmo nível. Sem
+  `settings.json` (instalação nova) o nível é Simples; um arquivo já gravado sem `mode` vale pelo `simple`.
+- **Simples:** sem menu lateral nem paleta. Mostra uma tela (nota, até 3 achados, "Aplicar recomendadas",
+  "Desfazer mudanças") e o Histórico (`SIMPLE_PAGES`), com "Voltar ao início". "Aplicar recomendadas" usa o
+  plano `recomendado` do servidor, que só aceita itens sem risco (`Tweak.Recommendable`); a interface não
+  cria regra própria. Nos achados, só ficam as ações de página, de link e as que aplicam itens desse plano.
+  Qualquer outra página troca para o Avançado e avisa.
+- **Avançado:** a interface completa (todas as páginas, todas as otimizações, valores do registro e dados lidos).
+
 ## 9. Rascunho das telas
 
 ### Início
 
 ```
-Início                                         [Trocar perfil] [Modo simples] [Exportar]
+Início                                                        [Trocar perfil] [Exportar]
 Última análise há 2 min · perfil Trabalho e escritório
 [CPU] [GPU] [RAM] [Monitor] [Windows]                      ← faixa de chips do hardware
 ┌ SAÚDE DO PC PARA O TRABALHO ──────┐ ┌ PRÓXIMO PASSO ───────────────────────────────┐

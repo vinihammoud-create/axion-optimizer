@@ -176,6 +176,18 @@ NOVO NA 0.10.1 (seleção de otimizações em arquivo)
     gerenciado, nada muda. O item continua na página Otimizações, com
     desfazer, para quem quiser aplicar mesmo assim.
 
+  Modo Simples e modo Avançado
+  - A barra superior tem sempre o seletor "Simples | Avançado", e a escolha
+    fica guardada. Simples é uma tela só: a nota, o que mais pesa nela,
+    "Aplicar recomendadas" (só itens sem risco, os mesmos do 1 clique, com a
+    lista para conferir antes) e "Desfazer mudanças", que abre o Histórico
+    sem sair do modo Simples. Avançado é a interface completa de antes: todas
+    as páginas, todas as otimizações e o que cada uma altera no Windows.
+  - Instalação nova começa no Simples. Quem já usava o Axion (já existe o
+    C:\ProgramData\Axion\settings.json) continua onde estava: no Avançado,
+    ou no Simples se tinha escolhido o modo simples. Trocar de modo não
+    aplica nem desfaz nada.
+
 NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por conta e fontes revistas)
   Instalador
   - Além do ZIP, a versão sai como instalador (Axion-<versão>-setup.exe),

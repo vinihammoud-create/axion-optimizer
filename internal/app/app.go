@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -43,9 +44,14 @@ type Settings struct {
 	SkipParts   []string `json:"skipParts,omitempty"`
 	SkipVersion string   `json:"skipVersion,omitempty"`
 	// Profile is what the PC is used for (profile package); empty = never
-	// chosen, read as the default. Simple shows the one-screen mode.
+	// chosen, read as the default.
 	Profile string `json:"profile,omitempty"`
-	Simple  bool   `json:"simple,omitempty"`
+	// Mode is the level of the interface: ModeSimple (one screen, the
+	// recommended plan and the history) or ModeAdvanced (every page). Simple
+	// mirrors it for the versions before 0.10.1, which only read the boolean;
+	// a file without mode is read from simple (see normalizeMode).
+	Mode   string `json:"mode,omitempty"`
+	Simple bool   `json:"simple,omitempty"`
 	// Apps is the saved selection of the catalog of programs (0.8): what
 	// to install after a format.
 	Apps []string `json:"apps,omitempty"`
@@ -209,15 +215,50 @@ func (a *App) cleanupUninstallTasks() {
 
 func (a *App) settingsPath() string { return filepath.Join(a.P.DataDir, "settings.json") }
 
+// The two levels of the interface (Settings.Mode).
+const (
+	ModeSimple   = "simples"
+	ModeAdvanced = "avancado"
+)
+
+// ValidMode reports whether m is one of the levels of the interface.
+func ValidMode(m string) bool { return m == ModeSimple || m == ModeAdvanced }
+
+// normalizeMode fills Mode from the older boolean (a settings file from
+// before 0.10.1: simple=true is the simple level, anything else the
+// advanced one) and keeps Simple equal to it.
+func (s *Settings) normalizeMode() {
+	if !ValidMode(s.Mode) {
+		s.Mode = ModeAdvanced
+		if s.Simple {
+			s.Mode = ModeSimple
+		}
+	}
+	s.Simple = s.Mode == ModeSimple
+}
+
+// setMode changes the level and the boolean that mirrors it.
+func (s *Settings) setMode(m string) {
+	s.Mode = m
+	s.normalizeMode()
+}
+
+// loadSettings reads settings.json. No file means a new installation: it
+// starts in the simple level. A file already saved (any earlier run that
+// accepted the notice, chose a profile or saved anything else) keeps what
+// it had, so an existing user without simple=true stays in the advanced
+// level. A file that cannot be read keeps the defaults of before 0.10.1.
 func (a *App) loadSettings() {
 	b, err := os.ReadFile(a.settingsPath())
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
+		a.settings.setMode(ModeSimple)
 		return
 	}
 	var s Settings
-	if json.Unmarshal(b, &s) == nil {
+	if err == nil && json.Unmarshal(b, &s) == nil {
 		a.settings = s
 	}
+	a.settings.normalizeMode()
 }
 
 // Settings returns a copy of the settings.
