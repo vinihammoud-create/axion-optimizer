@@ -359,7 +359,7 @@ func machineRows(f *facts.Facts, full bool, an *anonymizer) []htmlKV {
 	if sec.TPMReady {
 		s = append(s, "TPM "+sec.TPMVersion)
 	}
-	s = append(s, "Secure Boot "+sec.SecureBoot)
+	s = append(s, "Secure Boot "+secureBootText(sec.SecureBoot))
 	if sec.VBSRunning {
 		s = append(s, "VBS ligado")
 	}
@@ -376,4 +376,18 @@ func machineRows(f *facts.Facts, full bool, an *anonymizer) []htmlKV {
 		}
 	}
 	return rows
+}
+
+// secureBootText puts the collected state in the report's language; "unknown"
+// and an empty value mean the reading did not answer.
+func secureBootText(v string) string {
+	switch v {
+	case "on":
+		return "ligado"
+	case "off":
+		return "desligado"
+	case "unsupported":
+		return "não suportado"
+	}
+	return "não lido"
 }

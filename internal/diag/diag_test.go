@@ -374,6 +374,11 @@ func TestDriftFinding(t *testing.T) {
 	if x == nil || len(x.Actions) != 1 || len(x.Actions[0].Tweaks) != 1 || x.Actions[0].Tweaks[0] != "game.mode" {
 		t.Fatalf("drift: %+v", x)
 	}
+	// The person sees the optimization's name, not its internal ID (a real
+	// PC showed "Alteradas depois de aplicadas: fix.services.apps").
+	if strings.Contains(x.Evidence, "game.mode") || !strings.Contains(x.Evidence, "Modo de Jogo ativado") {
+		t.Errorf("drift deve citar o nome da otimização: %s", x.Evidence)
+	}
 }
 
 func TestFirmwareRules(t *testing.T) {
