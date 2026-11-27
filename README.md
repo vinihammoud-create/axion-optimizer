@@ -59,6 +59,8 @@ A **Avaliação completa** junta tudo num botão e dá três notas: configuraç�
 
 O catálogo é dividido por categoria, com a recomendação calculada para o seu PC. O 1 clique aplica o plano Recomendado, o Completo ou o Perfil Counter-Strike 2, e você revisa a lista antes.
 
+**Seleção em arquivo:** "Exportar seleção" salva a lista do que o Axion aplicou (só os identificadores, sem dados do PC); "Importar seleção" abre o plano com esses itens neste ou em outro PC, com as mesmas regras do 1 clique, e nada é aplicado sem você confirmar.
+
 <p align="center"><img src="docs/img/otimizar.png" width="860" alt="Página Otimizações com as categorias e os itens recomendados para o PC"></p>
 
 Abra qualquer item para ver **como funciona, a evidência, o risco, o valor exato que vai mudar (e o atual) e as fontes**:

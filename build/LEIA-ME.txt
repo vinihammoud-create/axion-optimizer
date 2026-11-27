@@ -142,6 +142,26 @@ O QUE ESTA VERSÃO FAZ
   - Perfil do driver NVIDIA: lê e, com desfazer exato, corrige ajustes do
     driver deixados por outros programas.
 
+NOVO NA 0.10.1 (seleção de otimizações em arquivo)
+  Exportar e importar a seleção
+  - Em Otimizações, "Exportar seleção" salva num arquivo .json a lista das
+    otimizações que o Axion aplicou nesta conta, com a versão do formato, a
+    versão do Axion e a data. O arquivo não tem nome do PC, conta, caminho
+    nem dado do hardware: só os identificadores das otimizações.
+  - "Importar seleção" lê um arquivo desses (deste PC ou de outro) e abre o
+    plano de sempre, com os itens do arquivo já marcados. Importar NÃO
+    aplica nada: o Windows só muda quando você confere o plano e clica em
+    Aplicar, e cada mudança vai para o histórico, com desfazer.
+  - Valem as regras do 1 clique: entra no plano só o que se aplica a este
+    PC, ainda não está ativo e um plano de 1 clique ofereceria (sem risco e
+    sem contraindicação para este PC). O resto aparece em "Ficaram de fora",
+    com o motivo (não se aplica, já está ativa, tem risco, não é indicada ou
+    está bloqueada neste PC, desconhecida nesta versão do Axion). Programas da
+    inicialização, troca de DNS e preset do CS2 nunca vêm do arquivo: são
+    escolhidos nas próprias páginas.
+  - O arquivo é conferido antes: formato e versão do formato, até 64 KB e
+    até 500 itens. Arquivo fora disso é recusado com o motivo.
+
 NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por conta e fontes revistas)
   Instalador
   - Além do ZIP, a versão sai como instalador (Axion-<versão>-setup.exe),

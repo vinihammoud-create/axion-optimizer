@@ -238,6 +238,23 @@ func (s *Server) routes() http.Handler {
 		}
 		return s.App.StartRevert(req)
 	})
+	// The selection file: export lists what is applied; import only builds
+	// the plan for the person to review (nothing is applied here).
+	api("GET /api/selection/export", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		v, err := s.App.ExportSelection()
+		if err != nil {
+			return nil, err
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="axion-selecao-%s.json"`, time.Now().Format("20060102-1504")))
+		return v, nil
+	})
+	api("POST /api/selection/import", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var req SelectionImportRequest
+		if err := readJSON(r, &req); err != nil {
+			return nil, err
+		}
+		return s.App.ImportSelection(req)
+	})
 	api("POST /api/restorepoint", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.App.StartRestorePoint() })
 	api("GET /api/history", s.hHistory)
 	api("GET /api/excluded", func(w http.ResponseWriter, r *http.Request) (any, error) { return catalog.Excluded(), nil })

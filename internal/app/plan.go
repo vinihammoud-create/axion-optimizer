@@ -176,6 +176,13 @@ func (a *App) BuildPlan(tier, category string) (Plan, error) {
 			p.Note += " O CS2 não foi encontrado neste PC, então o perfil do jogo não foi incluído."
 		}
 	}
+	sortPlan(&p)
+	return p, nil
+}
+
+// sortPlan puts the items in the order of the categories (game profiles
+// last) and marks the plan that needs a restart.
+func sortPlan(p *Plan) {
 	order := map[string]int{}
 	for i, c := range tweaks.Categories {
 		order[c.ID] = i
@@ -187,7 +194,6 @@ func (a *App) BuildPlan(tier, category string) (Plan, error) {
 			p.Reboot = true
 		}
 	}
-	return p, nil
 }
 
 // PendingRecommended counts recommended tweaks not yet applied (for the
