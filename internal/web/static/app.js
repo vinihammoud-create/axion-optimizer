@@ -622,12 +622,14 @@
   // ---------------------------------------------------------------------------
 
   let planOpening = false;
-  async function openPlan(tier, category) {
+  // given: a plan already built by the server (an imported selection), shown
+  // with extra above the items.
+  async function openPlan(tier, category, given, extra) {
     if (planOpening || MODALS.length) return; // a double click opens one plan only
     planOpening = true;
     let plan;
     try {
-      plan = await api('GET', '/api/plan?tier=' + encodeURIComponent(tier) + (category ? '&category=' + encodeURIComponent(category) : ''));
+      plan = given || await api('GET', '/api/plan?tier=' + encodeURIComponent(tier) + (category ? '&category=' + encodeURIComponent(category) : ''));
     } catch (e) { toast(e.message, 'bad'); return; } finally { planOpening = false; }
     if (!plan.items || !plan.items.length) {
       const m = modal({ title: plan.title, body: h('div', { class: 'callout' }, icon('check'), h('div', { text: 'Nada pendente: tudo o que este modo aplicaria já está aplicado neste PC.' })), actions: [btn('OK', () => m.close(), 'primary')] });
@@ -653,9 +655,10 @@
     const rp = h('input', { type: 'checkbox', checked: !!(S.state && S.state.settings && S.state.settings.restorePoint) });
     const body = h('div', null,
       h('p', { class: 'small', style: { marginTop: 0 }, text: plan.note }),
+      extra || null,
       h('div', { class: 'row small' }, h('button', { class: 'linkbtn', type: 'button', text: 'Marcar todos', onclick: () => { checks.forEach(c => { c.checked = true; }); upd(); } }), h('span', { class: 'faint', text: '·' }),
         h('button', { class: 'linkbtn', type: 'button', text: 'Desmarcar todos', onclick: () => { checks.forEach(c => { c.checked = false; }); upd(); } })),
-      nOpt && plan.tier !== 'completo' ? h('p', { class: 'small muted', text: plural(nOpt, 'item opcional vem desmarcado', 'itens opcionais vêm desmarcados') + ': o benefício depende do seu uso. Marque só se fizer sentido para você.' }) : null,
+      nOpt && plan.tier !== 'completo' && plan.tier !== 'importado' ? h('p', { class: 'small muted', text: plural(nOpt, 'item opcional vem desmarcado', 'itens opcionais vêm desmarcados') + ': o benefício depende do seu uso. Marque só se fizer sentido para você.' }) : null,
       groups.map(g => h('div', { class: 'plan-group' }, h('h4', { text: g.key + ' (' + g.items.length + ')' }),
         g.items.map(it => {
           const cb = h('input', { type: 'checkbox', checked: it.checked !== false, 'aria-label': it.title });
@@ -760,6 +763,55 @@
       setTimeout(() => URL.revokeObjectURL(url), 5000);
       toast(full.checked ? 'Relatório completo exportado.' : 'Relatório anônimo exportado.', 'ok');
     } catch (e) { toast('Não foi possível exportar: ' + e.message, 'bad'); }
+  }
+
+  // Selection file (0.10.1): the list of the optimizations applied by the
+  // Axion, to choose them again later or on another PC. Importing never
+  // applies: it opens the plan, with the rules of the 1 clique.
+  async function exportSelection() {
+    let sel;
+    try { sel = await api('GET', '/api/selection/export'); } catch (e) { toast('Não foi possível exportar: ' + e.message, 'bad'); return; }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(sel, null, 2) + '\n'], { type: 'application/json' }));
+    const d = new Date(), p2 = n => String(n).padStart(2, '0');
+    const a = h('a', { href: url, download: 'axion-selecao-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json' });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast(plural(sel.ids.length, 'otimização exportada', 'otimizações exportadas') + '. O arquivo tem só a lista, sem dados do PC.', 'ok', 6000);
+  }
+
+  function selectionLeftOut(res) {
+    const sk = res.skipped || [], un = res.unknown || [];
+    const when = res.created && new Date(res.created).getFullYear() > 2000 ? ', de ' + new Date(res.created).toLocaleDateString('pt-BR') : '';
+    return h('div', { style: { marginBottom: '10px' } },
+      h('p', { class: 'small muted', style: { marginTop: 0 }, text: 'Arquivo exportado pelo Axion ' + (res.axionVersion || '(versão não informada)') + when + '.' }),
+      sk.length || un.length ? h('details', null, h('summary', { class: 'small linkbtn', text: 'Ficaram de fora (' + (sk.length + un.length) + ')' }),
+        h('ul', { class: 'list-clean small' },
+          sk.map(x => h('li', null, h('b', { text: x.title || x.id }), ' — ', h('span', { class: 'muted', text: x.reason }))),
+          un.map(id => h('li', null, h('b', { text: id }), ' — ', h('span', { class: 'muted', text: 'desconhecida nesta versão do Axion' }))))) : null);
+  }
+
+  function importSelection() {
+    const inp = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
+    inp.addEventListener('change', async () => {
+      const file = inp.files && inp.files[0];
+      inp.remove();
+      if (!file) return;
+      if (file.size > 64 * 1024) { toast('Arquivo grande demais para uma seleção do Axion (limite de 64 KB).', 'bad'); return; }
+      let res;
+      try {
+        res = await api('POST', '/api/selection/import', { content: await file.text() });
+      } catch (e) { toast('Não foi possível importar: ' + e.message, 'bad'); return; }
+      const out = selectionLeftOut(res);
+      if (!res.plan.items || !res.plan.items.length) {
+        const m = modal({ title: res.plan.title, body: h('div', null, h('div', { class: 'callout', style: { marginBottom: '10px' } }, icon('info'), h('div', { text: 'Nenhum item do arquivo pode entrar no plano deste PC agora. Nada foi alterado.' })), out), actions: [btn('OK', () => m.close(), 'primary')] });
+        return;
+      }
+      openPlan(null, null, res.plan, out);
+    });
+    document.body.appendChild(inp);
+    inp.click();
   }
 
   async function rescan() {
@@ -1588,7 +1640,9 @@
       h('button', { class: 'chip' + (optFilter === id && !q ? ' active' : ''), type: 'button', onclick: () => { optFilter = id; optQuery = ''; rerender(true); } }, label, h('b', { text: String(count(id)) }))));
     return h('div', { class: 'page' },
       pageHead('Otimizações', 'Cada item diz se está ativo, se é recomendado para o seu PC ou se é só uma opção. Ligue o que quiser; tudo pode ser desfeito no Histórico.',
-        count('rec') ? [btn('Aplicar recomendadas (' + count('rec') + ')', () => openPlan('recomendado'), 'primary', 'zap')] : []),
+        [btn('Exportar seleção', exportSelection, 'ghost sm', 'download', { title: 'Salva num arquivo a lista do que o Axion aplicou, sem dados do PC' }),
+          btn('Importar seleção', importSelection, 'ghost sm', 'folder', { title: 'Abre o plano com os itens de um arquivo de seleção; nada é aplicado sem você confirmar' })]
+          .concat(count('rec') ? [btn('Aplicar recomendadas (' + count('rec') + ')', () => openPlan('recomendado'), 'primary', 'zap')] : [])),
       chips,
       h('div', { class: 'opt-layout' },
         h('div', { class: 'card', style: { padding: '12px' } }, search, h('div', { class: 'cat-list', style: { padding: '8px 0 0' } },
