@@ -188,6 +188,15 @@ NOVO NA 0.10.1 (seleção de otimizações em arquivo)
     ou no Simples se tinha escolhido o modo simples. Trocar de modo não
     aplica nem desfaz nada.
 
+  Ajuda "?" no lugar de parede de texto
+  - As explicações longas das páginas viraram uma frase na tela e um botão
+    "?" ao lado. O resto do texto, com o mesmo sentido, abre logo abaixo
+    quando você clica no "?" (ou aperta Enter ou Espaço nele) e fecha com
+    Esc ou com outro clique. Nada foi removido, e o leitor de tela anuncia
+    o botão e o painel. Os diálogos de aplicar, desfazer e instalar, as
+    mensagens de erro e o detalhe de cada achado e de cada otimização
+    continuam como estavam. Nada muda no Windows.
+
 NOVO NA 0.10.0 (instalador, "não lido" no lugar de estado falso, desfazer por conta e fontes revistas)
   Instalador
   - Além do ZIP, a versão sai como instalador (Axion-<versão>-setup.exe),

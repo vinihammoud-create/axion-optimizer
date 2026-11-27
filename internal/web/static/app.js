@@ -239,6 +239,56 @@
   }
   function badge(text, kind, ic) { return h('span', { class: 'badge ' + (kind || '') }, ic ? icon(ic) : null, text); }
   function extLink(title, url) { return h('a', { href: url, class: 'small', rel: 'noreferrer' }, title); }
+
+  // Help "?" (docs/UI_DESIGN_SYSTEM.md, seção 10): one sentence stays on
+  // screen and the rest of the explanation opens only when asked. The panel
+  // opens in place, right under the sentence, so no card or dialog cuts it
+  // and a screen reader reaches it right after the button (aria-controls).
+  // Enter or Space opens and closes it (a real button); Esc closes it and
+  // puts the focus back on the button. A panel left open stays open across
+  // re-renders (same text, same key) and so does the focus (data-focus).
+  const HELP_OPEN = new Set();
+  let helpSeq = 0;
+  const helpKey = s => { let x = 5381; for (let i = 0; i < s.length; i++) x = (x * 33 + s.charCodeAt(i)) | 0; return 'help-' + (x >>> 0).toString(36); };
+  const helpLabel = s => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t.length <= 60 ? t.replace(/[.:]$/, '') : t.slice(0, 60).replace(/\s+\S*$/, '') + '…'; };
+  function help(more, label) {
+    const parts = [].concat(more).filter(x => x != null && x !== '');
+    const key = helpKey(parts.map(x => (x instanceof Node ? x.textContent : String(x))).join('\n'));
+    const id = key + '-' + (++helpSeq);
+    const panel = h('div', { class: 'help-panel', id, hidden: !HELP_OPEN.has(key) }, parts.map(x => (x instanceof Node ? x : h('p', { text: x }))));
+    const b = h('button', { class: 'help-btn', type: 'button', 'aria-expanded': String(!panel.hidden), 'aria-controls': id, 'aria-label': 'Mais detalhes: ' + helpLabel(label), title: 'Mais detalhes', 'data-focus': key }, '?');
+    const set = on => { panel.hidden = !on; b.setAttribute('aria-expanded', String(on)); if (on) HELP_OPEN.add(key); else HELP_OPEN.delete(key); };
+    b.addEventListener('click', () => set(panel.hidden));
+    // Esc here closes only the panel, not the dialog it may sit in.
+    const esc = e => { if (e.key === 'Escape' && !panel.hidden) { e.preventDefault(); e.stopPropagation(); set(false); b.focus(); } };
+    b.addEventListener('keydown', esc);
+    panel.addEventListener('keydown', esc);
+    return { btn: b, panel };
+  }
+  // helpText: the short sentence, the "?" right after it and the panel with
+  // the rest (a string, a node or a list of them, one paragraph each).
+  // o.cls / o.style go on the wrapper, so the sentence keeps the look of the
+  // paragraph it replaces; o.label names the button for screen readers.
+  function helpText(short, more, o) {
+    o = o || {};
+    const rest = [].concat(more || []).filter(x => x != null && x !== '');
+    if (!rest.length) return h('div', { class: o.cls || null, style: o.style || null, text: short });
+    const x = help(rest, o.label || short);
+    return h('div', { class: 'helped' + (o.cls ? ' ' + o.cls : ''), style: o.style || null }, h('span', { text: short }), ' ', x.btn, x.panel);
+  }
+  // A paragraph the server writes (the "how it works" texts): the first
+  // sentence stays on screen and the rest, the server's own words, goes
+  // behind the "?". A first sentence too long to stand alone is cut where
+  // it announces a list (": "); failing that, a first sentence of up to 260
+  // characters stays whole. Short texts are shown whole. wholeSentence:
+  // never cut at ": " (when what matters comes after the colon).
+  function splitLead(text, wholeSentence) {
+    const t = String(text || '');
+    if (t.length < 150) return [t, ''];
+    const m = /^([\s\S]{30,180}?[.!?])\s+(?=[A-ZÀ-Ý"“(])/.exec(t) || (!wholeSentence && /^([\s\S]{40,180}?[^.]:)\s+/.exec(t)) || /^([\s\S]{30,260}?[.!?])\s+(?=[A-ZÀ-Ý"“(])/.exec(t);
+    return m ? [m[1], t.slice(m[0].length)] : [t, ''];
+  }
+  const helpLead = (text, o) => { const [a, b] = splitLead(text, o && o.wholeSentence); return helpText(a, b, o); };
   // The simple level shows its own screen and the Histórico (SIMPLE_PAGES)
   // whatever the address says: a button that opens any other page (an
   // action of a finding, a banner) switches to the advanced level and opens
@@ -420,7 +470,7 @@
   function pageHead(title, desc, actions, withMark) {
     const h1 = h('h1', { text: title, tabindex: '-1' });
     const heading = withMark ? h('div', { class: 'page-title' }, h('img', { class: 'page-mark', src: 'logo-48.png', alt: '', width: '40', height: '40', decoding: 'async' }), h1) : h1;
-    return h('div', { class: 'page-head' }, h('div', null, heading, desc ? h('p', { text: desc }) : null), actions && actions.length ? h('div', { class: 'actions' }, actions) : null);
+    return h('div', { class: 'page-head' }, h('div', null, heading, desc ? (desc instanceof Node ? desc : h('p', { text: desc })) : null), actions && actions.length ? h('div', { class: 'actions' }, actions) : null);
   }
 
   function empty(ic, title, text, action) {
@@ -1368,14 +1418,15 @@
         h('div', { class: 'eyebrow', text: 'Próximo passo' }),
         h('div', { class: 'big', text: plural(nRec, 'melhoria recomendada', 'melhorias recomendadas') + ' para o seu PC' }),
         h('div', { class: 'small muted', style: { marginBottom: '8px' }, text: (nReboot ? plural(nReboot, 'pede reiniciar o PC', 'pedem reiniciar o PC') + ' · ' : '') + 'tudo pode ser desfeito' }),
-        h('p', { class: 'muted', text: 'Só itens com evidência para o seu hardware, sem risco e que podem ser desfeitos. Você revisa a lista antes de aplicar.' }),
+        helpText('Só itens com evidência para o seu hardware e sem risco.', 'Todos podem ser desfeitos, e você revisa a lista antes de aplicar.', { cls: 'muted', style: { margin: '0 0 14px' } }),
         h('div', { class: 'row wrap' }, btn(nRec === 1 ? 'Aplicar a recomendada' : 'Aplicar as ' + nRec + ' recomendadas', () => openPlan('recomendado'), 'primary hero', 'zap'), btn('Ver cada uma', () => openOptimizations('rec'))),
         h('label', { class: 'check small muted mt-4' }, rp, 'Criar ponto de restauração do Windows antes de aplicar'))
       : h('div', { class: 'card hero-next done signature' },
         h('div', { class: 'eyebrow', text: 'Próximo passo' }),
         okIcon,
         h('div', { class: 'big', text: 'Tudo certo por aqui' }),
-        h('p', { class: 'muted', text: B.on.length ? 'Tudo o que o Axion recomenda para o seu PC já está ativo. Veja os opcionais ou refaça a análise depois de mudar o hardware ou o Windows.' : 'O Axion não encontrou nada a recomendar agora.' }),
+        B.on.length ? helpText('Tudo o que o Axion recomenda para o seu PC já está ativo.', 'Veja os opcionais ou refaça a análise depois de mudar o hardware ou o Windows.', { cls: 'muted', style: { margin: '0 0 14px' } })
+          : h('p', { class: 'muted', text: 'O Axion não encontrou nada a recomendar agora.' }),
         h('div', { class: 'row wrap' }, btn('Reanalisar o PC', rescan, 'primary hero', 'refresh'), B.opt.length ? btn('Ver opcionais (' + B.opt.length + ')', () => openOptimizations('opt')) : null));
     const listTitle = nRec ? 'Recomendadas para o seu PC' : 'Ativas no seu PC';
     const listItems = (nRec ? B.rec : B.on).slice(0, 6);
@@ -1531,14 +1582,15 @@
       h('div', null, h('b', { text: 'Ainda não medido: ' }), ev.missing.join(', ') + '. O que não foi medido não entra na nota; o botão Avaliar tudo mede de uma vez.',
         h('div', { class: 'mt-2' }, btn('Avaliar tudo', startEvaluation, 'sm', 'pulse', { disabled: !!(S.busy || st.job) })))) : null;
     return h('div', { class: 'page' },
-      pageHead('Avaliação completa', 'Três notas para o perfil ' + ev.profile.title + ': o que o Windows faz com o hardware, o que o hardware consegue para o seu uso e o que foi medido neste PC.' + (last ? ' Última avaliação completa: ' + ago(last.at) + '.' : ''),
+      pageHead('Avaliação completa', helpText('Três notas para o perfil ' + ev.profile.title + ': configuração, capacidade e medição.' + (last ? ' Última avaliação completa: ' + ago(last.at) + '.' : ''),
+        'Configuração: o que o Windows faz com o hardware. Capacidade: o que o hardware consegue para o seu uso. Medição: o que foi medido neste PC.', { cls: 'page-desc' }),
         [btn('Avaliar tudo', startEvaluation, 'primary', 'pulse', { disabled: !!(S.busy || st.job) }), btn('Trocar perfil', () => pickProfile(false), 'ghost', 'sliders')]),
       last && last.steps ? h('div', { class: 'row wrap small', style: { margin: '-6px 0 14px' } }, last.steps.map(s => badge(s.title + ': ' + ({ done: 'ok', skipped: 'pulado', failed: 'falhou', cancelled: 'cancelado' }[s.status] || s.status) + (s.note ? ' — ' + s.note : ''), s.status === 'done' ? 'ok' : s.status === 'skipped' ? 'outline' : 'warn'))) : null,
       h('div', { class: 'grid g3 pillars' },
         pillarCard('Configuração', 'sliders', ev.config, null, ['Ver diagnóstico', 'diagnostico'], 5),
         pillarCard('Capacidade', 'chip', ev.capacity, null, null),
         pillarCard('Medição', 'gauge', ev.measurement, missing, null)),
-      h('div', { class: 'faint tiny', style: { marginTop: '14px' }, text: ev.note }));
+      helpLead(ev.note, { cls: 'faint tiny', style: { marginTop: '14px' } }));
   }
 
   let diagFilter = 'all';
@@ -1685,7 +1737,7 @@
       policy ? null : h('div', { class: 'row wrap', style: { gap: '10px', alignItems: 'center' } }, h('span', { class: 'small', text: 'Das' }), selS, h('span', { class: 'small', text: 'às' }), selE, applyB,
         btn('Abrir Configurações', () => openURL('ms-settings:windowsupdate-options'), 'ghost sm', 'ext')),
       policy ? null : note,
-      h('div', { class: 'small muted', style: { marginTop: '8px' }, text: 'Dentro da janela (até 18 h) o Windows não reinicia o PC para atualizar: coloque nela as horas em que você joga, transmite ou trabalha. Grava ActiveHoursStart/End, os mesmos valores das Configurações.' }));
+      helpText('Dentro da janela (até 18 h) o Windows não reinicia o PC para atualizar.', 'Coloque nela as horas em que você joga, transmite ou trabalha. Grava ActiveHoursStart/End, os mesmos valores das Configurações.', { cls: 'small muted', style: { marginTop: '8px' } }));
   }
 
   async function pageOpt() {
@@ -1742,7 +1794,7 @@
     const chips = h('div', { class: 'chips opt-filters', role: 'group', 'aria-label': 'Filtrar por situação' }, OPT_FILTERS.map(([id, label]) =>
       h('button', { class: 'chip' + (optFilter === id && !q ? ' active' : ''), type: 'button', onclick: () => { optFilter = id; optQuery = ''; rerender(true); } }, label, h('b', { text: String(count(id)) }))));
     return h('div', { class: 'page' },
-      pageHead('Otimizações', 'Cada item diz se está ativo, se é recomendado para o seu PC ou se é só uma opção. Ligue o que quiser; tudo pode ser desfeito no Histórico.',
+      pageHead('Otimizações', helpText('Cada item diz se está ativo, se é recomendado para o seu PC ou se é só uma opção.', 'Ligue o que quiser; tudo pode ser desfeito no Histórico.', { cls: 'page-desc' }),
         [btn('Exportar seleção', exportSelection, 'ghost sm', 'download', { title: 'Salva num arquivo a lista do que o Axion aplicou, sem dados do PC' }),
           btn('Importar seleção', importSelection, 'ghost sm', 'folder', { title: 'Abre o plano com os itens de um arquivo de seleção; nada é aplicado sem você confirmar' })]
           .concat(count('rec') ? [btn('Aplicar recomendadas (' + count('rec') + ')', () => openPlan('recomendado'), 'primary', 'zap')] : [])),
@@ -1806,9 +1858,9 @@
     sync();
     return h('div', { class: 'card', style: { marginTop: '16px' } },
       h('h2', null, icon('zap'), 'Preset competitivo (cs2_video.txt)'),
-      h('div', { class: 'callout' }, icon('info'), h('div', { text: p.honest })),
+      h('div', { class: 'callout' }, icon('info'), helpLead(p.honest)),
       p.running ? h('div', { class: 'callout warn', style: { marginTop: '10px' } }, icon('alert'), h('div', null, 'O Counter-Strike 2 está aberto. Feche o jogo para aplicar ou desfazer.', ' ', btn('Verificar de novo', () => { invalidate(); rerender(); }, 'sm ghost', 'refresh'))) : null,
-      h('div', { class: 'small muted', style: { marginTop: '8px' }, text: p.cloudNote }),
+      helpLead(p.cloudNote, { cls: 'small muted', style: { marginTop: '8px' } }),
       p.basis ? h('div', { class: 'small muted', text: 'Medição: ' + p.basis + '.' }) : null,
       h('div', { class: 'set-list', style: { marginTop: '12px' } }, items.map(row)),
       h('div', { class: 'row', style: { marginTop: '12px' } },
@@ -1828,7 +1880,7 @@
     head.firstChild.insertBefore(h('div', { class: 'eyebrow', text: 'Jogo competitivo' }), head.firstChild.firstChild);
     return h('div', { class: 'page' },
       head,
-      h('div', { class: 'callout' }, icon('info'), h('div', { text: g.honest })),
+      h('div', { class: 'callout' }, icon('info'), helpLead(g.honest, { wholeSentence: true })),
       h('div', { class: 'grid g2', style: { marginTop: '16px' } },
         h('div', { class: 'card' }, h('h2', null, icon('crosshair'), 'Instalação'),
           info.installed && info.game
@@ -1875,7 +1927,8 @@
           invalidate(); rerender();
         }, 'ghost', 'refresh')]),
       h('div', { class: 'callout', style: { marginBottom: '16px' } }, icon('info'),
-        h('div', { text: 'Os perfis alteram só como o Windows trata aquele executável (prioridade de CPU, GPU usada e modo de tela cheia). Não modificam arquivos do jogo. Prioridade alta só ajuda quando outro programa disputa a CPU.' + gpuNote })),
+        helpText('Os perfis alteram só como o Windows trata aquele executável; não modificam arquivos do jogo.',
+          ['Eles mudam a prioridade de CPU, a GPU usada e o modo de tela cheia. Prioridade alta só ajuda quando outro programa disputa a CPU.', gpuNote.trim()])),
       d.unused && d.unused.length ? h('div', { class: 'card', style: { marginBottom: '16px' } },
         h('div', { class: 'row wrap' }, h('h2', { style: { margin: 0 } }, icon('trash'), 'Jogos sem uso'), badge(d.unused.length + ' ' + (d.unused.length === 1 ? 'encontrado' : 'encontrados'), 'warn')),
         h('div', { class: 'sub', text: 'Jogos da Steam instalados, mas que ninguém abre há mais de ' + (d.unusedDays || 180) + ' dias. Considere desinstalar para liberar espaço.' }),
@@ -2012,7 +2065,7 @@
             setRow('DPCs em thread', settings.threadDpc === 0 ? 'desligados' : 'padrão', settings.threadDpc !== 0),
             setRow('Suspensão seletiva USB (plano, na tomada)', settings.usbSuspendPlan === 0 ? 'desligada' : settings.usbSuspendPlan === 1 ? 'ligada' : 'desconhecida', settings.usbSuspendPlan === 1 ? null : settings.usbSuspendPlan === 0 ? true : null))
             : h('div', { class: 'muted', text: 'Analise o PC para ver as configurações.' })),
-        h('div', { class: 'card' }, h('h2', null, icon('info'), 'O que dá e o que não dá para ajustar'), h('div', { class: 'small', text: v.honest }),
+        h('div', { class: 'card' }, h('h2', null, icon('info'), 'O que dá e o que não dá para ajustar'), helpLead(v.honest, { cls: 'small' }),
           h('div', { class: 'row wrap', style: { marginTop: '10px' } }, (v.sources || []).map(x => extLink(x.title, x.url))))),
       tweakList.length ? h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('zap'), 'Ajustes de entrada'), tweakList.map(t => tweakRow(t))) : null,
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('check'), 'Checklist com evidência'), h('div', { class: 'checks' }, (v.tips || []).map(c => checkItem(c)))));
@@ -2047,7 +2100,7 @@
       driverComponentsCard(v),
       oldRes && oldRes.packages && oldRes.packages.length ? oldDriverPackagesCard(oldRes) : null,
       h('div', { class: 'grid g2', style: { marginTop: '16px' } }, boardCard(v.board),
-        h('div', { class: 'card' }, h('h2', null, icon('info'), 'Como funciona'), h('ul', { class: 'notes' }, (v.notes || []).map(n => h('li', { text: n }))),
+        h('div', { class: 'card' }, h('h2', null, icon('info'), 'Como funciona'), h('ul', { class: 'notes' }, (v.notes || []).map(n => h('li', null, helpLead(n)))),
           h('div', { class: 'src', style: { marginTop: '8px' } }, (v.sources || []).map(x => extLink(x.title, x.url))))));
   }
 
@@ -2136,7 +2189,7 @@
     return h('div', { class: 'card', style: { marginTop: '16px' } },
       h('div', { class: 'row wrap' }, h('h2', { style: { margin: 0 } }, icon('download'), 'Atualizações do Windows Update'), h('div', { class: 'spacer' }),
         searched ? h('span', { class: 'small muted', text: 'Última busca: ' + fmtDT(v.searchedAt) }) : null),
-      h('div', { class: 'sub', text: 'Drivers que a Microsoft distribui para o seu hardware (os mesmos de Configurações > Windows Update > Atualizações opcionais), com a avaliação do Axion para cada um.' }),
+      helpText('Drivers que a Microsoft distribui para o seu hardware, com a avaliação do Axion para cada um.', 'São os mesmos de Configurações > Windows Update > Atualizações opcionais.', { cls: 'sub' }),
       body,
       hidden.length ? h('details', { style: { marginTop: '12px' } }, h('summary', { class: 'small linkbtn', text: 'Ocultas (' + hidden.length + ')' }),
         hidden.map(o => h('div', { class: 'set-row' }, h('span', { text: (o.device || o.title) + ' · ' + (o.version || '') }),
@@ -2147,7 +2200,7 @@
     const n = oldRes.packages.length;
     return h('div', { class: 'card', style: { marginTop: '16px' } },
       h('div', { class: 'row wrap' }, h('h2', { style: { margin: 0 } }, icon('trash'), 'Pacotes de vídeo antigos'), badge(plural(n, 'encontrado', 'encontrados'), 'warn')),
-      h('div', { class: 'sub', text: 'Versões de driver de vídeo que uma atualização deixou no Repositório de Drivers do Windows e que não estão instaladas em nenhum dispositivo. Excluir pode liberar espaço (o Axion não mede quanto).' }),
+      helpText('Versões de driver de vídeo que não estão instaladas em nenhum dispositivo.', 'Uma atualização as deixou no Repositório de Drivers do Windows. Excluir pode liberar espaço (o Axion não mede quanto).', { cls: 'sub' }),
       h('div', { class: 'set-list', style: { marginTop: '12px' } },
         oldRes.packages.map(p => h('div', { class: 'set-row' },
           h('span', null, h('b', null, p.provider), h('span', { class: 'small muted', text: ' — versão ' + p.version + ' substituída pela ' + p.newest })),
@@ -2191,7 +2244,7 @@
       h('div', { class: 'set-list' },
         h('div', { class: 'set-row' }, h('span', { text: 'Placa-mãe' }), h('b', { text: ((b.maker || '') + ' ' + (b.model || '')).trim() || '—' })),
         h('div', { class: 'set-row' }, h('span', { text: 'BIOS' }), h('b', { text: (b.biosVersion || '—') + (hasDate(b.biosDate) ? ' · ' + fmtDay(b.biosDate) : '') }))),
-      h('p', { class: 'small muted', text: 'O Windows Update não atualiza a BIOS de placas-mãe de desktop. Atualize quando a nova versão trouxer correções que te afetam (memória EXPO/XMP, segurança, estabilidade), seguindo o manual e sem desligar o PC durante o processo.' }),
+      helpText('O Windows Update não atualiza a BIOS de placas-mãe de desktop.', 'Atualize quando a nova versão trouxer correções que te afetam (memória EXPO/XMP, segurança, estabilidade), seguindo o manual e sem desligar o PC durante o processo.', { cls: 'small muted', style: { margin: '12px 0' } }),
       h('div', { class: 'row wrap' }, b.support ? extLink(b.support.label, b.support.url) : null, b.chipset ? extLink(b.chipset.label, b.chipset.url) : null));
   }
 
@@ -2310,17 +2363,21 @@
         h('span', null, h('b', { class: 'dot w' }), ' limite/sincronização ' + fmtN(s.waitPct) + '%')));
   }
 
+  // Each piece of advice is [sentence on screen, the rest behind the "?"].
   function perfAdvice(r) {
     const s = r.summary, out = [];
-    if (s.limiter === 'gpu') out.push('A placa de vídeo limitou ' + fmtN(s.gpuBoundPct, 0) + '% dos quadros. Mais FPS aqui vem de configurações gráficas (resolução, sombras, MSAA) ou de upscaling; ajustes do Windows mudam pouco.');
-    if (s.limiter === 'cpu' && s.capLikely) out.push('O lado da CPU segurou ' + fmtN(s.cpuBoundPct, 0) + '% dos quadros com um tempo de quadro quase constante: é o sinal de um limite de FPS do próprio jogo (fps_max ou limitador do Reflex), que o PresentMon conta como tempo de CPU. Se você limitou o FPS, é o esperado: compare 1% low e engasgos, não o FPS médio.');
-    else if (s.limiter === 'cpu') out.push('O lado da CPU limitou ' + fmtN(s.cpuBoundPct, 0) + '% dos quadros: a placa de vídeo ficou esperando. Se você não usa limite de FPS no jogo (fps_max), mais FPS aqui vem de CPU e memória (perfil EXPO/XMP da RAM, menos programas em segundo plano), não de gráficos mais baixos. Um limite de FPS do jogo também aparece assim, porque o PresentMon conta a espera do limitador como tempo de CPU.');
-    if (s.limiter === 'limite') out.push('A maior parte dos quadros esperou um limite (fps_max, V-Sync, G-SYNC/FreeSync ou o limitador do Reflex). É o esperado se você limitou o FPS; nesse caso compare 1% low e engasgos, não o FPS médio.');
+    if (s.limiter === 'gpu') out.push(['A placa de vídeo limitou ' + fmtN(s.gpuBoundPct, 0) + '% dos quadros.', 'Mais FPS aqui vem de configurações gráficas (resolução, sombras, MSAA) ou de upscaling; ajustes do Windows mudam pouco.']);
+    if (s.limiter === 'cpu' && s.capLikely) out.push(['O lado da CPU segurou ' + fmtN(s.cpuBoundPct, 0) + '% dos quadros com um tempo de quadro quase constante: parece um limite de FPS do próprio jogo.',
+      'É o sinal de um limite de FPS do próprio jogo (fps_max ou limitador do Reflex), que o PresentMon conta como tempo de CPU. Se você limitou o FPS, é o esperado: compare 1% low e engasgos, não o FPS médio.']);
+    else if (s.limiter === 'cpu') out.push(['O lado da CPU limitou ' + fmtN(s.cpuBoundPct, 0) + '% dos quadros: a placa de vídeo ficou esperando.',
+      ['Se você não usa limite de FPS no jogo (fps_max), mais FPS aqui vem de CPU e memória (perfil EXPO/XMP da RAM, menos programas em segundo plano), não de gráficos mais baixos.',
+        'Um limite de FPS do jogo também aparece assim, porque o PresentMon conta a espera do limitador como tempo de CPU.']]);
+    if (s.limiter === 'limite') out.push(['A maior parte dos quadros esperou um limite (fps_max, V-Sync, G-SYNC/FreeSync ou o limitador do Reflex).', 'É o esperado se você limitou o FPS; nesse caso compare 1% low e engasgos, não o FPS médio.']);
     const mode = MODE_NOTE[s.presentMode];
-    if (mode && mode[0] === 'action') out.push(mode[1]);
-    if (s.syncInterval >= 1) out.push('O jogo pediu sincronização vertical (SyncInterval ' + s.syncInterval + '): elimina o tearing, mas soma latência. Em jogo competitivo o usual é V-Sync desligado.');
-    if (s.stutterPct >= 1) out.push('Engasgos ocuparam ' + fmtN(s.stutterPct) + '% do tempo. Nas primeiras partidas depois de atualizar driver ou jogo é normal (compilação de shaders); se persistir, veja programas em segundo plano e temperatura.');
-    if (r.swapchains > 1) out.push('Uma sobreposição (Steam, Discord, gravador) desenhou sua própria camada durante o teste; o Axion mediu só a do jogo.');
+    if (mode && mode[0] === 'action') out.push([mode[1], '']);
+    if (s.syncInterval >= 1) out.push(['O jogo pediu sincronização vertical (SyncInterval ' + s.syncInterval + '): elimina o tearing, mas soma latência.', 'Em jogo competitivo o usual é V-Sync desligado.']);
+    if (s.stutterPct >= 1) out.push(['Engasgos ocuparam ' + fmtN(s.stutterPct) + '% do tempo.', 'Nas primeiras partidas depois de atualizar driver ou jogo é normal (compilação de shaders); se persistir, veja programas em segundo plano e temperatura.']);
+    if (r.swapchains > 1) out.push(['Uma sobreposição (Steam, Discord, gravador) desenhou sua própria camada durante o teste; o Axion mediu só a do jogo.', '']);
     return out;
   }
 
@@ -2373,8 +2430,8 @@
             h('dt', { text: 'Quadros mostrados' }), h('dd', { text: s.displayedFps > 0 ? fmtN(s.displayedFps) + ' por segundo' + (s.droppedPct > 0 ? ' · ' + fmtN(s.droppedPct, 2) + '% não chegaram à tela' : '') : '—' })),
           lat.length ? [h('h3', { text: 'Latência média (ms)', style: { marginTop: '14px' } }), h('dl', { class: 'kv' }, lat.map(([k, x]) => [h('dt', { text: k }), h('dd', { text: fmtN(x, 2) })]))] : null)),
       perfConditions(r),
-      adv.length ? h('div', { class: 'callout', style: { marginTop: '12px' } }, icon('info'), h('ul', { class: 'notes', style: { margin: 0 } }, adv.map(t => h('li', { text: t })))) : null,
-      lat.length ? h('p', { class: 'small muted', text: 'As latências vêm dos eventos do Windows e do Reflex, não de um sensor na tela: servem para comparar configurações, não como valor absoluto de ponta a ponta.' }) : null,
+      adv.length ? h('div', { class: 'callout', style: { marginTop: '12px' } }, icon('info'), h('ul', { class: 'notes', style: { margin: 0 } }, adv.map(([t, more]) => h('li', null, helpText(t, more))))) : null,
+      lat.length ? helpText('As latências servem para comparar configurações, não como valor absoluto de ponta a ponta.', 'Elas vêm dos eventos do Windows e do Reflex, não de um sensor na tela.', { cls: 'small muted', style: { margin: '12px 0' } }) : null,
       r.note ? h('p', { class: 'small', style: { color: 'var(--warn)' }, text: 'Obs.: ' + r.note + '.' }) : null,
       r.csv ? h('p', { class: 'small muted', text: 'Arquivo CSV desta medição: ' + (S.state.dataDir ? S.state.dataDir.replace(/[\\/]+$/, '') + '\\desempenho\\' : '') + r.csv + ' (abre no Excel, no CapFrameX ou no próprio PresentMon).' }) : null);
   }
@@ -2394,8 +2451,11 @@
           sess ? null : h('td', { text: r.pAdj >= 0 ? (r.pAdj < 0.001 ? '< 0,001' : fmtN(r.pAdj, 3)) : '—', title: r.p >= 0 ? 'p sem ajuste: ' + fmtN(r.p, 4) : '' }),
           h('td', null, badge((VERD[r.verdict] || [r.verdict])[0], (VERD[r.verdict] || ['', 'outline'])[1])))))),
       (c.warnings || []).map(w => h('div', { class: 'callout warn', style: { marginTop: '10px' } }, icon('alert'), h('div', { text: w }))),
-      sess ? h('p', { class: 'small muted', text: 'Média ± desvio-padrão entre as janelas de cada partida. Partidas diferentes não são um teste controlado: não há cálculo de significância aqui.' }) :
-      h('p', { class: 'small muted', text: 'Média ± desvio-padrão entre as medições de cada grupo. "p" vem do teste t de Welch (bicaudal): se não houvesse diferença real, um resultado assim apareceria em menos de 5% das vezes quando p < 0,05. Como várias métricas são testadas juntas, os valores de p já vêm ajustados (método de Holm), e diferenças menores que 1% contam como "sem diferença". Confie mais quando FPS médio, 1% low e P99 concordam. Com uma medição só em algum grupo, ou sem nenhuma variação entre as medições, não há como calcular.' }));
+      sess ? helpText('Partidas diferentes não são um teste controlado: não há cálculo de significância aqui.', 'Os valores são média ± desvio-padrão entre as janelas de cada partida.', { cls: 'small muted', style: { margin: '12px 0 0' } }) :
+      helpText('Média ± desvio-padrão de cada grupo; confie mais quando FPS médio, 1% low e P99 concordam.', [
+        '"p" vem do teste t de Welch (bicaudal): se não houvesse diferença real, um resultado assim apareceria em menos de 5% das vezes quando p < 0,05.',
+        'Como várias métricas são testadas juntas, os valores de p já vêm ajustados (método de Holm), e diferenças menores que 1% contam como "sem diferença".',
+        'Com uma medição só em algum grupo, ou sem nenhuma variação entre as medições, não há como calcular.'], { cls: 'small muted', style: { margin: '12px 0 0' } }));
   }
 
   async function pageProva() {
@@ -2440,7 +2500,7 @@
     const disabled = !v.ready || !v.elevated || !cur;
     const cell = (o, k) => { const x = (o.metrics || []).find(m => m.key === k); return x ? fmtSigned(x.deltaPct, 1) + '% (' + pLabel(x.pAdj) + ')' : '—'; };
     return h('div', { class: 'page' },
-      pageHead('Prova no seu PC', 'Mede um ajuste opcional no seu jogo, antes e depois, e só deixa aplicado o que melhorar de forma comprovada. O que não melhorar é desfeito pelo histórico.'),
+      pageHead('Prova no seu PC', helpText('Mede um ajuste opcional no seu jogo, antes e depois, e só deixa aplicado o que melhorar de forma comprovada.', 'O que não melhorar é desfeito pelo histórico.', { cls: 'page-desc' })),
       !v.ready ? h('div', { class: 'callout warn' }, icon('alert'), h('div', { text: 'Medição indisponível: ' + (v.why || 'PresentMon não encontrado') })) : null,
       v.ready && !v.elevated ? h('div', { class: 'callout warn' }, icon('alert'), h('div', { text: 'Execute o Axion como administrador para fazer a prova: o PresentMon e as mudanças no Windows exigem essa permissão.' })) : null,
       (v.interrupted || []).map(x => h('div', { class: 'callout warn', style: { marginBottom: '12px' } }, icon('alert'), h('div', null,
@@ -2464,7 +2524,7 @@
             h('td', null, o.action === 'mantido' || o.action === 'falha-desfazer' ? btn('Desfazer', async () => { await undoTrial(o); rerender(); }, 'sm ghost', 'undo') : null))))))
           : empty('gauge', 'Nenhuma prova ainda', 'Escolha um ajuste acima. O resultado aparece aqui e no próprio item, em Otimizações.')),
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como o Axion decide'),
-        h('p', { class: 'small', text: v.rule }), h('p', { class: 'small muted', text: v.honest }),
+        helpLead(v.rule, { cls: 'small', style: { margin: '0 0 10px' } }), helpLead(v.honest, { cls: 'small muted', style: { margin: '0 0 10px' } }),
         h('div', { class: 'row wrap' }, (v.sources || []).map(x => extLink(x.title, x.url)))),
       no.length ? h('details', { class: 'card more', style: { marginTop: '16px' } }, h('summary', null, icon('info'), 'Por que os outros ajustes não entram (' + no.length + ')'),
         h('ul', { class: 'notes small', style: { marginTop: '10px' } }, no.map(x => h('li', null, h('b', { text: x.title }), ' — ', x.why)))) : null);
@@ -2553,7 +2613,8 @@
     if (perfOpen) { try { openRun = await get('perfrun:' + perfOpen, '/api/perf/run/' + perfOpen); } catch (e) { perfOpen = null; } }
 
     return h('div', { class: 'page' },
-      pageHead('Desempenho (FPS)', 'Mede FPS, 1% e 0,1% low, engasgos e o que limitou cada quadro (CPU, GPU ou limite de FPS) com o PresentMon da Intel, e compara antes × depois levando em conta a variação entre medições.'),
+      pageHead('Desempenho (FPS)', helpText('Mede FPS, 1% e 0,1% low, engasgos e o que limitou cada quadro, e compara antes × depois.',
+        'O que limita cada quadro é a CPU, a GPU ou um limite de FPS. A medição usa o PresentMon, da Intel, e a comparação leva em conta a variação entre medições.', { cls: 'page-desc' })),
       !v.ready ? h('div', { class: 'callout warn' }, icon('alert'), h('div', { text: 'Medição indisponível: ' + (v.why || 'PresentMon não encontrado') })) : null,
       v.ready && !v.elevated ? h('div', { class: 'callout warn' }, icon('alert'), h('div', { text: 'Execute o Axion como administrador para medir (o PresentMon lê eventos do Windows que exigem essa permissão).' })) : null,
       h('div', { class: 'card' },
@@ -2585,11 +2646,15 @@
           : empty('gauge', 'Nenhuma medição ainda', 'Faça a primeira acima. Para comparar, grave algumas com o rótulo "antes", aplique a mudança e grave outras com "depois".')),
       perfCmp ? perfCompareCard(perfCmp, { anchor: true }) : null,
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como os números são calculados'),
-        h('p', { class: 'small', text: v.honest }),
+        helpLead(v.honest, { cls: 'small', style: { margin: '0 0 10px' } }),
         h('ul', { class: 'notes small' },
-          h('li', { text: 'FPS médio = quadros ÷ tempo total. 1% low e 0,1% low = média do 1% (0,1%) de quadros mais lentos, convertida em FPS (definição do NVIDIA FrameView). P1 e P0,1 são os percentis.' }),
+          h('li', null, helpText('FPS médio = quadros ÷ tempo total; 1% low e 0,1% low = média do 1% (0,1%) de quadros mais lentos, em FPS.',
+            'A conversão em FPS segue a definição do NVIDIA FrameView. P1 e P0,1 são os percentis.')),
           h('li', { text: 'Engasgo = quadro mais longo que 2,5 × o tempo médio (padrão do CapFrameX).' }),
-          h('li', { text: 'Limitado pela GPU: a GPU ficou ocupada em 90% ou mais do tempo do quadro. CPU ou limitador do jogo: a GPU sobrou e o quadro não esperou na apresentação — inclui o tempo que um limite de FPS do próprio jogo (fps_max, Reflex) passa esperando. Limite/sincronização: o quadro esperou na apresentação (V-Sync, fila cheia, limitadores do driver).' })),
+          h('li', null, helpText('O limitador de cada quadro é a GPU, a CPU (ou o limitador do jogo) ou um limite/sincronização.', [
+            'Limitado pela GPU: a GPU ficou ocupada em 90% ou mais do tempo do quadro.',
+            'CPU ou limitador do jogo: a GPU sobrou e o quadro não esperou na apresentação — inclui o tempo que um limite de FPS do próprio jogo (fps_max, Reflex) passa esperando.',
+            'Limite/sincronização: o quadro esperou na apresentação (V-Sync, fila cheia, limitadores do driver).']))),
         h('div', { class: 'row wrap' }, (v.sources || []).map(x => extLink(x.title, x.url)))));
   }
 
@@ -2630,7 +2695,7 @@
       title: !v.elevated ? 'Exige executar o Axion como administrador' : t.ntfs === 1 ? 'Religue o TRIM primeiro' : '' }));
     return h('div', { class: 'card', id: 'ssd', style: { marginTop: '16px' } },
       h('h2', null, icon('hdd'), 'Manutenção do SSD'),
-      h('p', { class: 'small muted', style: { marginTop: 0 }, text: v.honest }),
+      helpLead(v.honest, { cls: 'small muted', style: { margin: '0 0 12px' } }),
       h('div', { class: 'checks' }, checkItem(trimItem), checkItem(taskItem),
         ssdVols.map(x => {
           const days = x.lastRetrim ? (Date.now() - new Date(x.lastRetrim)) / 86400000 : null;
@@ -2746,7 +2811,7 @@
     };
     const on = items.filter(it => it.enabled), off = items.filter(it => !it.enabled);
     return h('div', { class: 'page' },
-      pageHead('Inicialização', 'O que abre junto com o Windows e o que dá para desligar sem perder nada. Funciona como o Gerenciador de Tarefas: nada é apagado e dá para ligar de novo.',
+      pageHead('Inicialização', helpText('O que abre junto com o Windows e o que dá para desligar sem perder nada.', 'Funciona como o Gerenciador de Tarefas: nada é apagado e dá para ligar de novo.', { cls: 'page-desc' }),
         suggested.length ? [btn('Desativar os ' + suggested.length + ' sugeridos', async () => {
           const ok = await confirmDlg({ title: 'Desativar ' + plural(suggested.length, 'item', 'itens'), ok: 'Desativar', icon: 'check',
             body: h('div', null, h('ul', { class: 'notes' }, suggested.map(it => h('li', { text: it.name + ' — ' + it.category }))),
@@ -2761,7 +2826,7 @@
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('play'), 'Ligados'),
         on.length ? on.map(row) : h('p', { class: 'small muted', text: 'Nada liga junto com o Windows.' })),
       off.length ? h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('ban'), 'Desligados'), off.map(row)) : null,
-      h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('info'), 'O que isso muda'), h('p', { class: 'small', style: { margin: 0 }, text: v.honest }),
+      h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('info'), 'O que isso muda'), helpLead(v.honest, { cls: 'small' }),
         h('div', { class: 'row wrap', style: { marginTop: '8px' } }, (v.sources || []).map(x => extLink(x.title, x.url)))));
   }
 
@@ -2806,13 +2871,13 @@
         h('div', { class: 'stat' }, h('div', { class: 'n', text: BYTES(v.ramUsed) }), h('div', { class: 'l', text: 'memória em uso de ' + BYTES(v.ramTotal) })),
         h('div', { class: 'stat' }, h('div', { class: 'n', text: String(user.length) }), h('div', { class: 'l', text: 'programas seus abertos' }))),
       (v.heavy || []).length ? h('div', { class: 'callout warn', style: { marginTop: '12px' } }, icon('alert'),
-        h('div', { text: 'Pesados em segundo plano: ' + v.heavy.join(', ') + '. Softwares de RGB fazem polling constante do hardware e navegadores disputam CPU e memória com o jogo.' })) : null,
+        helpText('Pesados em segundo plano: ' + v.heavy.join(', ') + '.', 'Softwares de RGB fazem polling constante do hardware e navegadores disputam CPU e memória com o jogo.')) : null,
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('layers'), 'Seus programas'), table(user, true)),
       h('div', { class: 'card', style: { marginTop: '16px' } },
         h('div', { class: 'row wrap' }, h('h2', { style: { margin: 0 } }, icon('windows'), 'Windows e serviços'), h('div', { class: 'spacer' }),
           sys.length > 10 ? h('button', { class: 'linkbtn small', type: 'button', text: procShowAll ? 'Mostrar só os 10 maiores' : 'Mostrar todos (' + sys.length + ')', onclick: () => { procShowAll = !procShowAll; rerender(); } }) : null),
         table(procShowAll ? sys : sys.slice(0, 10), false)),
-      h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('info'), 'O que isso muda'), h('p', { class: 'small', style: { margin: 0 }, text: v.honest })));
+      h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('info'), 'O que isso muda'), helpLead(v.honest, { cls: 'small' })));
   }
 
   // ---------------------------------------------------------------------------
@@ -2981,15 +3046,17 @@
       const n = items.filter(it => appsChecks.get(it.id)).length;
       return h('div', { class: 'card', style: { marginBottom: '14px' } },
         h('h3', { style: { marginBottom: c.note ? '4px' : '10px' } }, c.title, n ? badge(plural(n, 'marcado', 'marcados'), 'accent') : null),
-        c.note ? h('div', { class: 'small muted', style: { marginBottom: '10px' }, text: c.note }) : null,
+        c.note ? helpLead(c.note, { cls: 'small muted', style: { marginBottom: '10px' } }) : null,
         h('div', { class: 'apps-grid' }, items.map(itemRow)));
     });
     const preset = (label, mode, cls) => btn(label, () => { appsPresetFill(v, mode); rerender(); }, cls || 'sm', null);
     return h('div', { class: 'page' },
-      pageHead('Instalar programas', 'Marque o que quer e o Axion instala a versão mais atual de cada um pelo winget, o gerenciador de pacotes que já vem no Windows. Depois de formatar, é por aqui que o PC volta a ter tudo.' + (v.scanned ? ' Lista de instalados lida ' + ago(v.scannedAt) + '.' : ''),
+      pageHead('Instalar programas', helpText('Marque o que quer e o Axion instala a versão mais atual de cada um pelo winget.' + (v.scanned ? ' Lista de instalados lida ' + ago(v.scannedAt) + '.' : ''),
+        'O winget é o gerenciador de pacotes que já vem no Windows. Depois de formatar, é por aqui que o PC volta a ter tudo.', { cls: 'page-desc' }),
         [installB, v.upgrades ? btn('Atualizar tudo (' + v.upgrades + ')', () => appsUpgradeAll(v), '', 'refresh', { disabled: blocked }) : null, v.scanned ? btn('Reler instalados', appsRefresh, 'ghost', 'refresh', { disabled: !v.winget.available || busy }) : null]),
       !v.scanned && v.winget.available && !v.scanError ? h('div', { class: 'callout', style: { marginBottom: '14px' } }, icon('info'), h('div', { class: 'apps-read' },
-        h('div', null, h('b', { text: 'O Axion ainda não leu o que está instalado. ' }), 'Com a leitura, o que já existe aparece marcado em cinza e o que tem versão nova pode ser atualizado. Ela roda o winget, que usa a internet para atualizar o índice do catálogo (leva de alguns segundos a um minuto).'),
+        h('div', null, h('b', { text: 'O Axion ainda não leu o que está instalado. ' }),
+          helpText('Com a leitura, o que já existe aparece marcado em cinza e o que tem versão nova pode ser atualizado.', 'Ela roda o winget, que usa a internet para atualizar o índice do catálogo (leva de alguns segundos a um minuto).', { style: { display: 'inline' } })),
         btn('Ler o que já está instalado', appsRefresh, 'sm', 'refresh', { disabled: busy }))) : null,
       !v.winget.available ? h('div', { class: 'callout warn', style: { marginBottom: '14px' } }, icon('alert'), h('div', null, h('div', { text: v.winget.why }), h('div', { style: { marginTop: '8px' } }, btn('Instalar o Instalador de Aplicativo (Microsoft)', () => openURL('https://aka.ms/getwinget'), 'sm', 'ext')))) : null,
       v.warning ? h('div', { class: 'callout warn', style: { marginBottom: '14px' } }, icon('alert'), h('div', { text: v.warning })) : null,
@@ -2998,9 +3065,10 @@
         h('div', { class: 'row wrap' }, h('span', { class: 'small' }, 'Perfil ', h('b', { text: profName }), ' · marcar: '),
           preset('os do meu perfil', 'perfil'), preset('só a base do sistema', 'base'), v.hasSelection ? preset('a seleção salva', 'salva') : null, v.upgrades ? preset('só as atualizações', 'atualizar') : null,
           h('button', { class: 'linkbtn small', type: 'button', text: 'Desmarcar todos', onclick: () => { appsChecks.forEach((_, k) => appsChecks.set(k, false)); rerender(); } })),
-        h('div', { class: 'small muted', style: { marginTop: '8px' }, text: 'A primeira linha de cada categoria é a opção recomendada; as demais são alternativas. O que já está instalado aparece marcado em cinza; com atualização disponível, dá para marcar para atualizar. Itens com "link oficial" não estão no winget: o botão abre a página do fabricante no seu navegador.' })),
+        helpText('A primeira linha de cada categoria é a opção recomendada; as demais são alternativas.', ['O que já está instalado aparece marcado em cinza; com atualização disponível, dá para marcar para atualizar.',
+          'Itens com "link oficial" não estão no winget: o botão abre a página do fabricante no seu navegador.'], { cls: 'small muted', style: { marginTop: '8px' } })),
       cats,
-      h('div', { class: 'card' }, h('h3', null, icon('info'), 'Como funciona e limites'), h('div', { class: 'small', text: v.honest }),
+      h('div', { class: 'card' }, h('h3', null, icon('info'), 'Como funciona e limites'), helpLead(v.honest, { cls: 'small' }),
         h('div', { class: 'row wrap', style: { marginTop: '10px' } }, (v.sources || []).map(x => extLink(x.title, x.url)))),
       (v.log || []).length ? h('details', { class: 'card', style: { marginTop: '14px' } }, h('summary', { class: 'small', text: 'Instalações feitas pelo Axion (' + v.log.length + ')' }),
         h('table', { class: 'table', style: { marginTop: '10px' } }, h('tbody', null, v.log.map(e => h('tr', null, h('td', { text: fmtDT(e.at) }), h('td', { text: e.name }), h('td', { text: { install: 'instalação', upgrade: 'atualização', 'upgrade-all': 'atualizar tudo', skipped: 'já instalado' }[e.action] || e.action }), h('td', null, badge(e.outcome, e.ok ? 'ok' : 'bad'))))))) : null);
@@ -3054,7 +3122,7 @@
               if (!(await confirmDlg({ title: 'Apagar de vez?', text: 'Os itens deste lote serão apagados definitivamente.', ok: 'Apagar', danger: true, icon: 'trash' }))) return;
               try { await api('POST', '/api/programs/purge', { batch: b.id }); } catch (e) { toast(e.message, 'bad'); } invalidate(); rerender();
             }, 'sm ghost', 'trash')))) : h('p', { class: 'small muted', text: 'Vazia. Sobras removidas pelo Axion ficam aqui por 30 dias.' })),
-      h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('info'), 'Como funciona'), h('p', { class: 'small', style: { margin: 0 }, text: v.honest }),
+      h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('info'), 'Como funciona'), helpLead(v.honest, { cls: 'small' }),
         h('div', { class: 'row wrap', style: { marginTop: '8px' } }, (v.sources || []).map(x => extLink(x.title, x.url)))));
   }
 
@@ -3065,8 +3133,8 @@
         b.support ? [btn('Suporte da ' + b.vendor, () => openURL(b.support), '', 'ext')] : []),
       h('div', { class: 'callout warn' }, icon('alert'), h('div', { text: 'O Axion não altera a BIOS. Estes ajustes só podem ser feitos nela; o status abaixo vem do que o Windows consegue ler.' })),
       h('div', { class: 'grid g2', style: { marginTop: '16px' } },
-        h('div', { class: 'card' }, h('h2', null, icon('chip'), 'Como entrar na BIOS'), h('p', { class: 'small', style: { margin: 0 }, text: b.enter })),
-        h('div', { class: 'card' }, h('h2', null, icon('info'), 'Antes de mexer'), h('p', { class: 'small', style: { margin: 0 }, text: b.note }))),
+        h('div', { class: 'card' }, h('h2', null, icon('chip'), 'Como entrar na BIOS'), helpLead(b.enter, { cls: 'small' })),
+        h('div', { class: 'card' }, h('h2', null, icon('info'), 'Antes de mexer'), helpLead(b.note, { cls: 'small' }))),
       h('div', { class: 'checks', style: { marginTop: '16px' } }, (b.items || []).map(c => checkItem(c))));
   }
 
@@ -3109,7 +3177,7 @@
           h('ul', { class: 'ops', style: { marginTop: '8px' } }, (e.ops || []).filter(o => !o.skipped).map(o => h('li', { class: o.verified ? 'in' : 'out' }, o.describe, h('div', { class: 'cur', text: 'antes: ' + (o.before || '—') + (o.error ? ' · ' + o.error : '') })))))));
     }
     return h('div', { class: 'page' },
-      pageHead('Histórico', 'Cada alteração guarda o valor anterior exato. Desfazer restaura esse valor e confirma pela releitura; se outro programa mexeu depois, o Axion avisa antes de sobrescrever.',
+      pageHead('Histórico', helpText('Cada alteração guarda o valor anterior exato, e Desfazer restaura esse valor.', 'Desfazer confirma pela releitura; se outro programa mexeu depois, o Axion avisa antes de sobrescrever.', { cls: 'page-desc' }),
         [btn('Criar ponto de restauração', () => runJob(api('POST', '/api/restorepoint', {}), { title: 'Ponto de restauração' }), '', 'shield'),
           btn('Restauração do Sistema', () => openURL('tool:rstrui'), 'ghost', 'restore'),
           btn('Desfazer tudo (' + active.length + ')', async () => {
@@ -3250,7 +3318,9 @@
         h('td', { text: String(s.stutters || 0) }), h('td', null, lim ? badge(lim[0].split(' (')[0], lim[1]) : '—'), h('td', { text: g ? g.maxTempC + ' °C' : '—' }));
     };
     return h('div', { class: 'page' },
-      pageHead('Relatório da partida', 'Com o relatório automático ligado para um jogo, o Axion grava a partida inteira com o PresentMon enquanto estiver aberto. Quando o jogo fecha, mostra FPS médio, 1% e 0,1% low, engasgos, o que limitou os quadros e a temperatura da placa de vídeo, e compara com a partida anterior do mesmo jogo. Vem desligado para todos os jogos.'),
+      pageHead('Relatório da partida', helpText('Quando o jogo fecha, mostra como foi a partida e compara com a anterior. Vem desligado para todos os jogos.', [
+        'Com o relatório automático ligado para um jogo, o Axion grava a partida inteira com o PresentMon enquanto estiver aberto.',
+        'Quando o jogo fecha, mostra FPS médio, 1% e 0,1% low, engasgos, o que limitou os quadros e a temperatura da placa de vídeo, e compara com a partida anterior do mesmo jogo.'], { cls: 'page-desc' })),
       !v.ready ? h('div', { class: 'callout warn' }, icon('alert'), h('div', { text: 'Relatório automático indisponível: ' + (v.why || 'PresentMon não encontrado') })) : null,
       v.live ? h('div', { class: 'callout game' }, icon('play'), h('div', null, h('b', { text: 'Gravando a partida de ' + v.live.name + ' desde ' + fmtDT(v.live.started) }),
         h('div', { class: 'small muted', text: (v.live.waiting ? 'Em pausa: ' + v.live.waiting + '. ' : '') + fmtDur(v.live.seconds) + ' gravados até agora. Pode minimizar o Axion. Se fechar, o relatório vai só até ali.' }))) : null,
@@ -3259,8 +3329,8 @@
         h('ul', { class: 'notes small', style: { marginTop: '12px' } },
           h('li', { text: 'O Axion só acompanha enquanto está aberto (pode ficar minimizado). Não há modo em segundo plano nem ícone perto do relógio.' }),
           h('li', { text: 'A cada ' + v.pollEvery + ' s ele procura, na lista de processos do Windows, o executável dos jogos ligados aqui.' }),
-          h('li', { text: 'A partida é gravada em janelas de ' + fmtDur(v.segment) + '. Entre uma janela e outra o PresentMon é reiniciado e os quadros desse intervalo ficam de fora (o relatório mostra quanto do tempo foi gravado).' }),
-          h('li', { text: 'Partidas com menos de 1 minuto gravado não geram relatório. Se você iniciar uma medição manual durante a partida, a gravação do relatório pausa até a medição terminar.' }))),
+          h('li', null, helpText('A partida é gravada em janelas de ' + fmtDur(v.segment) + '.', 'Entre uma janela e outra o PresentMon é reiniciado e os quadros desse intervalo ficam de fora (o relatório mostra quanto do tempo foi gravado).')),
+          h('li', null, helpText('Partidas com menos de 1 minuto gravado não geram relatório.', 'Se você iniciar uma medição manual durante a partida, a gravação do relatório pausa até a medição terminar.')))),
       open ? [perfRunCard(open.run), sessionFacts(open.run),
         open.compare ? perfCompareCard(open.compare, { session: true }) : h('div', { class: 'callout', style: { marginTop: '16px' } }, icon('info'), h('div', { text: 'Primeira partida deste jogo com relatório: a próxima será comparada com esta.' }))] : null,
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('clock'), 'Partidas'),
@@ -3269,7 +3339,7 @@
           h('tbody', null, reps.map(row))))
           : empty('gamepad', 'Nenhuma partida ainda', 'Ligue o relatório automático de um jogo acima, deixe o Axion aberto e jogue. Quando o jogo fechar, o relatório aparece aqui.')),
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como funciona'),
-        h('p', { class: 'small', text: v.honest }),
+        helpLead(v.honest, { cls: 'small', style: { margin: '0 0 10px' } }),
         v.polls ? h('p', { class: 'small muted', text: 'Custo medido da procura neste PC: ' + fmtN(v.pollAvgMs, 3) + ' ms por consulta, a cada ' + v.pollEvery + ' s (média de ' + v.polls + ' consultas desde que o Axion abriu).' }) : null,
         h('div', { class: 'row wrap', style: { marginTop: '8px' } }, (v.sources || []).map(x => extLink(x.title, x.url)))));
   }
@@ -3320,7 +3390,7 @@
         h('div', { class: 'card' }, h('h2', null, icon('usb'), 'Pilha de entrada do Windows'), v.stack ? latRow(v.stack) : h('p', { class: 'small muted', text: 'Medida pelo teste de polling com o rastreamento USB (Periféricos, como administrador).' }))),
       v.network ? h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('wifi'), 'Rede (não entra na soma acima)'), latRow(v.network)) : null,
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como a conta é feita'),
-        h('p', { class: 'small', text: v.honest }),
+        helpLead(v.honest, { cls: 'small', style: { margin: '0 0 10px' } }),
         h('ul', { class: 'notes small' },
           h('li', { text: 'Polling: um movimento espera em média metade do intervalo entre leituras (1000 Hz = 1 ms entre leituras = 0,5 ms em média).' }),
           h('li', { text: 'PC: medido pelo PresentMon da entrada até o quadro ser enviado ao monitor (com os eventos do Reflex quando o jogo os fornece).' }),
@@ -3401,7 +3471,7 @@
       h('div', { class: 'tbl-scroll' }, h('table', { class: 'table net-table' },
         h('thead', null, h('tr', null, ['Destino', 'Mediana', 'P95', 'Jitter', 'Perda', 'Ao longo do teste'].map(x => h('th', { text: x })))),
         h('tbody', null, rows))),
-      h('p', { class: 'small muted', text: 'P95: 95% dos pings ficaram abaixo disso. Jitter: variação média entre um ping e o seguinte (definição da Cloudflare). Em vermelho no gráfico, pings sem resposta.' }));
+      helpText('P95: 95% dos pings ficaram abaixo disso. Em vermelho no gráfico, pings sem resposta.', 'Jitter: variação média entre um ping e o seguinte (definição da Cloudflare).', { cls: 'small muted', style: { margin: '12px 0 0' } }));
   }
 
   function netBloatCard(r) {
@@ -3429,8 +3499,9 @@
       b.partial && !b.grade ? h('div', { class: 'callout warn', style: { marginTop: '10px' } }, icon('alert'),
         h('div', { text: 'Uma das direções falhou (motivo abaixo). A nota só vale com as duas medidas: a que funcionou não diz nada sobre a outra. Repita o teste.' })) : null,
       h('div', { class: 'grid g2', style: { marginTop: '10px' } }, (b.phases || []).map(phase)),
-      h('p', { class: 'small muted', text: 'Nota pela latência que a conexão cheia acrescenta (escala do teste Waveform, recomendado pelo bufferbloat.net): A+ abaixo de 5 ms, A até 30, B até 60, C até 200, D até 400. ' +
-        'Velocidade medida com ' + ((b.phases || [])[0] || {}).streams + ' conexões paralelas ao servidor de teste da Cloudflare, sem contar o início (aceleração do TCP). Dados usados: ' + fmtN(b.dataMB, 0) + ' MB.' }));
+      helpText('Nota pela latência que a conexão cheia acrescenta: A+ abaixo de 5 ms, A até 30, B até 60, C até 200, D até 400.', [
+        'A escala é a do teste Waveform, recomendado pelo bufferbloat.net.',
+        'Velocidade medida com ' + ((b.phases || [])[0] || {}).streams + ' conexões paralelas ao servidor de teste da Cloudflare, sem contar o início (aceleração do TCP). Dados usados: ' + fmtN(b.dataMB, 0) + ' MB.'], { cls: 'small muted', style: { margin: '12px 0 0' } }));
   }
 
   function netRelaysCard(r) {
@@ -3439,7 +3510,7 @@
     const near = new Set((r.targets || []).filter(t => t.role === 'valve').map(t => t.pop));
     return h('div', { class: 'card', style: { marginTop: '16px' } },
       h('h2', null, icon('crosshair'), 'Relays da Valve (Steam Datagram Relay)'),
-      h('p', { class: 'small muted', style: { marginTop: 0 }, text: 'No CS2 o seu tráfego entra na rede da Valve pelo relay mais próximo e segue pela rede dela até o servidor. Primeiro o Axion mede todos os locais rapidamente; os 3 mais próximos (em destaque) são medidos em detalhe acima.' }),
+      helpText('No CS2 o seu tráfego entra na rede da Valve pelo relay mais próximo e segue pela rede dela até o servidor.', 'Primeiro o Axion mede todos os locais rapidamente; os 3 mais próximos (em destaque) são medidos em detalhe acima.', { cls: 'small muted', style: { margin: '0 0 12px' } }),
       h('div', { class: 'relay-grid' }, list.map(p => h('div', { class: 'relay' + (near.has(p.key) ? ' near' : '') },
         h('span', { text: p.city }), h('span', { class: 'mono', text: p.bestMs >= 0 ? fmtN(p.bestMs, p.bestMs >= 100 ? 0 : 1) + ' ms' : 'sem resposta' })))));
   }
@@ -3466,7 +3537,7 @@
         h('thead', null, h('tr', null, ['Servidor', 'Endereço', 'Mediana', '90%', 'Falhas'].map(x => h('th', { text: x })))),
         h('tbody', null, list.map(d => h('tr', { class: d.system ? 'sel' : null }, h('td', null, d.name, d.system ? h('span', { style: { marginLeft: '6px' } }, badge('em uso', 'accent')) : null),
           h('td', { class: 'mono', text: d.addr }), h('td', { text: ms(d.median) }), h('td', { text: ms(d.p90) }), h('td', { text: d.failures + ' de ' + d.queries })))))),
-      h('p', { class: 'small muted', text: 'Cada servidor resolveu os mesmos ' + ((list[0] || {}).queries || 0) + ' nomes (Steam, FACEIT, Discord, Twitch, YouTube…). O DNS só traduz o nome em endereço antes de conectar: não muda o ping durante a partida.' }));
+      helpText('O DNS só traduz o nome em endereço antes de conectar: não muda o ping durante a partida.', 'Cada servidor resolveu os mesmos ' + ((list[0] || {}).queries || 0) + ' nomes (Steam, FACEIT, Discord, Twitch, YouTube…).', { cls: 'small muted', style: { margin: '12px 0 0' } }));
   }
 
   function netCS2Card(r) {
@@ -3479,7 +3550,7 @@
         h('div', { class: 'set-row' }, h('span', { text: 'Buffering to smooth over packet loss' }), h('b', { text: buf === 0 ? 'None (nenhum)' : buf + (buf === 1 ? ' packet' : ' packets') + ' · +' + fmtN(buf * 15.625, 1) + ' ms' })),
         h('div', { class: 'set-row' }, h('span', { text: 'Max Acceptable Game Traffic Bandwidth (rate)' }), h('b', { text: c.rate < 0 ? 'padrão (sem restrição)' : c.rate >= 786432 ? 'sem restrição (' + c.rate + ')' : String(c.rate) }))),
       h('ul', { class: 'notes small', style: { marginTop: '10px' } },
-        h('li', { text: 'Ligue a telemetria do jogo (Configurações > Jogo > Telemetria): ela mostra ping, perda e oscilação durante a partida e confirma em jogo o que este teste mediu.' }),
+        h('li', null, helpText('Ligue a telemetria do jogo (Configurações > Jogo > Telemetria).', 'Ela mostra ping, perda e oscilação durante a partida e confirma em jogo o que este teste mediu.')),
         h('li', { text: 'No console, cl_ticktiming print mostra de onde vem o atraso dentro do jogo (comando criado pela Valve em fevereiro de 2024).' }),
         c.file ? h('li', { class: 'muted', text: 'Lido de ' + c.file }) : null));
   }
@@ -3612,7 +3683,7 @@
           h('li', { text: 'Programas de "redução de ping" (GPN): só ajudam quando a rota da operadora até a Valve é ruim — o teste acima mostra se é o seu caso.' })),
         h('div', { class: 'row wrap' }, btn('Ver todos em "O que não fazemos"', () => go('excluidos'), 'sm', 'chevron'))),
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como o teste funciona'),
-        h('p', { class: 'small', text: v.honest }), h('p', { class: 'small muted', text: v.privacy }),
+        helpLead(v.honest, { cls: 'small', style: { margin: '0 0 10px' } }), helpLead(v.privacy, { cls: 'small muted', style: { margin: '0 0 10px' } }),
         h('div', { class: 'row wrap' }, (v.sources || []).map(x => extLink(x.title, x.url)))));
   }
 
@@ -3750,7 +3821,7 @@
         h('td', { text: fmtN(r.seconds, 0) + ' s' }));
     };
     return h('div', { class: 'page' },
-      pageHead('Latência do sistema', 'Mostra qual driver do Windows atrasa o processador (DPCs e interrupções), a causa de engasgos que o FPS médio não revela. A medição só lê: nada é alterado.'),
+      pageHead('Latência do sistema', helpText('Mostra qual driver do Windows atrasa o processador (DPCs e interrupções). A medição só lê: nada é alterado.', 'Esse atraso causa engasgos que o FPS médio não revela.', { cls: 'page-desc' })),
       h('div', { class: 'card' },
         h('h2', null, icon('play'), 'Nova medição'),
         !v.elevated ? h('div', { class: 'callout warn', style: { marginBottom: '10px' } }, icon('alert'), h('div', { text: 'A medição liga o registro de eventos do kernel e precisa do Axion como administrador. Abra o programa de novo e aceite o pedido de permissão.' })) : null,
@@ -3770,7 +3841,7 @@
           h('tbody', null, runs.map(row))))) : null,
       dpcCmp ? dpcCompareCard(dpcCmp) : null,
       h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como a medição funciona'),
-        h('p', { class: 'small', text: v.honest }), h('p', { class: 'small', text: v.limits }), h('p', { class: 'small muted', text: v.privacy }),
+        helpLead(v.honest, { cls: 'small', style: { margin: '0 0 10px' } }), helpLead(v.limits, { cls: 'small', style: { margin: '0 0 10px' } }), helpLead(v.privacy, { cls: 'small muted', style: { margin: '0 0 10px' } }),
         h('div', { class: 'row wrap' }, (v.sources || []).map(x => extLink(x.title, x.url)))));
   }
 
@@ -3793,9 +3864,9 @@
     let row = rows[v.latest >= 0 ? v.latest : 0];
     if (obsOpen) { const o = rows.find(r => obsRowKey(r) === obsOpen); if (o) row = o; else obsOpen = null; }
     const reread = btn('Reler os logs', () => { invalidate(); rerender(); }, 'ghost', 'refresh');
-    const head = pageHead('Live (OBS)', 'Lê os logs do OBS Studio e diz, com os números que o próprio OBS registra, por que uma transmissão ou gravação engasgou. A leitura só lê: nada é alterado.', [reread]);
+    const head = pageHead('Live (OBS)', helpText('Lê os logs do OBS Studio e diz por que uma transmissão ou gravação engasgou. Nada é alterado.', 'A explicação usa os números que o próprio OBS registra no log.', { cls: 'page-desc' }), [reread]);
     const info = h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como a análise funciona'),
-      h('p', { class: 'small', text: v.honest }), h('p', { class: 'small', text: v.criteria }), h('p', { class: 'small muted', text: v.privacy }),
+      helpLead(v.honest, { cls: 'small', style: { margin: '0 0 10px' } }), helpLead(v.criteria, { cls: 'small', style: { margin: '0 0 10px' } }), helpLead(v.privacy, { cls: 'small muted', style: { margin: '0 0 10px' } }),
       h('div', { class: 'row wrap' }, (v.sources || []).map(x => extLink(x.title, x.url))));
     if (!v.found) {
       return h('div', { class: 'page' }, head, h('div', { class: 'card' }, empty('gamepad', 'OBS Studio não encontrado', 'O Axion procurou a pasta ' + v.dir + ' e ela não existe: o OBS ainda não foi usado neste PC, ou usa outra pasta (o Streamlabs Desktop ainda não é lido). Depois de transmitir ou gravar com o OBS, volte aqui.')), info);
@@ -3904,7 +3975,8 @@
     const rel = rp.related || [];
     return h('div', { class: 'card', style: { marginTop: '16px' } },
       h('div', { class: 'row wrap' }, h('h2', { style: { margin: 0 } }, icon('wrench'), 'Reparar arquivos do Windows'), badge('sem desfazer', 'warn')),
-      h('p', { class: 'small', text: 'Repõe arquivos de sistema danificados; não aumenta o FPS. Pode ajudar quando o Windows dá erros estranhos ou telas azuis, ou depois de programas que removem componentes do sistema. O Axion roda o DISM e depois o SFC, nesta ordem, que é a que a Microsoft indica.' }),
+      helpText('Repõe arquivos de sistema danificados; não aumenta o FPS.', ['Pode ajudar quando o Windows dá erros estranhos ou telas azuis, ou depois de programas que removem componentes do sistema.',
+        'O Axion roda o DISM e depois o SFC, nesta ordem, que é a que a Microsoft indica.'], { cls: 'small', style: { margin: '12px 0' } }),
       rel.length ? h('div', { class: 'callout', style: { marginTop: '10px' } }, icon('info'), h('div', null,
         h('div', { text: 'Itens da sua análise que podem ter relação (nem sempre a causa é arquivo danificado):' }),
         h('ul', { class: 'notes', style: { margin: '6px 0 0' } }, rel.map(x => h('li', { text: x }))))) : null,
@@ -3917,10 +3989,11 @@
 
   async function pageSaude() {
     const [v, rp] = await Promise.all([get('health', '/api/health'), get('repair', '/api/repair').catch(() => null)]);
-    const head = pageHead('Saúde do Windows', 'O que o Windows registra sobre a própria saúde: antivírus, atualizações, discos, bateria e inicialização. O Axion lê e aponta; a única ação aqui é o reparo de arquivos do Windows, que só roda se você confirmar.',
+    const head = pageHead('Saúde do Windows', helpText('O que o Windows registra sobre a própria saúde: antivírus, atualizações, discos, bateria e inicialização.',
+      'O Axion lê e aponta; a única ação aqui é o reparo de arquivos do Windows, que só roda se você confirmar.', { cls: 'page-desc' }),
       []);
     const info = h('div', { class: 'card', style: { marginTop: '16px' } }, h('h2', null, icon('book'), 'Como a verificação funciona'),
-      h('p', { class: 'small', text: v.honest }), h('p', { class: 'small muted', text: v.privacy }));
+      helpLead(v.honest, { cls: 'small', style: { margin: '0 0 10px' } }), helpLead(v.privacy, { cls: 'small muted' }));
     if (!v.scanned) {
       return h('div', { class: 'page' }, head, h('div', { class: 'card' }, empty('shield', 'Ainda não há uma análise', 'A saúde do Windows é lida junto com a análise do PC. Faça a análise para ver cada verificação.', btn('Analisar meu PC', () => rescan(), 'primary', 'pulse'))), info);
     }
@@ -4115,7 +4188,7 @@
     const view = h('div', { class: 'scan-hero' },
       h('div', { class: 'big' }, h('img', { src: 'logo-256.png', alt: '', width: '120', height: '120', decoding: 'async' })),
       h('h1', { text: 'Vamos analisar o seu PC' }),
-      h('p', { text: 'O Axion lê o hardware, o Windows, os drivers, a BIOS/boot e os jogos para montar um diagnóstico e sugerir só o que tem evidência de benefício nesta máquina. A análise não altera nada.' }),
+      helpText('A análise só lê o PC: nada é alterado.', 'O Axion lê o hardware, o Windows, os drivers, a BIOS/boot e os jogos para montar um diagnóstico e sugerir só o que tem evidência de benefício nesta máquina.', { cls: 'scan-lead' }),
       start, h('div', { style: { marginTop: '22px' } }, bar), step);
     scanUI = { fill, bar, step, start };
     const ui = () => scanUI || { fill, bar, step, start };
