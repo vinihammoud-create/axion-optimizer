@@ -19,7 +19,7 @@ Versão de teste, ainda sem assinatura digital. Windows 10 ou 11 de 64 bits, com
 - **Frequência do monitor:** a nova taxa só fica gravada depois de "Manter"; sem resposta em 15 segundos, a tela volta sozinha à anterior.
 - **Fontes revistas:** onde nenhuma fonte aberta confirma o texto, a evidência passou a baixa e a frase saiu. O SysMain em disco rígido e a volta do PowerThrottlingOff ao padrão saíram do 1 clique. A energia USB de mouse e teclado agora tem risco moderado, e o V-Sync forçado no driver NVIDIA deixou de vir marcado.
 - **Interface:** o Modo simples ganhou "Desfazer mudanças" e "Sair do modo simples", os perfis Trabalho, Criação e Programação não destacam mais o CS2, e aparece um aviso quando a medição é feita na bateria.
-- **Proteção:** o perfil da janela e a pasta de dados ficam onde só administradores alteram.
+- **Proteção:** a pasta de dados (histórico para desfazer, chave dos registros) fica onde só administradores alteram. O perfil da janela continua na pasta da sua conta, porque o WebView2 abre a página sem privilégio de administrador.
 
 **Testado só no simulador:** a confirmação de 15 s da frequência do monitor (não num monitor real), a medição de FPS, o relatório da partida, o preset do CS2 e o perfil do driver NVIDIA (não há jogo, placa de vídeo dedicada nem anti-cheat reais no ambiente de teste). O instalador foi testado num Windows limpo da nuvem, instalando e desinstalando sem telas; ainda não num PC de usuário.
 
