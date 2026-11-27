@@ -1,5 +1,32 @@
 # Histórico de versões
 
+## 0.10.1
+
+Versão de teste, ainda sem assinatura digital. Windows 10 ou 11 de 64 bits, com conta de administrador.
+
+**Instalar ou atualizar**
+
+- Baixe `Axion-0.10.1-setup.exe` (ou o ZIP portátil `Axion-0.10.1-win64.zip`) e confira o SHA-256 com o `SHA256SUMS.txt` desta página (PowerShell: `Get-FileHash .\Axion-0.10.1-setup.exe`).
+- Vindo da 0.10.0 ou da 0.9.1: instale por cima. O histórico em `C:\ProgramData\Axion` continua valendo, e o que já foi aplicado ainda pode ser desfeito.
+- Desinstalar não desfaz os ajustes. Para voltar ao que era, use **Histórico › Desfazer tudo** antes de desinstalar.
+
+**O que mudou**
+
+- **Modo Simples e modo Avançado:** a barra superior tem sempre o seletor. O Simples é uma tela só: a nota, o que mais pesa, "Aplicar recomendadas" (só itens sem risco, com a lista para conferir) e "Desfazer mudanças", sem sair dele. O Avançado é a interface completa. Instalação nova começa no Simples; quem já usava continua onde estava.
+- **Ajuda "?" no lugar de parede de texto:** as explicações longas viraram uma frase na tela e um "?" que abre o resto logo abaixo. Nada foi removido.
+- **Quatro estados no diagnóstico:** cada ponto diz se é "Problema confirmado", "Possível problema", "Informação insuficiente" ou "Condição normal". A nota de cada área fica neutra quando uma leitura de que ela depende não respondeu.
+- **Otimizações mais claras:** cada item mostra o estado, o risco (também "seguro"), se foi o Axion que aplicou e, nesse caso, um "Desfazer" ali mesmo.
+- **Cores da marca e contraste:** a paleta vem do azul e do laranja do logotipo, com contraste AA nos textos e botões.
+- **PC que não é de jogo:** nos perfis Trabalho, Criação e Programação, o Início sugere a Avaliação completa no lugar de "Medir FPS", a busca não oferece o perfil do CS2 e "Jogos e medição" vai para o fim do menu.
+- **Seleção em arquivo:** "Exportar seleção" salva a lista do que o Axion aplicou; "Importar seleção" abre o plano para você conferir, sem aplicar nada sozinho.
+- **PC de empresa ou escola:** o Axion lê se o PC está num domínio ou num gerenciamento (MDM). Nesse caso, ou se não der para saber, "Desbloquear o Windows Update" sai do 1 clique e o diagnóstico manda falar com o TI.
+- **Recurso do Windows com reinício pendente:** desligar um recurso opcional que pede reinício não é mais desfeito logo depois de aplicar.
+- **Textos corrigidos:** a janela própria não é apresentada como proteção contra os outros programas da conta (o WebView2 roda sem privilégio); o aviso do modo navegador não manda instalar o WebView2 quando ele já está instalado; o diagnóstico mostra o nome das otimizações, nunca o código interno.
+
+**Testado só no simulador:** o modo Simples/Avançado, a ajuda "?", a seleção em arquivo, a leitura de domínio e MDM e o recurso com reinício pendente. A 0.10.0 foi testada num notebook real com Windows 10 (instalar, analisar, aplicar, desfazer, desinstalar); ainda não num PC de jogo com placa de vídeo dedicada.
+
+O detalhe de cada mudança está no [`build/LEIA-ME.txt`](build/LEIA-ME.txt), que também vai dentro do pacote.
+
 ## 0.10.0
 
 Versão de teste, ainda sem assinatura digital. Windows 10 ou 11 de 64 bits, com conta de administrador.
