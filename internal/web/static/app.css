@@ -18,26 +18,31 @@
   /* Bordas */
   --border-subtle: #1F2630;
   --border: #2A3240;
-  --border-strong: #3A4556;
+  /* Borda de controle (campo, interruptor, botão): 3:1 ou mais sobre surface-1 a surface-3 (WCAG 1.4.11) */
+  --border-strong: #667285;
   --highlight-top: rgba(255, 255, 255, .05);
 
-  /* Texto (AA em todas as superfícies) */
+  /* Texto (AA em todas as superfícies, inclusive as "soft" das pílulas) */
   --text-1: #F2F5F8;
   --text-2: #B6C0CC;
-  --text-3: #8A95A5;
+  --text-3: #8D98A8;
   --text-disabled: #5E6878;
 
-  /* Marca: azul elétrico = ação */
-  --primary: #1F6FEB;
-  --primary-pressed: #1A5FCC;
-  --electric: #3BA0FF;
-  --primary-text: #5CB3FF;
+  /* Cores da marca, medidas no logo (docs/audit/INTERFACE.md, seção 5). Ver docs/UI_DESIGN_SYSTEM.md */
+  --brand-blue: #38A4DC;
+  --brand-orange: #FC9655;
+
+  /* Azul da marca = ação. O preenchimento é o azul da marca escurecido (mesmo matiz) para o texto branco passar em AA (4,8:1) */
+  --primary: #1F78AE;
+  --primary-pressed: #1A6896;
+  --electric: var(--brand-blue);
+  --primary-text: #5DB6E3;
   --primary-soft: #18293D;
 
-  /* Marca: laranja = jogo e desempenho (no máximo 1 destaque por tela) */
-  --accent: #FF7A1A;
+  /* Laranja da marca = jogo e desempenho (no máximo 1 destaque por tela); texto escuro sobre ele (8,8:1) */
+  --accent: var(--brand-orange);
   --accent-ink: #1A0B00;
-  --accent-text: #FF8F40;
+  --accent-text: var(--brand-orange);
   --accent-soft: #33241D;
 
   /* Prata da marca (só logo, nome e abertura) */
@@ -71,25 +76,26 @@
   --e-card: inset 0 1px 0 var(--highlight-top);
   --e-pop: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -8px rgba(0, 0, 0, .6);
   --e-modal: 0 24px 48px -12px rgba(0, 0, 0, .7), 0 0 0 1px var(--border);
-  --glow-primary: 0 0 0 1px rgba(59, 160, 255, .35), 0 0 16px rgba(59, 160, 255, .25);
-  --glow-primary-hover: 0 0 0 1px rgba(59, 160, 255, .45), 0 0 24px rgba(59, 160, 255, .40);
-  --glow-accent: 0 0 14px rgba(255, 122, 26, .22);
+  --glow-primary: 0 0 0 1px rgba(56, 164, 220, .35), 0 0 16px rgba(56, 164, 220, .25);
+  --glow-primary-hover: 0 0 0 1px rgba(56, 164, 220, .45), 0 0 24px rgba(56, 164, 220, .40);
+  --glow-accent: 0 0 14px rgba(252, 150, 85, .22);
   --focus: 0 0 0 2px var(--bg-0), 0 0 0 4px var(--electric);
 
   /* Variações translúcidas (bordas, realces e textura) */
   --on-primary: #fff;
-  --electric-08: rgba(59, 160, 255, .08);
-  --electric-20: rgba(59, 160, 255, .2);
-  --electric-22: rgba(59, 160, 255, .22);
-  --electric-35: rgba(59, 160, 255, .35);
-  --electric-40: rgba(59, 160, 255, .4);
-  --electric-50: rgba(59, 160, 255, .5);
+  /* As translúcidas "electric" e "accent" usam o azul e o laranja da marca */
+  --electric-08: rgba(56, 164, 220, .08);
+  --electric-20: rgba(56, 164, 220, .2);
+  --electric-22: rgba(56, 164, 220, .22);
+  --electric-35: rgba(56, 164, 220, .35);
+  --electric-40: rgba(56, 164, 220, .4);
+  --electric-50: rgba(56, 164, 220, .5);
   --ok-35: rgba(52, 210, 123, .35);
   --warn-25: rgba(255, 194, 71, .25);
-  --accent-30: rgba(255, 122, 26, .3);
-  --accent-35: rgba(255, 122, 26, .35);
-  --accent-40: rgba(255, 122, 26, .4);
-  --accent-50: rgba(255, 122, 26, .5);
+  --accent-30: rgba(252, 150, 85, .3);
+  --accent-35: rgba(252, 150, 85, .35);
+  --accent-40: rgba(252, 150, 85, .4);
+  --accent-50: rgba(252, 150, 85, .5);
   --carbon-1: rgba(255, 255, 255, .035);
   --carbon-2: rgba(255, 255, 255, .03);
   --shadow-sm: rgba(0, 0, 0, .4);
@@ -457,6 +463,8 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .bar.ok > i { background: var(--ok); }
 .bar.warn > i { background: var(--warn); }
 .bar.bad > i { background: var(--bad); }
+/* Mesma régua do anel (scoreClass); com parte da coleta não lida, tom neutro, nunca verde */
+.bar.unread > i, .bar.none > i { background: var(--text-3); }
 .bar-row .n { text-align: right; font: 600 13px/18px var(--mono); font-variant-numeric: tabular-nums; }
 .progress { height: 6px; border-radius: 3px; background: var(--border-subtle); overflow: hidden; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--electric); box-shadow: 0 0 8px var(--electric-50); transition: width .25s; }
@@ -632,7 +640,9 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .tweak + .tweak { margin-top: 10px; }
 .tweak-list .tweak + .tweak { margin-top: 0; }
 .tweak .tcheck { padding-top: 1px; }
-.tweak .tstat { justify-self: end; padding-top: 1px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.tweak .tstat { justify-self: end; padding-top: 1px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.tweak .tstat .tbadges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.tweak .tstat .torigin { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: var(--text-2); white-space: nowrap; }
 .tweak .tt { font: 600 15px/22px var(--font-display); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tweak .ts { color: var(--text-3); font-size: 13px; margin-top: 4px; line-height: 20px; }
 .tweak .tb { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -646,9 +656,9 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .tweak.st-on { border-left-color: var(--ok); }
 .tweak.st-on .tw { border-left-color: var(--ok); }
 .tweak.st-no .tw { border-left-color: var(--warn); }
-.tweak.st-blocked { opacity: .7; }
+/* Sem opacidade na linha inteira (o motivo ficaria abaixo de 4,5:1): só o título sai do branco */
+.tweak.st-blocked .tt, .tweak.st-na .tt { color: var(--text-2); }
 .tweak.st-blocked .tw { border-left-color: var(--bad); }
-.tweak.st-na { opacity: .55; }
 .detail-box { margin-top: 10px; padding: 12px 14px; border-radius: var(--r-md); background: var(--bg-1); border: 1px solid var(--border-subtle); font-size: 13px; color: var(--text-2); }
 .detail-box h4 { margin: 12px 0 6px; font: 600 11px/16px var(--font); text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
 .detail-box h4:first-child { margin-top: 0; }
@@ -853,7 +863,7 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 /* Drivers */
 .drv-offer { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
 .drv-offer:last-of-type { border-bottom: 0; }
-.drv-offer.done { opacity: .72; }
+.drv-offer.done .drv-main b { color: var(--text-2); }
 .drv-offer.switch-row { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; }
 .drv-offer .drv-check { padding-top: 2px; }
 .drv-offer .drv-main { min-width: 0; display: grid; gap: 4px; }
@@ -924,7 +934,7 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 .lat-ms small { color: var(--text-3); font-size: 11px; }
 .lat-ms.unknown b { color: var(--text-3); }
 .lever { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 12px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
-.lever.done { opacity: .75; }
+.lever.done b { color: var(--text-2); }
 .lever-gain { display: flex; justify-content: flex-end; color: var(--ok); font: 600 16px/24px var(--mono); }
 .lever-gain svg { width: 20px; height: 20px; }
 
@@ -1034,7 +1044,8 @@ input[type=text]:focus, input[type=number]:focus, input:not([type]):focus { bord
 }
 @media (max-width: 760px) {
   .tweak { grid-template-columns: 46px minmax(0, 1fr); }
-  .tweak .tstat { grid-column: 2; justify-self: start; justify-content: flex-start; }
+  .tweak .tstat { grid-column: 2; justify-self: start; justify-content: flex-start; align-items: flex-start; }
+  .tweak .tstat .tbadges { justify-content: flex-start; }
   .hl-row { grid-template-columns: 18px minmax(0, 1fr); }
   .hl-row .badge { grid-column: 2; justify-self: start; }
 }

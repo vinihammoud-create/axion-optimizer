@@ -26,7 +26,7 @@ O `Axion.exe` não se edita direto: a interface e as otimizações são compilad
    O comando imprime um endereço `dev=...`. Abra-o para receber o link de uso único, que abre a interface sobre um PC simulado.
 3. Para tirar fotos de várias páginas de uma vez, use o `build\dev\shot.ps1` (as instruções estão no topo do arquivo).
 
-As cores e os tamanhos ficam nos tokens do começo do `app.css` (`:root`).
+As cores e os tamanhos ficam nos tokens do começo do `app.css` (`:root`); o uso de cada um, as cores de estado e a anatomia da linha de otimização estão em [`UI_DESIGN_SYSTEM.md`](UI_DESIGN_SYSTEM.md).
 
 ## Adicionar uma otimização
 

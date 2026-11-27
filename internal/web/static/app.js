@@ -372,6 +372,11 @@
   const unreadOf = rep => (rep && rep.unread) || [];
   const gradeClass = rep => (unreadOf(rep).length && rep.overall >= 0 ? 'unread' : scoreClass(rep.overall));
   const scoreRing = rep => ring(rep.overall, unreadOf(rep).length > 0);
+  // Area scores use the ring's rule (scoreClass) and its neutral tone when
+  // parts of the collection were not read: a bar is never green then.
+  // An area goes neutral only when a part it depends on was not read (diag AreaScore.unread).
+  const areaClass = s => (s.unread && s.score >= 0 ? 'unread' : scoreClass(s.score));
+  const areaBadgeKind = c => (c === 'unread' || c === 'none' ? '' : c);
   function unreadNote(rep) {
     const u = unreadOf(rep);
     if (!u.length) return null;
@@ -822,9 +827,19 @@
   // Use profile and simple mode
   // ---------------------------------------------------------------------------
 
-  const profiles = () => get('profiles', '/api/profiles');
+  // The list of profiles is kept apart from the page cache (dropped after
+  // every job) so the sidebar and the palette can read it synchronously.
+  let profileList = null;
+  const profiles = () => get('profiles', '/api/profiles').then(d => { profileList = d; return d; });
   function profileOf(id, list) {
     return (list || []).find(p => p.id === id) || (list || [])[0] || { id, title: 'Jogo competitivo', scoreTitle: 'Saúde do PC para jogos', gaming: true };
+  }
+  // The current use profile plays (profile.Info.Gaming). Until the list is
+  // read, the default (competitive) reading.
+  function gamingProfile() {
+    const id = S.state && S.state.settings && S.state.settings.profile;
+    if (!profileList || !id) return true;
+    return profileOf(id, profileList.profiles).gaming !== false;
   }
   const isSimple = () => !!(S.state && S.state.settings && S.state.settings.simple);
 
@@ -833,7 +848,7 @@
   // profile was saved.
   async function pickProfile(first) {
     let data;
-    try { data = await get('profiles', '/api/profiles', true); } catch (e) { toast(e.message, 'bad'); return false; }
+    try { data = await get('profiles', '/api/profiles', true); profileList = data; } catch (e) { toast(e.message, 'bad'); return false; }
     let chosen = data.current;
     return new Promise(resolve => {
       let done = false;
@@ -854,6 +869,8 @@
         try { await api('POST', '/api/settings', { profile: chosen }); } catch (e) { save.disabled = false; toast(e.message, 'bad'); return; }
         invalidate(); await refreshState();
         finish(true);
+        // The open page (the score, the cycle, the menu order) follows the new profile at once.
+        if (!first) rerender();
       }, 'primary hero', 'check');
       const m = modal({
         title: first ? 'Para que você usa este PC?' : 'Perfil de uso', wide: true, dismiss: !first,
@@ -964,6 +981,10 @@
     perifericos: 'Periféricos', bios: 'Guia de BIOS', sobre: 'Sobre e metodologia', excluidos: 'O que não fazemos',
   };
   const groupOf = page => NAV.find(g => g.pages.includes(page)) || NAV[0];
+  // A profile that does not play keeps every page, with "Jogos e medição"
+  // at the end of the menu instead of before the system pages.
+  const GAME_NAV = ['jogos', 'medir'];
+  const navOrder = () => (gamingProfile() ? NAV : NAV.filter(g => !GAME_NAV.includes(g.id)).concat(NAV.filter(g => GAME_NAV.includes(g.id))));
   // The tab last open in each entry: clicking the entry again returns to it.
   const lastSub = {};
 
@@ -984,7 +1005,7 @@
     const sb = $('#sidebar');
     sb.replaceChildren();
     const items = [];
-    NAV.forEach(g => {
+    navOrder().forEach(g => {
       if (g.sec) items.push(h('div', { class: 'nav-sep', 'aria-hidden': 'true', text: g.sec }));
       items.push(h('button', { class: 'nav-item' + (g === cur ? ' active' : ''), type: 'button', onclick: () => go(lastSub[g.id] || g.pages[0]), 'aria-current': g === cur ? 'page' : null, 'data-focus': 'nav-' + g.id, title: g.title, 'aria-label': g.title + (counts[g.id] ? ' (' + counts[g.id] + ')' : '') },
         icon(g.ic), h('span', { text: g.title }), counts[g.id] ? h('span', { class: 'nav-count' + (g.id === 'diagnostico' && st.critical ? ' warn' : g.id === 'diagnostico' ? ' mid' : ''), text: String(counts[g.id]) }) : null));
@@ -1126,6 +1147,10 @@
     if (t.recommended === true || (t.recommended === undefined && lvl === 1 && t.oneClick)) return 'rec';
     return 'opt';
   }
+  // Undo one journal entry: the Histórico's "Desfazer" and the one on each
+  // optimization applied by Axion are the same request.
+  const revertEntry = (id, title) => runJob(api('POST', '/api/revert', { entries: [id] }), { title: 'Desfazendo: ' + title });
+
   const BUCKET = {
     on: { label: 'Ativo', kind: 'ok', ic: 'check' },
     rec: { label: 'Recomendado', kind: 'accent', ic: 'zap' },
@@ -1144,7 +1169,14 @@
     const tip = !s.applicable ? (s.naReason || 'Não se aplica a este PC') : (on && !s.byAxion ? 'Já está assim no seu Windows' : (on ? 'Desfazer' : 'Aplicar'));
     const tg = toggle(on, (want, input) => onToggle(t, want, input), !canToggle, tip, canToggle ? (on ? 'Desfazer: ' : 'Aplicar: ') + t.title : t.title + ' — ' + tip);
     const b = BUCKET[bucket];
-    const status = badge(bucket === 'on' && s.applicable && !s.byAxion ? 'Já ativo no Windows' : b.label, b.kind, b.ic);
+    // Four signals on every row: where it stands (status), the risk (always,
+    // "seguro" too), who left it so and, when it was Axion, how to undo it.
+    // The state does not say whether a value not applied is the Windows
+    // default, so that case is only "Não aplicado".
+    const status = badge(b.label, b.kind, b.ic);
+    const origin = s.byAxion ? 'Aplicado pelo Axion' : on ? 'Já estava assim no Windows' : s.applicable ? 'Não aplicado' : '';
+    const undoBtn = s.byAxion && s.entryId ? btn(s.pendingUndo ? 'Tentar desfazer de novo' : 'Desfazer', () => revertEntry(s.entryId, t.title), 'sm ghost', 'undo',
+      { title: 'Restaura o valor anterior guardado no Histórico', 'aria-label': 'Desfazer: ' + t.title }) : null;
     // Only the most urgent note shows on the row (in this order); the rest is in the details.
     const notes = [];
     if (s.pendingUndo) notes.push(badge('desfazer pendente', 'warn', 'alert'));
@@ -1152,10 +1184,7 @@
     if (s.status === 'partial') notes.push(badge('parcial', 'warn'));
     if (on && s.effect === 'ignored') notes.push(badge('não está valendo', 'warn', 'alert'));
     if (on && s.effect === 'reboot') notes.push(badge('vale após reiniciar', 'warn', 'refresh'));
-    if (!on && s.applicable) {
-      if (t.reboot && t.reboot !== 'imediato') notes.push(badge('Pede ' + t.reboot, t.reboot === 'reiniciar o PC' ? 'warn' : 'outline', 'refresh'));
-      if (t.risk !== 'seguro') notes.push(riskBadge(t.risk));
-    }
+    if (!on && s.applicable && t.reboot && t.reboot !== 'imediato') notes.push(badge('Pede ' + t.reboot, t.reboot === 'reiniciar o PC' ? 'warn' : 'outline', 'refresh'));
     // The reason this item is (or is not) for this PC, visible without opening anything.
     const why = !s.applicable ? s.naReason : bucket === 'opt' && t.profileNote ? t.profileNote : (bucket !== 'on' && s.rec && s.rec.reason ? s.rec.reason : '');
     const ops = (s.ops || []).map(o => h('li', { class: o.inTarget ? 'in' : 'out' }, o.describe, h('div', { class: 'cur', text: 'atual: ' + (o.current || '—') + (o.error ? ' · erro: ' + o.error : '') })));
@@ -1179,7 +1208,10 @@
         why ? h('div', { class: 'tw one', title: why }, h('b', { text: s.applicable ? 'Para o seu PC: ' : 'Não se aplica: ' }), why) : null,
         t.trial ? h('div', { class: 'tw' }, h('b', { text: 'Medido no seu PC (' + fmtDT(t.trial.at) + '): ' }), trialBadge(t.trial), ' ', trialLine(t.trial)) : null,
         opts.noDetail ? null : detail),
-      h('div', { class: 'tstat' }, status, notes[0] || null));
+      h('div', { class: 'tstat' },
+        h('div', { class: 'tbadges' }, status, t.risk ? riskBadge(t.risk) : null),
+        notes[0] || null,
+        origin || undoBtn ? h('div', { class: 'torigin' }, origin ? h('span', { text: origin }) : null, undoBtn) : null));
   }
 
   function checkItem(c, extra) {
@@ -1289,15 +1321,19 @@
     const listItems = (nRec ? B.rec : B.on).slice(0, 6);
     const listAll = nRec ? B.rec.length : B.on.length;
 
-    // The cycle: analyse, apply, measure.
+    // The cycle: analyse, apply, measure (in the game for the gaming
+    // profiles; the full evaluation, which needs no game, for the others).
     const nRuns = pf && pf.runs ? pf.runs.length : 0;
+    const evLast = gamer ? null : ((await get('evaluation', '/api/evaluation').catch(() => null)) || {}).lastRun;
     const steps = [
       { done: !!st.scanned, title: 'Analisar', sub: st.scanned ? 'feito ' + ago(st.lastScan) : 'ainda não feito', act: btn('Reanalisar', rescan, 'sm ghost') },
       { done: nRec === 0, title: 'Aplicar recomendadas', sub: nRec ? plural(nRec, 'pendente', 'pendentes') : 'tudo aplicado', act: nRec ? btn('Aplicar', () => openPlan('recomendado'), 'sm') : null },
-      { done: nRuns > 0, title: 'Medir no seu jogo', sub: nRuns ? plural(nRuns, 'medição salva', 'medições salvas') : 'compare antes e depois', act: btn(nRuns ? 'Medir de novo' : 'Medir FPS', () => go('desempenho'), 'sm ghost') },
+      gamer
+        ? { done: nRuns > 0, title: 'Medir no seu jogo', sub: nRuns ? plural(nRuns, 'medição salva', 'medições salvas') : 'compare antes e depois', act: btn(nRuns ? 'Medir de novo' : 'Medir FPS', () => go('desempenho'), 'sm ghost') }
+        : { done: !!evLast, title: 'Avaliação completa', sub: evLast ? 'feita ' + ago(evLast.at) : 'análise + rede, com três notas', act: btn(evLast ? 'Ver' : 'Avaliar', () => go('avaliacao'), 'sm ghost') },
     ];
     const firstOpen = steps.findIndex(x => !x.done);
-    const cycle = h('div', { class: 'cycle', role: 'list', 'aria-label': 'Seu ciclo: analisar, aplicar, medir' }, steps.map((x, i) =>
+    const cycle = h('div', { class: 'cycle', role: 'list', 'aria-label': gamer ? 'Seu ciclo: analisar, aplicar, medir' : 'Seu ciclo: analisar, aplicar, avaliar' }, steps.map((x, i) =>
       h('div', { class: 'cycle-step' + (x.done ? ' done' : i === firstOpen ? ' now' : ''), role: 'listitem' },
         h('div', { class: 'cn' }, x.done ? icon('check') : String(i + 1)),
         h('div', null, h('div', { class: 'ct', text: x.title }), h('div', { class: 'cs', text: x.sub })), x.act)));
@@ -1355,7 +1391,7 @@
             rep.findings.length > attention.length ? h('div', { class: 'mt-3' }, h('button', { class: 'linkbtn small', type: 'button', text: (rep.findings.length === 1 ? 'Ver o ponto do diagnóstico' : 'Ver os ' + rep.findings.length + ' pontos do diagnóstico') + ' →', onclick: () => go('diagnostico') })) : null),
           h('div', { class: 'card' }, h('h2', null, icon('pulse'), 'Notas por área'),
             h('div', { class: 'bars' }, rep.scores.map(s => h('div', { class: 'bar-row' }, h('span', { class: 'ellipsis', text: s.title }),
-              h('div', { class: 'bar ' + (s.score >= 90 ? 'ok' : s.score >= 60 ? 'warn' : 'bad') }, h('i', { style: { width: s.score + '%' } })), h('span', { class: 'n', text: String(s.score) }))))))),
+              h('div', { class: 'bar ' + areaClass(s) }, h('i', { style: { width: s.score + '%' } })), h('span', { class: 'n', text: String(s.score) }))))))),
       gamesCard,
       h('div', { class: 'eyebrow mt-6', text: 'Outras formas de otimizar' }),
       h('div', { class: 'tiers', style: { marginTop: '0' } },
@@ -1465,8 +1501,8 @@
         h('b', { text: 'Análise incompleta. ' }), unreadNote(rep))) : null,
       h('div', { class: 'diag-sum', role: 'group', 'aria-label': 'Filtrar por gravidade' }, dc('critical', 'Importantes', count('critical'), 'bad', 'alert'), dc('warning', 'Atenção', count('warning'), 'warn', 'alertc'), dc('info', 'Sugestões', count('info'), 'info', 'info'), dc('good', 'Tudo certo', count('good'), 'ok', 'check')),
       byArea.length ? byArea.map(g => h('div', { style: { marginBottom: '22px' } },
-        h('div', { class: 'row', style: { margin: '0 2px 10px' } }, h('h3', { style: { margin: 0, fontSize: '15px' }, text: g.s.title }), badge('nota ' + g.s.score, g.s.score >= 90 ? 'ok' : g.s.score >= 60 ? 'warn' : 'bad'),
-          h('div', { class: 'bar ' + (g.s.score >= 90 ? 'ok' : g.s.score >= 60 ? 'warn' : 'bad'), style: { width: '120px' }, 'aria-hidden': 'true' }, h('i', { style: { width: g.s.score + '%' } }))),
+        h('div', { class: 'row', style: { margin: '0 2px 10px' } }, h('h3', { style: { margin: 0, fontSize: '15px' }, text: g.s.title }), badge('nota ' + g.s.score, areaBadgeKind(areaClass(g.s))),
+          h('div', { class: 'bar ' + areaClass(g.s), style: { width: '120px' }, 'aria-hidden': 'true' }, h('i', { style: { width: g.s.score + '%' } }))),
         h('div', { class: 'findings' }, g.items.map(x => findingCard(x, false, { dismiss: true })))))
         : empty('check', 'Nada neste filtro', 'Escolha outro filtro para ver os demais pontos.'),
       off.length ? h('details', { class: 'card', style: { marginBottom: '22px' } },
@@ -3007,7 +3043,7 @@
         h('div', { class: 'hh' }, h('span', { class: 'time', text: fmtTime(e.time) }), h('span', { class: 'ttl', text: e.title }),
           badge(s[0], s[1]), e.drifted ? badge('alterada depois', 'warn', 'alert') : null, rebootBadge(e.reboot),
           e.legacy && isActive(e) ? h('span', { title: 'Registro de uma versão anterior à 0.3 (ou alterado fora do Axion): Desfazer só restaura o que o catálogo atual descreve; correções não são desfeitas a partir dele.' }, badge('versão anterior', 'outline')) : null,
-          h('div', { class: 'right' }, isActive(e) ? btn(e.pending ? 'Tentar desfazer de novo' : 'Desfazer', () => runJob(api('POST', '/api/revert', { entries: [e.id] }), { title: 'Desfazendo: ' + e.title }), 'sm', 'undo') : null)),
+          h('div', { class: 'right' }, isActive(e) ? btn(e.pending ? 'Tentar desfazer de novo' : 'Desfazer', () => revertEntry(e.id, e.title), 'sm', 'undo') : null)),
         e.error || e.revertNote ? h('div', { class: 'small muted', style: { marginTop: '6px' }, text: e.error || e.revertNote }) : null,
         e.revertedAt ? h('div', { class: 'tiny faint', style: { marginTop: '4px' }, text: 'Desfeita em ' + fmtDT(e.revertedAt) }) : null,
         h('details', { style: { marginTop: '8px' } }, h('summary', { class: 'small linkbtn', text: 'Valores anteriores (' + (e.ops || []).filter(o => !o.skipped).length + ')' }),
@@ -3872,22 +3908,24 @@
     paletteOpen = true;
     let tweaks = [];
     const pages = [];
-    NAV.forEach(g => g.pages.forEach(id => pages.push({ ic: g.ic, label: TITLES[id], group: g.title, kw: plain(PAGE_KW[id] || ''), run: () => go(id) })));
+    navOrder().forEach(g => g.pages.forEach(id => pages.push({ ic: g.ic, label: TITLES[id], group: g.title, kw: plain(PAGE_KW[id] || ''), run: () => go(id) })));
     const act = (ic, label, run) => ({ ic, label, group: 'Ação', run });
+    // The CS2 profile and the frame rate capture only for the profiles that play.
+    const gamer = gamingProfile();
     const actions = [
       act('refresh', 'Reanalisar o PC', rescan),
       act('zap', 'Aplicar as recomendadas', () => openPlan('recomendado')),
-      act('crosshair', 'Aplicar perfil CS2', () => openPlan('cs2')),
+      gamer ? act('crosshair', 'Aplicar perfil CS2', () => openPlan('cs2')) : null,
       act('download', 'Exportar relatório', exportReport),
       act('shield', 'Criar ponto de restauração', () => runJob(api('POST', '/api/restorepoint', {}), { title: 'Ponto de restauração' })),
       act('sliders', 'Trocar perfil', () => pickProfile(false)),
       act('layout', 'Modo simples', () => setSimple(true)),
-      act('gauge', 'Medir FPS', () => go('desempenho')),
+      gamer ? act('gauge', 'Medir FPS', () => go('desempenho')) : null,
       act('wifi', 'Testar a rede', () => go('rede')),
       act('pulse', 'Medir latência do sistema', () => go('dpc')),
       act('mouse', 'Medir polling do mouse', () => go('perifericos')),
       act('check', 'Avaliação completa', () => go('avaliacao')),
-    ];
+    ].filter(Boolean);
     const input = h('input', { class: 'search', type: 'text', placeholder: 'Digite uma página, ação ou otimização…', 'aria-label': 'Buscar página ou ação', role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'cmdk-list', 'aria-autocomplete': 'list', autocomplete: 'off', spellcheck: 'false', 'data-autofocus': '' });
     const list = h('ul', { class: 'cmdk-list', id: 'cmdk-list', role: 'listbox', 'aria-label': 'Resultados' });
     let shown = [];
@@ -4110,7 +4148,19 @@
       await pickProfile(true);
     }
     render();
-    setInterval(() => { if (!S.busy) refreshState(); }, 15000);
+    // The profile list orders the menu (renderSidebar) without waiting for a page that reads it.
+    profiles().then(() => renderChrome()).catch(() => {});
+    // The state is read every 15 s while the window is visible; hidden
+    // (the window minimised), the poll stops and one
+    // read happens when it shows again.
+    let poll = null;
+    const startPoll = () => { if (!poll) poll = setInterval(() => { if (!S.busy) refreshState(); }, 15000); };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { clearInterval(poll); poll = null; return; }
+      if (!S.busy) refreshState();
+      startPoll();
+    });
+    if (document.visibilityState !== 'hidden') startPoll();
   }
 
   boot();
